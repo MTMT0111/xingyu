@@ -44,7 +44,7 @@ function endpoint(base) {
 }
 
 function liveAvailable(config) {
-  try { return Boolean(config.typesafeKey && config.llmKey && config.llmModel && endpoint(config.llmBaseUrl)); }
+  try { return Boolean(config.llmKey && config.llmModel && endpoint(config.llmBaseUrl)); }
   catch { return false; }
 }
 
@@ -140,7 +140,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
   let decisionModel = null;
   let decisionUsage = null;
   let decisionError = null;
-  try {
+  if (config.typesafeKey) try {
     const data = await postModel(fetchImpl, 'https://api.typesafe.ai/v1/systemone', config.typesafeKey,
       { model: config.jevModel, state: { message_text: analyzedText }, questions }, config.timeoutJevMs, signal);
     decision = validateDecision(data);
@@ -166,14 +166,14 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
   const result = validateGeneration(JSON.parse(data.choices?.[0]?.message?.content), strategy);
   return {
     ...result, ...(evidence ? { evidence } : {}), strategy, topic: decision?.topic ?? 'unclear',
-    decision_source: decision ? 'jev' : 'unavailable', generation_source: 'llm',
+    decision_source: decision ? 'jev' : config.typesafeKey ? 'unavailable' : 'llm', generation_source: 'llm',
     meta: {
       decision_ms: decisionMs, generation_ms: Math.round(performance.now() - generationStart), total_ms: Math.round(performance.now() - start),
       model: decisionModel, generation_model: typeof data.model === 'string' ? data.model : config.llmModel,
       decision_error: decisionError,
       usage: { decision: decisionUsage, generation: data.usage ?? null }
     },
-    note: decision ? 'AI 只提供可能的理解，具体想法还需要和家人聊聊。' : '内容判断暂不可用，以下由语言模型保留多种理解，仅供参考。'
+    note: decision || !config.typesafeKey ? 'AI 只提供可能的理解，具体想法还需要和家人聊聊。' : '内容判断暂不可用，以下由语言模型保留多种理解，仅供参考。'
   };
 }
 
@@ -216,7 +216,7 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
     try {
       if (req.method === 'GET' && url.pathname === '/api/config') {
         const available = liveAvailable(cfg);
-        return json(res, 200, { mode: available ? 'live' : 'demo', liveAvailable: available, mediaAvailable: mediaAvailable(cfg), videoAvailable: videoAvailable(cfg), label: available ? '真实 AI · 在线生成' : '本地体验 · 非实时 AI' });
+        return json(res, 200, { mode: available ? 'live' : 'demo', liveAvailable: available, decisionMode: available ? (cfg.typesafeKey ? 'jev' : 'llm') : 'demo', mediaAvailable: mediaAvailable(cfg), videoAvailable: videoAvailable(cfg), label: available ? '真实 AI · 在线生成' : '本地体验 · 非实时 AI' });
       }
       if (req.method === 'GET' && url.pathname === '/api/examples') return json(res, 200, examples);
       if (req.method === 'POST' && url.pathname === '/api/reply') {
@@ -232,7 +232,7 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
         catch (error) { return json(res, error.status ?? 400, { error: error.message, code: 'INVALID_INPUT' }); }
         finally { activeBodyReads--; }
         if (input.mode === 'demo') return json(res, 200, generateLocal(input));
-        if (!liveAvailable(cfg)) return json(res, 503, { error: '真实 AI 尚未配置。可以继续本地体验，或按 README 配置 Jev 与 LLM。', code: 'NOT_CONFIGURED' });
+        if (!liveAvailable(cfg)) return json(res, 503, { error: '真实 AI 尚未配置。可以继续本地体验，或按 README 配置 LLM。', code: 'NOT_CONFIGURED' });
         if (input.attachment && !mediaAvailable(cfg)) return json(res, 503, { error: '图片和视频需要支持视觉的模型，请检查服务配置。', code: 'MEDIA_NOT_CONFIGURED' });
         if (input.attachment?.kind === 'video' && !videoAvailable(cfg)) return json(res, 503, { error: '本地视频语音识别尚未就绪，请检查服务配置。', code: 'VIDEO_NOT_CONFIGURED' });
         if (activeLiveRequests >= 2) return json(res, 429, { error: '正在生成其他回复，请稍后再试。', code: 'BUSY' });
@@ -274,7 +274,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const bindHost = process.env.BIND_HOST || '127.0.0.1';
   if (!['127.0.0.1', '0.0.0.0'].includes(bindHost)) throw new Error('BIND_HOST 仅支持 127.0.0.1 或 0.0.0.0');
   if (bindHost !== '127.0.0.1' && !process.env.PUBLIC_ORIGIN) throw new Error('监听外部网络前必须配置 PUBLIC_ORIGIN 和 TRIAL_PASSWORD；HTTPS 由反向代理提供。');
-  const server = createServer();
+  const runtimeConfig = settings();
+  const server = createServer({ config: runtimeConfig });
   server.on('error', error => { console.error(error.code === 'EADDRINUSE' ? `端口 ${port} 已占用，请修改 PORT。` : '服务启动失败。'); process.exitCode = 1; });
-  server.listen(port, bindHost, () => console.log(`星语 · 长辈消息回复助手已启动：http://${bindHost}:${port}\n${process.env.PUBLIC_ORIGIN ? `邀请试用来源：${new URL(process.env.PUBLIC_ORIGIN).origin}（请经 HTTPS 反向代理访问）` : '默认本地体验，不调用外部 AI。'}\n按 Ctrl+C 停止。`));
+  server.listen(port, bindHost, () => console.log(`星语 · 长辈消息回复助手已启动：http://${bindHost}:${port}\n${process.env.PUBLIC_ORIGIN ? `邀请试用来源：${new URL(process.env.PUBLIC_ORIGIN).origin}（请经 HTTPS 反向代理访问）` : '服务仅监听本机。'}\n${liveAvailable(runtimeConfig) ? `真实 AI 已配置：${runtimeConfig.typesafeKey ? 'Jev + LLM' : 'LLM 直接分析与回复'}，点击生成后才调用。` : '当前为本地示例，未配置真实 AI。'}\n按 Ctrl+C 停止。`));
 }

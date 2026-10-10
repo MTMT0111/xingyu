@@ -50,6 +50,11 @@
       </svg>
     </section>
 
+    <ol class="workflow" aria-label="回复的三个步骤">
+      <li id="step-input" aria-current="step"><span>01</span> 放入消息</li>
+      <li id="step-understand"><span>02</span> 读懂关心</li>
+      <li id="step-reply"><span>03</span> 改好，再发送</li>
+    </ol>
     <section class="workbench" aria-label="长辈消息回复助手">
       <form id="translate-form" class="input-panel" novalidate>
         <div class="panel-heading"><h2><span class="heading-dot" aria-hidden="true"></span>收到的内容</h2><span class="tiny-label">文字、图片或小视频</span></div>
@@ -59,6 +64,7 @@
           <textarea id="source-text" rows="4" placeholder="把收到的消息、文章正文或公众号链接，粘贴到这里。" aria-describedby="source-counter"></textarea>
           <span id="source-counter" class="counter">0 / 6000</span>
         </div>
+        <div class="draft-row"><span id="draft-status" role="status">草稿仅在当前标签页暂存</span><button id="clear-draft" type="button" disabled>清空草稿</button></div>
         <div class="attachment-tools">
           <label for="attachment-input">或添加图片 / 小视频 <span>选填 · 每次一个</span></label>
           <input id="attachment-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mov" aria-describedby="attachment-help">
@@ -92,7 +98,7 @@
           <div class="content-block"><h3>内容说了什么</h3><p id="content-summary"></p></div>
           <details id="content-evidence" class="content-evidence" hidden><summary>查看识别内容</summary><div id="visual-evidence"><h4 id="visual-evidence-title">画面与文字</h4><p id="visual-summary"></p></div><div id="audio-evidence"><h4>视频中的话</h4><p id="audio-status"></p><p id="audio-transcript"></p></div><p id="evidence-coverage"></p></details>
           <div class="meaning-block"><h3>可以这样理解</h3><ul id="possible-meanings"></ul><p id="reply-tip-text" class="reply-tip"></p></div>
-          <div class="reply-label"><label for="reply-text">可以这样回</label><span>改成你自己的话</span></div>
+          <div class="reply-label"><label for="reply-text">可以这样回</label><span>改成你自己的话，再发送</span></div>
           <textarea id="reply-text" rows="4" aria-label="可编辑的回复"></textarea>
           <div class="copy-row"><span id="copy-status" role="status"></span><button id="wechat-reply" class="primary-button" type="button" aria-describedby="share-note" disabled hidden><span id="wechat-reply-text">去微信选人</span><span aria-hidden="true">↗</span></button><button id="copy-reply" type="button" disabled><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="6" y="5" width="9" height="11" rx="2"/><path d="M11 3H5a2 2 0 0 0-2 2v6"/></svg>复制回复</button><button id="share-reply" type="button" aria-describedby="share-note" disabled hidden><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 11V2m-3 3 3-3 3 3M4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1"/></svg><span id="share-reply-text">系统分享</span></button></div>
           <p id="share-note" class="share-note">当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。</p>

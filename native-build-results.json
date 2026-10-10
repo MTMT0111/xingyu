@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-10T02:55:30.068379+00:00",
+  "checkedAt": "2026-10-10T08:20:30.785140+00:00",
   "version": "6.0.0",
   "android": {
     "status": "debug_apk_built_and_signature_verified",
@@ -17,11 +17,16 @@
     "androidxWebkit": "1.17.1",
     "passedGradleTasks": [
       "testDebugUnitTest",
+      "testReleaseUnitTest",
       "assembleDebug",
-      "lintDebug"
+      "assembleRelease",
+      "lintDebug",
+      "lintRelease"
     ],
     "unitTests": {
-      "tests": 5,
+      "tests": 18,
+      "debug": 9,
+      "release": 9,
       "failures": 0,
       "errors": 0,
       "skipped": 0
@@ -36,8 +41,8 @@
       "review": "Android 13 back callback attribute is ignored on older Android; JavaScript is required for the trusted same-origin H5."
     },
     "artifact": "downloads/xingyu-android-debug.apk",
-    "bytes": 1308525,
-    "sha256": "845944ac4b698a22265087cbe1d2d67978ea5b333ad16e7fbf76a93e9fe70387",
+    "bytes": 1290194,
+    "sha256": "3d9acc3bd6f49fe36adf0f2e357d2e9009dfb45c567996326edc4f1d6296a3ac",
     "signatureVerified": true,
     "signatureType": "development_debug",
     "certificateMD5": "47695d55708a06168886218f9e8ba954",
@@ -51,7 +56,9 @@
     "buildWarnings": [
       "SDK metadata parser warns about XML v4; build succeeded.",
       "Initial D8 build warned about stack-map tables in the official WeChat SDK; no runtime/device validation performed."
-    ]
+    ],
+    "usbLocalDemoReport": "clients/android/usb-demo-test-results.json",
+    "debugLoopbackOrigin": "http://127.0.0.1:4173"
   },
   "ios": {
     "status": "source_only_static_checks_passed",
@@ -67,15 +74,17 @@
     "report": "clients/ios/source-validation-results.json"
   },
   "web": {
-    "browserGroupsPassed": 41,
+    "browserGroupsPassed": 45,
     "nativeBridgeMocked": true,
     "realMessageSent": false,
-    "report": "browser-test-results.json"
+    "report": "browser-test-results.json",
+    "realLlmAcceptanceReport": "live-test-results.json"
   },
   "outstanding": [
-    "Registered mobile WeChat AppID and platform configuration",
-    "Controlled HTTPS service with valid Jev/LLM credentials",
-    "iOS Xcode build and signing",
-    "Android/iOS device validation of generate, edit, select WeChat contact, confirm and return"
+    "Android USB device installation, clipboard and WeChat manual paste acceptance",
+    "Optional Jev credentials and real Jev validation",
+    "Controlled HTTPS service for use without USB",
+    "Registered mobile WeChat AppID if legally eligible; currently blocked for personal subject",
+    "iOS Xcode build, signing and device validation"
   ]
 }

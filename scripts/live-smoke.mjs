@@ -7,10 +7,12 @@ import { createServer } from '../server.mjs';
 import { validateGeneration } from '../lib/translate.mjs';
 import { extractVideo } from '../lib/media.mjs';
 
-const required = ['TYPESAFE_API_KEY', 'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL'];
+const required = ['LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL'];
+const useJev = Boolean(process.env.TYPESAFE_API_KEY?.trim());
 const report = {
   startedAt: new Date().toISOString(), status: 'running', fullLiveModelPass: false,
-  execution: 'Real browser → local server → official Jev and configured LLM; no mocks or automatic retries.',
+  execution: `Real browser → local server → ${useJev ? 'official Jev and configured LLM' : 'configured LLM directly'}; no mocks or automatic retries.`,
+  pipeline: useJev ? 'jev_llm' : 'llm_only', jevTested: false,
   limitation: 'Seven synthetic, non-private text/image/video samples and basic checks do not prove comprehensive semantic quality or WeChat device compatibility. Video uses sampled frames and fallible local speech recognition.',
   missingNames: required.filter(name => !process.env[name]?.trim()), cases: [], requestCount: 0
 };
@@ -132,8 +134,8 @@ try {
       record.timingsMs = numericUsage({ decision: data.meta?.decision_ms, generation: data.meta?.generation_ms, total: data.meta?.total_ms });
       if (data.evidence) record.evidence = Object.fromEntries(['kind', 'visual_summary', 'visible_text', 'transcript', 'audio_status', 'coverage', 'frame_count', 'duration']
         .map(key => [key, typeof data.evidence[key] === 'number' && Number.isFinite(data.evidence[key]) ? data.evidence[key] : short(data.evidence[key], 2000)]));
-      check(data.decision_source === 'jev' && data.generation_source === 'llm', 'REAL_PROVENANCE_REQUIRED');
-      check(record.models.decision?.trim() && record.models.generation?.trim(), 'MODEL_METADATA_MISSING');
+      check(data.decision_source === (useJev ? 'jev' : 'llm') && data.generation_source === 'llm', 'REAL_PROVENANCE_REQUIRED');
+      check((!useJev || record.models.decision?.trim()) && record.models.generation?.trim(), 'MODEL_METADATA_MISSING');
       record.realApiConfirmed = true;
       check(['warm', 'careful', 'uncertain'].includes(data.strategy), 'INVALID_STRATEGY');
       failureCode = 'INVALID_GENERATION_STRUCTURE';
@@ -146,6 +148,7 @@ try {
       check((await page.locator('#possible-meanings li').count()) === data.possible_meanings.length, 'ANALYSIS_NOT_RENDERED');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'MOBILE_HORIZONTAL_OVERFLOW');
       check(sample.recipient === 'elder' ? /您/.test(data.reply) : data.reply.startsWith(sample.recipient === 'mother' ? '妈' : '爸'), 'RECIPIENT_MISMATCH');
+      check(!/我(?:已经|刚刚|刚|认真)?(?:看完|看过|看了|查了|查过|没查到)|我回头问(?:问)?医生/.test(data.reply), 'UNSUPPORTED_PERSONAL_ACTION');
       const forbidden = {
         'care-mother': /我(?:已经|刚刚|刚)(?:吃过|吃了|穿好)|体检(?:结果)?(?:全绿|正常)/,
         'invitation-father': /(?:我|周末|这周)(?:一定|肯定|准时)(?:会)?(?:回家|回来|回去)|(?:我|周末)(?:就|会)回(?:家|来|去)吃饭/,
@@ -178,8 +181,11 @@ try {
         await page.locator('#reply-text').fill(edited);
         await page.locator('#copy-reply').click();
         await page.waitForFunction(() => document.getElementById('copy-status').textContent.includes('已复制'));
-        check(await page.evaluate(() => navigator.clipboard.readText()) === edited, 'EDIT_COPY_MISMATCH');
-        record.editAndCopyExact = true;
+        const copied = await page.evaluate(() => navigator.clipboard.readText());
+        // Windows clipboard uses CRLF; preserve all other whitespace and text exactly.
+        check(copied.replace(/\r\n/g, '\n') === edited, 'EDIT_COPY_MISMATCH');
+        record.editAndCopyTextPreserved = true;
+        record.clipboardLineEndings = copied.includes('\r\n') ? 'CRLF' : 'LF';
         await mkdir(screenshotDir, { recursive: true });
         await page.screenshot({ path: `${screenshotDir}/first-result-mobile.png`, fullPage: true, animations: 'disabled' });
         report.screenshot = 'screenshots/live/first-result-mobile.png';
@@ -190,6 +196,7 @@ try {
     check(pageErrors === 0, 'BROWSER_PAGE_ERROR');
     report.status = 'passed';
     report.fullLiveModelPass = report.cases.length === 7 && report.cases.every(item => item.status === 'passed' && item.realApiConfirmed);
+    report.jevTested = useJev && report.fullLiveModelPass;
   }
 } catch {
   report.status = blocked ? 'blocked' : 'failed';

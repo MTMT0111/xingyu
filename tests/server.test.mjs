@@ -262,6 +262,39 @@ test('live mode without server credentials returns a clear unavailable error', a
   assert.ok((await response.json()).error);
 });
 
+test('LLM-only configuration generates a real reply without calling Jev or pretending Jev succeeded', async (t) => {
+  const calls = [];
+  const app = await serve(t, { config: { ...liveConfig, typesafeKey: '' }, fetchImpl: async (url, options) => {
+    calls.push({ url: String(url), body: JSON.parse(options.body) });
+    return llmResponse({ ...generation, possible_meanings: ['也许是在关心你的近况。', '也可能只是随口叮嘱一句。'] });
+  } });
+  const cfg = await (await app.get('/api/config')).json();
+  assert.equal(cfg.liveAvailable, true);
+  assert.equal(cfg.decisionMode, 'llm');
+  const response = await app.post(input({ mode: 'live', recipient: 'father', context: '最近在准备考试' }));
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assertResult(result);
+  assert.equal(result.decision_source, 'llm');
+  assert.equal(result.generation_source, 'llm');
+  assert.equal(result.meta.model, null);
+  assert.equal(result.meta.decision_error, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://llm.example.test/v1/chat/completions');
+  assert.equal(JSON.parse(calls[0].body.messages[1].content).recipient, 'father');
+  assert.match(calls[0].body.messages[0].content, /用药|药师/);
+  assert.doesNotMatch(result.note, /暂不可用/);
+});
+
+test('LLM-only provider failure remains an error instead of showing a template as AI', async (t) => {
+  const app = await serve(t, { config: { ...liveConfig, typesafeKey: '' }, fetchImpl: async () => responseJson({}, 401) });
+  const response = await app.post(input({ mode: 'live' }));
+  assert.equal(response.status, 502);
+  const result = await response.json();
+  assert.equal(result.cause, 'AUTH_FAILED');
+  assert.equal(result.reply, undefined);
+});
+
 test('live mode routes through Jev and then an LLM with the chosen strategy', async (t) => {
   const calls = [];
   const app = await serve(t, { config: liveConfig, fetchImpl: async (url, options) => {

@@ -77,7 +77,7 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         preferences = getSharedPreferences("xingyu", MODE_PRIVATE);
         appId = preferences.getString("wechatAppId", "");
-        try { serviceUrl = InputRules.serviceUrl(preferences.getString("serviceUrl", "")); }
+        try { serviceUrl = InputRules.serviceUrl(preferences.getString("serviceUrl", ""), BuildConfig.DEBUG); }
         catch (IllegalArgumentException ignored) { serviceUrl = ""; }
         buildInterface();
         configureWechat();
@@ -138,7 +138,14 @@ public final class MainActivity extends Activity {
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(24), dp(28), dp(24), dp(28));
         form.addView(label("把星语带到手机", 25));
-        form.addView(label("连接你已部署的服务，生成回复后去微信选人发送。", 15));
+        form.addView(label("连接星语服务，读懂关心，复制回复回微信。", 15));
+        if (BuildConfig.DEBUG) {
+            form.addView(button("USB 本地调试", () -> {
+                addressInput.setText(InputRules.USB_SERVICE_URL);
+                saveSettings();
+            }));
+            form.addView(label("手机连上电脑并开启 USB 调试，在电脑运行本地服务和 adb reverse tcp:4173 tcp:4173 后点此连接。无需公网域名或微信 AppID。", 13));
+        }
         form.addView(label("星语服务地址", 16));
         addressInput = input("HTTPS 根地址", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         addressInput.setText(serviceUrl);
@@ -160,9 +167,11 @@ public final class MainActivity extends Activity {
 
     private void saveSettings() {
         String nextUrl;
-        try { nextUrl = InputRules.serviceUrl(addressInput.getText().toString()); }
+        try { nextUrl = InputRules.serviceUrl(addressInput.getText().toString(), BuildConfig.DEBUG); }
         catch (IllegalArgumentException error) {
-            addressInput.setError("请输入有效 HTTPS 根地址，例如你的已部署域名；不支持子路径。");
+            addressInput.setError(BuildConfig.DEBUG
+                ? "请输入 HTTPS 根地址；USB 调试仅支持 http://127.0.0.1:4173/。"
+                : "请输入有效 HTTPS 根地址，例如你的已部署域名；不支持子路径。");
             return;
         }
         String nextId = appIdInput.getText().toString().trim();
@@ -205,9 +214,9 @@ public final class MainActivity extends Activity {
         }
         listenerAdded = false;
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            WebViewCompat.addWebMessageListener(web, "XingyuWeChat", Collections.singleton(InputRules.origin(serviceUrl)),
+            WebViewCompat.addWebMessageListener(web, "XingyuWeChat", Collections.singleton(InputRules.origin(serviceUrl, BuildConfig.DEBUG)),
                 (view, message, sourceOrigin, mainFrame, proxy) -> {
-                    if (view != web || !mainFrame || !InputRules.sameOrigin(serviceUrl, sourceOrigin.toString()) || !trustedPage()) return;
+                    if (view != web || !mainFrame || !InputRules.sameOrigin(serviceUrl, sourceOrigin.toString(), BuildConfig.DEBUG) || !trustedPage()) return;
                     handleBridge(message, proxy);
                 });
             listenerAdded = true;
@@ -243,14 +252,14 @@ public final class MainActivity extends Activity {
         bridgeSupported = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER);
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return !InputRules.sameOrigin(serviceUrl, request.getUrl().toString());
+                return !InputRules.sameOrigin(serviceUrl, request.getUrl().toString(), BuildConfig.DEBUG);
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return !InputRules.sameOrigin(serviceUrl, url);
+                return !InputRules.sameOrigin(serviceUrl, url, BuildConfig.DEBUG);
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String scheme = request.getUrl().getScheme();
-                if ("data".equals(scheme) || "blob".equals(scheme) || InputRules.sameOrigin(serviceUrl, request.getUrl().toString())) return null;
+                if ("data".equals(scheme) || "blob".equals(scheme) || InputRules.sameOrigin(serviceUrl, request.getUrl().toString(), BuildConfig.DEBUG)) return null;
                 return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
@@ -259,7 +268,7 @@ public final class MainActivity extends Activity {
                 clearPending();
                 pageFailed = false;
                 errorView.setVisibility(View.GONE);
-                if (!InputRules.sameOrigin(serviceUrl, url)) {
+                if (!InputRules.sameOrigin(serviceUrl, url, BuildConfig.DEBUG)) {
                     view.stopLoading();
                     showError("已阻止跳转到其他网站。请返回星语服务。");
                 }
@@ -269,7 +278,9 @@ public final class MainActivity extends Activity {
                 if (view == web) showError("服务的 HTTPS 证书无法验证。请检查服务地址或证书后重试。");
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (view == web && request.isForMainFrame()) showError("暂时连接不上服务。请检查网络和服务地址后重试。");
+                if (view == web && request.isForMainFrame()) showError(BuildConfig.DEBUG && serviceUrl.equals(InputRules.USB_SERVICE_URL)
+                    ? "未连上电脑的星语服务。请启动本地服务、确认 USB 已授权，再运行 adb reverse tcp:4173 tcp:4173 后重新加载。"
+                    : "暂时连接不上服务。请检查网络和服务地址后重试。");
             }
             @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
                 if (view == web && request.isForMainFrame() && response.getStatusCode() >= 400) {
@@ -344,7 +355,7 @@ public final class MainActivity extends Activity {
 
     private boolean canAuthenticate(String host) {
         return !serviceUrl.isEmpty() && URI.create(serviceUrl).getHost().equalsIgnoreCase(host)
-            && InputRules.sameOrigin(serviceUrl, loadingUrl);
+            && InputRules.sameOrigin(serviceUrl, loadingUrl, BuildConfig.DEBUG);
     }
 
     private void configureWechat() {
@@ -401,7 +412,7 @@ public final class MainActivity extends Activity {
         if (!WechatSession.begin(this, id, request.transaction)) { shareError(proxy, id, "SHARE_BUSY"); return; }
         pendingProxy = proxy;
         pendingId = id;
-        pendingOrigin = InputRules.origin(serviceUrl);
+        pendingOrigin = InputRules.origin(serviceUrl, BuildConfig.DEBUG);
         try {
             if (!wechat.sendReq(request)) { clearPending(); shareError(proxy, id, "SDK_REJECTED"); return; }
         } catch (RuntimeException error) { clearPending(); shareError(proxy, id, "SDK_ERROR"); return; }
@@ -426,7 +437,7 @@ public final class MainActivity extends Activity {
     }
 
     private boolean trustedPending() {
-        return pendingProxy != null && trustedPage() && InputRules.origin(serviceUrl).equals(pendingOrigin);
+        return pendingProxy != null && trustedPage() && InputRules.origin(serviceUrl, BuildConfig.DEBUG).equals(pendingOrigin);
     }
 
     private void clearPending() {
@@ -438,7 +449,7 @@ public final class MainActivity extends Activity {
         pendingProxy = null;
     }
 
-    private boolean trustedPage() { return web != null && InputRules.sameOrigin(serviceUrl, web.getUrl()); }
+    private boolean trustedPage() { return web != null && InputRules.sameOrigin(serviceUrl, web.getUrl(), BuildConfig.DEBUG); }
 
     private void shareError(JavaScriptReplyProxy proxy, String id, String code) {
         reply(proxy, object("type", "shareText", "id", id, "status", "error", "code", code));

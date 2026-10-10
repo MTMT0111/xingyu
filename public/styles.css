@@ -39,6 +39,12 @@ h1 { font: 400 42px/1.3 WenKai, "Microsoft YaHei", sans-serif; letter-spacing: 1
 .intro-description { margin-top: 14px; color: var(--muted); font-size: 13px; line-height: 1.8; letter-spacing: .2px; }
 .planet-art { display: block; width: 318px; height: 208px; flex-shrink: 0; }
 .mobile-break { display: none; }
+.workflow { display: flex; align-items: center; gap: 24px; margin: 0 0 15px; padding: 0 3px; list-style: none; color: var(--muted); font-size: 12px; }
+.workflow li { display: flex; align-items: center; gap: 7px; }
+.workflow li + li:before { content: ""; width: 28px; height: 1px; margin-right: 10px; background: #dce4ee; }
+.workflow span { font-size: 10px; letter-spacing: .8px; color: #8597b0; }
+.workflow [aria-current] { color: var(--blue); }
+.workflow [aria-current] span { color: #92701c; }
 .workbench { display: grid; grid-template-columns: 1fr 1fr; overflow: clip; background: #fff; border: 1px solid #e3e9f0; border-radius: 20px; box-shadow: 0 14px 44px #34579206; }
 .input-panel, .output-panel { padding: 30px 32px 28px; min-width: 0; }
 .input-panel { border-right: 1px solid var(--line); }
@@ -61,7 +67,10 @@ textarea::placeholder { color: var(--muted); opacity: 1; }
 .source-wrap:has([aria-invalid=true]) { border-color: #cb7569; }
 .counter { position: absolute; right: 13px; bottom: 8px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
 .counter.over-limit { color: #b64d40; }
-.attachment-tools { margin-top: 16px; }
+.draft-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+#clear-draft { flex-shrink: 0; padding: 0 2px 0 10px; background: transparent; color: var(--muted); font-size: 11px; }
+#clear-draft:hover:not(:disabled) { color: var(--blue); }
+.attachment-tools { margin-top: 3px; }
 .attachment-tools > label { display: flex; align-items: center; justify-content: space-between; color: #526984; font-size: 12px; }
 .attachment-tools > label span { color: var(--muted); font-size: 10px; }
 #attachment-input { display: block; width: 100%; min-width: 0; min-height: 44px; margin-top: 5px; border: 0; font-size: 12px; line-height: 44px; color: var(--muted); }
@@ -171,6 +180,9 @@ summary::-webkit-details-marker { display: none; }
   .mobile-break { display: block; }
   .planet-art { position: absolute; top: -14px; right: -10px; width: 134px; height: 108px; opacity: .9; }
   .workbench { display: block; border-radius: 16px; }
+  .workflow { justify-content: space-between; gap: 8px; margin-bottom: 14px; font-size: 11px; }
+  .workflow li { gap: 5px; }
+  .workflow li + li:before { display: none; }
   .input-panel, .output-panel { padding: 22px; }
   .input-panel { border-right: 0; border-bottom: 1px solid var(--line); }
   .panel-heading { margin-bottom: 18px; padding-bottom: 14px; }

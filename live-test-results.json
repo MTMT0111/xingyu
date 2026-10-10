@@ -1,18 +1,365 @@
 {
-  "startedAt": "2026-10-10T04:29:58.070Z",
-  "status": "blocked",
-  "fullLiveModelPass": false,
-  "execution": "Real browser → local server → official Jev and configured LLM; no mocks or automatic retries.",
+  "startedAt": "2026-10-10T08:17:18.478Z",
+  "status": "passed",
+  "fullLiveModelPass": true,
+  "execution": "Real browser → local server → configured LLM directly; no mocks or automatic retries.",
+  "pipeline": "llm_only",
+  "jevTested": false,
   "limitation": "Seven synthetic, non-private text/image/video samples and basic checks do not prove comprehensive semantic quality or WeChat device compatibility. Video uses sampled frames and fallible local speech recognition.",
-  "missingNames": [
-    "TYPESAFE_API_KEY"
+  "missingNames": [],
+  "cases": [
+    {
+      "id": "care-mother",
+      "recipient": "mother",
+      "text": "今天降温了，出门记得加件衣服，忙也要好好吃饭。",
+      "status": "passed",
+      "realApiConfirmed": true,
+      "elapsedMs": 1112,
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "一条降温提醒，叮嘱出门加衣服、忙也要好好吃饭。",
+        "possible_meanings": [
+          "可能只是日常惦记，顺口提醒你注意保暖。",
+          "也许想找个由头跟你搭句话、问问近况。"
+        ],
+        "reply_tip": "先接住这份惦记，再用一句问话把话头递回去，别硬保证什么。",
+        "reply": "妈，知道啦，谢谢你惦记着。你那边冷不冷，衣服够穿吗？",
+        "strategy": "uncertain",
+        "topic": "unclear",
+        "decision_source": "llm",
+        "generation_source": "llm"
+      },
+      "models": {
+        "decision": null,
+        "generation": "deepseek-flash"
+      },
+      "decisionError": null,
+      "usage": {
+        "generation": {
+          "prompt_tokens": 888,
+          "completion_tokens": 100,
+          "total_tokens": 988,
+          "prompt_tokens_details": {
+            "cached_tokens": 384
+          },
+          "prompt_cache_hit_tokens": 384,
+          "prompt_cache_miss_tokens": 504
+        }
+      },
+      "timingsMs": {
+        "decision": 0,
+        "generation": 1080,
+        "total": 1080
+      },
+      "editAndCopyTextPreserved": true,
+      "clipboardLineEndings": "CRLF"
+    },
+    {
+      "id": "invitation-father",
+      "recipient": "father",
+      "text": "这周末你有空回家吃饭吗？我想做你爱吃的菜。",
+      "status": "passed",
+      "realApiConfirmed": true,
+      "elapsedMs": 1183,
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "一条来自父亲的邀请，询问这周末是否有空回家吃饭，并说想做你爱吃的菜。",
+        "possible_meanings": [
+          "也许是想见你、一起吃顿饭。",
+          "或许只是想借吃饭聊聊近况。"
+        ],
+        "reply_tip": "先谢谢他的心意，再说时间要确认一下，别直接答应或拒绝。",
+        "reply": "爸，谢谢你惦记着，还特意想做我爱吃的菜。这周末的时间我确认一下再跟你说，好吗？",
+        "strategy": "uncertain",
+        "topic": "unclear",
+        "decision_source": "llm",
+        "generation_source": "llm"
+      },
+      "models": {
+        "decision": null,
+        "generation": "deepseek-flash"
+      },
+      "decisionError": null,
+      "usage": {
+        "generation": {
+          "prompt_tokens": 888,
+          "completion_tokens": 99,
+          "total_tokens": 987,
+          "prompt_tokens_details": {
+            "cached_tokens": 640
+          },
+          "prompt_cache_hit_tokens": 640,
+          "prompt_cache_miss_tokens": 248
+        }
+      },
+      "timingsMs": {
+        "decision": 0,
+        "generation": 984,
+        "total": 984
+      }
+    },
+    {
+      "id": "long-article-elder",
+      "recipient": "elder",
+      "text": "把日子过成自己的风景。生活不会每天都顺利，工作有忙的时候，事情也有暂时做不成的时候。不要因为别人的一句评价就否定自己，别把所有困难都解释成自己不够努力。\n\n可以停下来喝口水，看看窗外，给自己一点重新整理的时间。休息不是偷懒，今天完成一件小事也值得肯定。把目标分成能做的小步，累了就先放一放，明天再继续。\n\n每个人的节奏都不一样，有人很早找到方向，有人走过很多路才知道喜欢什么。朋友圈只是一小片生活，不必拿自己完整的一天和别人挑出来的一张照片比较。\n\n家人不一定懂你工作的细节，但常常想知道你过得好不好。忙的时候简单说一句就行，不需要编一个完美的近况，也不用为了让人放心把所有烦恼都藏起来。\n\n愿你认真做事，也愿意照顾自己的感受。愿你可以表达不同意见，又给彼此留一点耐心。日子没有标准答案，慢慢找到适合自己的方式，就是一种踏实的进步。\n\n把这段话送给正在努力的你：不必每次都赢，也不必每句话都回答得漂亮。真诚地问候一个人，承认今天有点累，分享一件小事，都能让关系更近一点。",
+      "status": "passed",
+      "realApiConfirmed": true,
+      "elapsedMs": 1799,
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "一段鼓励性质的文字，讲生活和工作有顺有难，不必因别人评价否定自己，休息不丢人，节奏因人而异，不必和朋友圈比较，也提到家人常想知道你过得好不好，忙时简单说一句就行。",
+        "possible_meanings": [
+          "可能是想表达关心，觉得你平时太拼或太在意别人看法。",
+          "也许只是看到一段有感触的话，想分享给你一起看看。"
+        ],
+        "reply_tip": "先接住这份关心，不必马上表态认同或反驳，可以问问您是从哪儿看到的，或哪句最触动您。",
+        "reply": "谢谢您惦记着我。这段话里说累了可以先放一放、不用跟别人比，我挺有感触的。您是从哪儿看到的呀？",
+        "strategy": "uncertain",
+        "topic": "unclear",
+        "decision_source": "llm",
+        "generation_source": "llm"
+      },
+      "models": {
+        "decision": null,
+        "generation": "deepseek-flash"
+      },
+      "decisionError": null,
+      "usage": {
+        "generation": {
+          "prompt_tokens": 1134,
+          "completion_tokens": 160,
+          "total_tokens": 1294,
+          "prompt_tokens_details": {
+            "cached_tokens": 768
+          },
+          "prompt_cache_hit_tokens": 768,
+          "prompt_cache_miss_tokens": 366
+        }
+      },
+      "timingsMs": {
+        "decision": 0,
+        "generation": 1727,
+        "total": 1727
+      }
+    },
+    {
+      "id": "health-claim",
+      "recipient": "mother",
+      "text": "有人说每天喝醋就能治好高血压，你也试试吧。",
+      "status": "passed",
+      "realApiConfirmed": true,
+      "elapsedMs": 1237,
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "一条转发式消息，称每天喝醋能治好高血压，并建议你也试试。",
+        "possible_meanings": [
+          "可能是长辈看到这类说法，想让你也留意血压。",
+          "也许只是随手转发，并不确定是否靠谱。"
+        ],
+        "reply_tip": "先谢关心，再说这类说法先向医生核实，顺便问问来源。",
+        "reply": "妈，谢谢你惦记。这种喝醋治高血压的说法，咱们先跟医生核实一下再试，别急着照做。你是在哪儿看到的呀？",
+        "strategy": "uncertain",
+        "topic": "unclear",
+        "decision_source": "llm",
+        "generation_source": "llm"
+      },
+      "models": {
+        "decision": null,
+        "generation": "deepseek-flash"
+      },
+      "decisionError": null,
+      "usage": {
+        "generation": {
+          "prompt_tokens": 885,
+          "completion_tokens": 109,
+          "total_tokens": 994,
+          "prompt_tokens_details": {
+            "cached_tokens": 640
+          },
+          "prompt_cache_hit_tokens": 640,
+          "prompt_cache_miss_tokens": 245
+        }
+      },
+      "timingsMs": {
+        "decision": 0,
+        "generation": 1049,
+        "total": 1049
+      }
+    },
+    {
+      "id": "ambiguous",
+      "recipient": "father",
+      "text": "在吗？",
+      "status": "passed",
+      "realApiConfirmed": true,
+      "elapsedMs": 928,
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "一条简短询问是否在线的消息，只问“在吗？”，没有说明具体话题或事情。",
+        "possible_meanings": [
+          "可能只是想先确认你是否方便聊天。",
+          "也许是有件小事想和你说，但还没开口。"
+        ],
+        "reply_tip": "先回应在不在，再问一句他是不是有事要说。",
+        "reply": "爸，我在的。你找我是有什么事想说吗？",
+        "strategy": "uncertain",
+        "topic": "unclear",
+        "decision_source": "llm",
+        "generation_source": "llm"
+      },
+      "models": {
+        "decision": null,
+        "generation": "deepseek-flash"
+      },
+      "decisionError": null,
+      "usage": {
+        "generation": {
+          "prompt_tokens": 876,
+          "completion_tokens": 88,
+          "total_tokens": 964,
+          "prompt_tokens_details": {
+            "cached_tokens": 640
+          },
+          "prompt_cache_hit_tokens": 640,
+          "prompt_cache_miss_tokens": 236
+        }
+      },
+      "timingsMs": {
+        "decision": 0,
+        "generation": 733,
+        "total": 733
+      }
+    },
+    {
+      "id": "shared-image",
+      "recipient": "elder",
+      "text": "长辈分享了这张图，请看清内容后帮我回复。",
+      "attachment": {
+        "kind": "image",
+        "name": "share-image.png"
+      },
+      "status": "passed",
+      "realApiConfirmed": true,
+      "elapsedMs": 3268,
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "长辈分享了一张图文卡片，文字大意是：把日子过成自己的风景，慢一点也没关系，照顾好自己，别和别人比较，每个人有自己的节奏，今天认真吃饭，明天继续向前。属于生活感悟类分享。",
+        "possible_meanings": [
+          "也许只是看到这段话觉得不错，想和您分享一下。",
+          "或许是想借此表达对您的关心，希望您别太累、照顾好自己。"
+        ],
+        "reply_tip": "先谢谢长辈的惦记，再就卡片里“别比较、慢一点”这类话聊聊感受，用开放问句带出话题即可。",
+        "reply": "谢谢您惦记着我。这图里说别和别人比较、慢一点也没关系，看着挺舒服的。您是觉得哪句话最合心意呀？",
+        "strategy": "uncertain",
+        "topic": "unclear",
+        "decision_source": "llm",
+        "generation_source": "llm"
+      },
+      "models": {
+        "decision": null,
+        "generation": "deepseek-flash"
+      },
+      "decisionError": null,
+      "usage": {
+        "generation": {
+          "prompt_tokens": 1037,
+          "completion_tokens": 160,
+          "total_tokens": 1197,
+          "prompt_tokens_details": {
+            "cached_tokens": 768
+          },
+          "prompt_cache_hit_tokens": 768,
+          "prompt_cache_miss_tokens": 269
+        }
+      },
+      "timingsMs": {
+        "decision": 0,
+        "generation": 1634,
+        "total": 3066
+      },
+      "evidence": {
+        "kind": "image",
+        "visual_summary": "画面为浅米黄色纯色背景的图文卡片，左上角以深蓝色较粗字体写有一句标题，下方依次排列三行深蓝色正文，内容为生活感悟类文字。画面清晰，没有其他图形、人物或背景元素。",
+        "visible_text": "把日子过成自己的风景\n慢一点也没关系，照顾好自己。\n别和别人比较，每个人都有自己的节奏。\n今天认真吃饭，明天继续向前。",
+        "transcript": "",
+        "audio_status": "not_applicable",
+        "coverage": "根据上传图片中的可见内容整理，模糊或遮挡文字可能遗漏。",
+        "frame_count": 1,
+        "duration": null
+      }
+    },
+    {
+      "id": "spoken-video",
+      "recipient": "mother",
+      "text": "妈妈分享了这段视频，请结合画面和声音帮我回复。",
+      "attachment": {
+        "kind": "video",
+        "name": "parent-message.mp4"
+      },
+      "status": "passed",
+      "realApiConfirmed": true,
+      "elapsedMs": 5926,
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "妈妈发来一段约11秒的视频，画面是一张静态文字卡片，语音和文字都在叮嘱孩子晚上记得吃饭、天气凉了多穿衣服、有空给妈妈打个电话。",
+        "possible_meanings": [
+          "可能只是日常惦记，想提醒你照顾好自己。",
+          "也许是想你了，用这些话找个由头说说话。"
+        ],
+        "reply_tip": "先谢谢妈妈的惦记，回应她的关心；具体安排别直接许诺，可以问问她最近怎么样。",
+        "reply": "妈，看到啦，谢谢你惦记着我，这些话我记着呢。你最近怎么样，哪天方便咱们好好聊会儿？",
+        "strategy": "uncertain",
+        "topic": "unclear",
+        "decision_source": "llm",
+        "generation_source": "llm"
+      },
+      "models": {
+        "decision": null,
+        "generation": "deepseek-flash"
+      },
+      "decisionError": null,
+      "usage": {
+        "generation": {
+          "prompt_tokens": 1084,
+          "completion_tokens": 129,
+          "total_tokens": 1213,
+          "prompt_tokens_details": {
+            "cached_tokens": 768
+          },
+          "prompt_cache_hit_tokens": 768,
+          "prompt_cache_miss_tokens": 316
+        }
+      },
+      "timingsMs": {
+        "decision": 0,
+        "generation": 1535,
+        "total": 5585
+      },
+      "evidence": {
+        "kind": "video",
+        "visual_summary": "视频共11.417秒，按时间顺序抽取6帧画面，全部为同一张静态文字卡片，浅米黄色背景，右上角有一个较大的黄色实心圆，无其他人物或场景元素。画面始终没有变化，仅展示几行深色中文文字，内容为一段来自妈妈的关心话语。抽帧可能遗漏了原视频中可能存在的动态效果或后续画面。",
+        "visible_text": "来自妈妈的一段关心\n孩子，晚上记得吃饭。\n天气凉了，多穿一件衣服。\n有空时，给妈妈打个电话。",
+        "transcript": "孩子 晚上寄的吃饭天寄凉了 多穿一件衣服有空的时候 给妈妈打个电话",
+        "audio_status": "transcribed",
+        "coverage": "根据抽取的 6 帧画面和语音转写整理，可能遗漏短暂出现的画面。",
+        "frame_count": 6,
+        "duration": 11.417
+      }
+    }
   ],
-  "cases": [],
-  "requestCount": 0,
-  "failure": {
-    "stage": "configuration",
-    "code": "MISSING_CONFIGURATION"
+  "requestCount": 7,
+  "capabilities": {
+    "liveAvailable": true,
+    "mediaAvailable": true,
+    "videoAvailable": true
   },
-  "completedAt": "2026-10-10T04:29:58.072Z",
+  "localVideoPreflight": {
+    "status": "passed",
+    "duration": 11.417,
+    "frameCount": 6,
+    "audioStatus": "transcribed"
+  },
+  "screenshot": "screenshots/live/first-result-mobile.png",
+  "completedAt": "2026-10-10T08:17:43.635Z",
   "pageErrorCount": 0
 }

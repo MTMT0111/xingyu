@@ -7,12 +7,17 @@ import java.util.Locale;
 
 /** Input rules are independent of Android so boundary checks run on the JVM. */
 public final class InputRules {
+    public static final String USB_SERVICE_URL = "http://127.0.0.1:4173/";
     private InputRules() {}
 
     public static String serviceUrl(String input) {
+        return serviceUrl(input, false);
+    }
+
+    public static String serviceUrl(String input, boolean allowUsbDebug) {
         if (input == null || input.length() > 2048) throw new IllegalArgumentException("INVALID_SERVICE_URL");
         URI uri = parse(input.trim());
-        if (!validOrigin(uri) || uri.getRawQuery() != null || uri.getRawFragment() != null ||
+        if (!validOrigin(uri, allowUsbDebug) || uri.getRawQuery() != null || uri.getRawFragment() != null ||
             !(uri.getRawPath().isEmpty() || uri.getRawPath().equals("/"))) {
             throw new IllegalArgumentException("INVALID_SERVICE_URL");
         }
@@ -20,13 +25,21 @@ public final class InputRules {
     }
 
     public static String origin(String serviceUrl) {
-        return origin(parse(serviceUrl(serviceUrl)));
+        return origin(serviceUrl, false);
+    }
+
+    public static String origin(String serviceUrl, boolean allowUsbDebug) {
+        return origin(parse(serviceUrl(serviceUrl, allowUsbDebug)));
     }
 
     public static boolean sameOrigin(String configuredUrl, String candidate) {
+        return sameOrigin(configuredUrl, candidate, false);
+    }
+
+    public static boolean sameOrigin(String configuredUrl, String candidate, boolean allowUsbDebug) {
         try {
             URI uri = parse(candidate);
-            return validOrigin(uri) && origin(configuredUrl).equals(origin(uri));
+            return validOrigin(uri, allowUsbDebug) && origin(configuredUrl, allowUsbDebug).equals(origin(uri));
         } catch (IllegalArgumentException error) { return false; }
     }
 
@@ -57,9 +70,11 @@ public final class InputRules {
         catch (URISyntaxException | NullPointerException error) { throw new IllegalArgumentException("INVALID_SERVICE_URL"); }
     }
 
-    private static boolean validOrigin(URI uri) {
+    private static boolean validOrigin(URI uri, boolean allowUsbDebug) {
         String host = uri.getHost();
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getRawUserInfo() != null ||
+        boolean usbDebug = allowUsbDebug && "http".equalsIgnoreCase(uri.getScheme())
+            && "127.0.0.1".equals(host) && uri.getPort() == 4173;
+        if ((!"https".equalsIgnoreCase(uri.getScheme()) && !usbDebug) || uri.getRawUserInfo() != null ||
             host == null || host.length() > 253 || uri.getPort() == 0 || uri.getPort() > 65535 || uri.getPort() < -1) return false;
         if (uri.getRawAuthority().contains("@") || uri.getRawAuthority().endsWith(":")) return false;
         for (String label : host.split("\\.", -1)) {
@@ -69,6 +84,8 @@ public final class InputRules {
     }
 
     private static String origin(URI uri) {
-        return "https://" + uri.getHost().toLowerCase(Locale.ROOT) + (uri.getPort() == -1 || uri.getPort() == 443 ? "" : ":" + uri.getPort());
+        String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
+        return scheme + "://" + uri.getHost().toLowerCase(Locale.ROOT)
+            + (uri.getPort() == -1 || (scheme.equals("https") && uri.getPort() == 443) ? "" : ":" + uri.getPort());
     }
 }

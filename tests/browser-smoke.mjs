@@ -334,6 +334,66 @@ try {
   assert.equal(await draftRecovery.locator('#mode-select').inputValue(), 'demo', 'an explicit mode choice survives reconnection');
   check('configuration outages preserve edited replies and provenance; reconnect respects the established or chosen mode');
 
+  const tabDraft = await context.newPage();
+  observe(tabDraft);
+  let draftRequests = 0;
+  await tabDraft.route('**/api/config', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ mode: 'live', liveAvailable: true, decisionMode: 'llm' }) }));
+  await tabDraft.route('**/api/reply', route => {
+    draftRequests++;
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...resultFixture, decision_source: 'llm' }) });
+  });
+  await tabDraft.goto(base, { waitUntil: 'networkidle' });
+  await tabDraft.locator('#source-text').fill('吃饭了吗？');
+  await tabDraft.locator('#recipient-select').selectOption('father');
+  await generate(tabDraft);
+  await tabDraft.locator('#reply-text').fill('爸，刚忙完，准备吃饭了。你呢？');
+  await tabDraft.reload({ waitUntil: 'networkidle' });
+  assert.equal(await tabDraft.locator('#source-text').inputValue(), '吃饭了吗？');
+  assert.equal(await tabDraft.locator('#recipient-select').inputValue(), 'father');
+  assert.equal(await tabDraft.locator('#reply-text').inputValue(), '爸，刚忙完，准备吃饭了。你呢？');
+  assert.equal(await tabDraft.locator('#mode-select').inputValue(), 'live');
+  assert.match(await tabDraft.locator('#result-note').innerText(), /AI 分析 · AI 生成/);
+  assert.equal(await tabDraft.locator('#step-reply').getAttribute('aria-current'), 'step');
+  assert.equal(draftRequests, 1, 'restoring a draft must not call a model again');
+  await tabDraft.locator('#copy-reply').click();
+  assert.equal(await tabDraft.evaluate(() => navigator.clipboard.readText()), '爸，刚忙完，准备吃饭了。你呢？');
+  check('tab reload restores edited reply, recipient, chosen mode and truthful LLM source without another generation');
+  await tabDraft.locator('#attachment-input').setInputFiles({ name: 'draft.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6KXsAAAAASUVORK5CYII=', 'base64') });
+  await settled(tabDraft);
+  await tabDraft.reload({ waitUntil: 'networkidle' });
+  assert.equal(await tabDraft.locator('#attachment-preview').isVisible(), false);
+  assert.match(await tabDraft.locator('#draft-status').innerText(), /附件需重新选择/);
+  assert.doesNotMatch(await tabDraft.evaluate(() => sessionStorage.getItem('xingyu-draft-v1')), /data:|blob:|iVBOR/);
+  await tabDraft.locator('#translate-button').click();
+  assert.match(await tabDraft.locator('#form-error').innerText(), /再次选择文件/);
+  assert.equal(draftRequests, 1, 'a missing attachment must never silently become a text-only analysis');
+  check('refresh never stores attachment bytes and asks to reselect the file before analysing again');
+  await tabDraft.locator('#clear-draft').click();
+  await tabDraft.reload({ waitUntil: 'networkidle' });
+  assert.equal(await tabDraft.locator('#source-text').inputValue(), '');
+  assert.equal(await tabDraft.locator('#result-content').isVisible(), false);
+  assert.equal(await tabDraft.locator('#clear-draft').isDisabled(), true);
+  assert.equal(await tabDraft.evaluate(() => sessionStorage.getItem('xingyu-draft-v1')), null);
+  await tabDraft.addInitScript(() => sessionStorage.setItem('xingyu-draft-v1', '{broken-json'));
+  await tabDraft.reload({ waitUntil: 'networkidle' });
+  assert.equal(await tabDraft.locator('#result-content').isVisible(), false);
+  assert.equal(await tabDraft.evaluate(() => sessionStorage.getItem('xingyu-draft-v1')), null);
+  check('clear draft removes text and stored reply; malformed stored data never breaks the page');
+  await tabDraft.close();
+
+  const blockedStorage = await context.newPage();
+  observe(blockedStorage);
+  await blockedStorage.addInitScript(() => {
+    for (const key of ['getItem', 'setItem', 'removeItem']) Storage.prototype[key] = () => { throw new DOMException('Denied', 'SecurityError'); };
+  });
+  await blockedStorage.goto(base, { waitUntil: 'networkidle' });
+  await blockedStorage.locator('#try-example').click();
+  await generate(blockedStorage);
+  assert.equal(await blockedStorage.locator('#result-content').isVisible(), true);
+  assert.match(await blockedStorage.locator('#draft-status').innerText(), /无法暂存/);
+  await blockedStorage.close();
+  check('blocked browser storage keeps the full generation flow usable and explains that draft saving is unavailable');
+
   const racingInit = await context.newPage();
   observe(racingInit);
   let releaseConfig;

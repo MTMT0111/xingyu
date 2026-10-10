@@ -3,6 +3,8 @@
 const $ = id => document.getElementById(id);
 const state = { busy: false, sharing: false, initializing: false, mode: 'demo', modeSettled: false, liveAvailable: false, mediaAvailable: false, videoAvailable: false, attachment: null, controller: null, result: null, submitted: null, exampleIndex: -1 };
 let pendingConfig = null;
+const draftKey = 'xingyu-draft-v1';
+let attachmentNeedsReselect = false;
 const nativeWechat = { post: null, available: false, reason: 'checking', pending: new Map(), refreshing: false, lastShare: null };
 let examples = [
   { text: '今天降温了，多穿点。忙也要记得吃饭，别总熬夜。' },
@@ -39,6 +41,65 @@ function showError(message) {
 }
 
 function clearError() { $('form-error').hidden = true; }
+
+function saveDraft() {
+  try {
+    // Keep summaries and replies in this tab; omit file bytes, full OCR, article bodies and transcripts.
+    const result = state.result && Object.fromEntries(['content_summary', 'possible_meanings', 'reply_tip', 'reply', 'decision_source', 'generation_source', 'note'].map(key => [key, state.result[key]]));
+    const draft = { text: $('source-text').value, recipient: $('recipient-select').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect) };
+    if (draft.text.length > 24000 || draft.reply.length > 20000) throw new Error('Draft too large');
+    if (draft.text || result || draft.hadAttachment) sessionStorage.setItem(draftKey, JSON.stringify(draft));
+    else sessionStorage.removeItem(draftKey);
+    const status = attachmentNeedsReselect ? '草稿已恢复；附件需重新选择' : '草稿仅在当前标签页暂存';
+    if ($('draft-status').textContent !== status) $('draft-status').textContent = status;
+  } catch {
+    try { sessionStorage.removeItem(draftKey); } catch { /* Storage may be unavailable in embedded browsers. */ }
+    $('draft-status').textContent = '当前无法暂存，请保留或复制文字';
+  }
+}
+
+function restoreDraft() {
+  try {
+    const raw = sessionStorage.getItem(draftKey);
+    if (!raw) return;
+    if (raw.length > 70000) throw new Error('Draft too large');
+    const draft = JSON.parse(raw);
+    if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['mother', 'father', 'elder'].includes(draft.recipient) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
+    if (draft.result) {
+      validateResult(draft.result);
+      if (draft.submitted?.text !== draft.text.trim() || draft.submitted?.recipient !== draft.recipient) throw new Error('Stale draft');
+    }
+    $('source-text').value = draft.text;
+    $('recipient-select').value = draft.recipient;
+    $('mode-select').value = draft.mode;
+    state.mode = draft.mode;
+    state.modeSettled = true;
+    updateModeNotice();
+    attachmentNeedsReselect = draft.hadAttachment;
+    if (draft.result) {
+      renderResult(draft.result);
+      $('reply-text').value = draft.reply;
+      state.submitted = draft.submitted;
+      $('empty-state').hidden = true;
+      $('result-status').textContent = '已恢复，可继续编辑';
+      $('result-note').textContent += ' 当前为恢复的草稿；识别全文未暂存。';
+    }
+    $('draft-status').textContent = attachmentNeedsReselect ? '草稿已恢复；附件需重新选择' : '已恢复这个标签页的草稿';
+  } catch {
+    try { sessionStorage.removeItem(draftKey); } catch { /* An unavailable store must not block composing. */ }
+  }
+}
+
+function clearDraft() {
+  if (state.busy || state.sharing) return;
+  attachmentNeedsReselect = false;
+  $('source-text').value = '';
+  updateAttachment(null);
+  countInput();
+  saveDraft();
+  $('draft-status').textContent = '本次草稿已清空';
+  $('source-text').focus();
+}
 
 function countInput() {
   const count = Array.from($('source-text').value).length;
@@ -114,6 +175,12 @@ function initializeWechat() {
 function updateControls() {
   const locked = state.busy || state.sharing;
   const empty = !state.result || !$('reply-text').value.trim();
+  if (!state.busy) $('translate-button-text').textContent = state.result ? '再想一句' : '帮我回一句';
+  $('clear-draft').disabled = locked || !($('source-text').value || state.result || state.attachment || attachmentNeedsReselect);
+  for (const id of ['step-input', 'step-understand', 'step-reply']) {
+    if (id === (state.busy ? 'step-understand' : state.result ? 'step-reply' : 'step-input')) $(id).setAttribute('aria-current', 'step');
+    else $(id).removeAttribute('aria-current');
+  }
   $('source-text').readOnly = locked;
   $('reply-text').readOnly = locked;
   for (const id of ['translate-button', 'recipient-select', 'mode-select', 'try-example', 'retry-init', 'attachment-input', 'remove-attachment']) $(id).disabled = locked;
@@ -138,7 +205,7 @@ function setBusy(busy, phase = 'text') {
   $('empty-state').hidden = busy || Boolean(state.result);
   updateControls();
   $('cancel-request').hidden = !busy || !state.controller;
-  $('translate-button-text').textContent = !busy ? '帮我回一句' : phase === 'prepare' ? '正在准备附件…' : phase === 'media' ? '正在读懂内容…' : phase === 'article' ? '正在读懂文章…' : '正在想一句回复…';
+  $('translate-button-text').textContent = !busy ? (state.result ? '再想一句' : '帮我回一句') : phase === 'prepare' ? '正在准备附件…' : phase === 'media' ? '正在读懂内容…' : phase === 'article' ? '正在读懂文章…' : '正在想一句回复…';
   $('loading-text').textContent = phase === 'prepare' ? '正在检查附件，文件还没有上传。' : phase === 'media' ? '正在识别内容、整理理解。视频可能需要一两分钟，可以随时取消。' : phase === 'article' ? '正在读取公众号正文、整理理解，可以随时取消。' : '正在想一句合适的回应…';
 }
 
@@ -157,21 +224,26 @@ function clearResult() {
 function inputChanged() {
   countInput();
   clearError();
-  if (!state.submitted) return;
-  if ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient) {
+  if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient)) {
     clearResult();
     $('result-announcement').textContent = '消息或回复对象已修改，请重新生成。';
   }
+  updateControls();
+  saveDraft();
 }
 
 function setMode({ preserveResult = false } = {}) {
   state.mode = state.liveAvailable && $('mode-select').value === 'live' ? 'live' : 'demo';
   $('mode-select').value = state.mode;
+  updateModeNotice();
+  if (!preserveResult) { clearResult(); clearError(); }
+}
+
+function updateModeNotice() {
   const live = state.mode === 'live';
   $('mode-label').lastChild.textContent = live ? '真实 AI · 在线生成' : '本地示例 · 非实时 AI';
   $('privacy-note').textContent = live ? '点击生成后，文字及所选附件将发送到配置的 AI 服务。' : '本地示例：按关键词匹配文案，未调用 AI。';
   updateMediaNotice();
-  if (!preserveResult) { clearResult(); clearError(); }
 }
 
 function applyConfig(config) {
@@ -194,6 +266,7 @@ function applyConfig(config) {
 }
 
 function mediaError() {
+  if (attachmentNeedsReselect) return '上次的附件没有暂存，重新分析前请再次选择文件；现有回复仍可编辑、复制。';
   if (!state.attachment) return '';
   if (!state.mediaAvailable) return '图片和视频分析尚未配置，目前只能本地预览，文件不会上传。';
   if (state.mode !== 'live') return '图片和视频需要真实 AI 分析，请先切换生成方式；本地示例不会读取附件。';
@@ -216,6 +289,7 @@ function updateAttachment(attachment) {
   $('attachment-image').hidden = true;
   $('attachment-video').hidden = true;
   state.attachment = attachment;
+  attachmentNeedsReselect = false;
   $('attachment-preview').hidden = !attachment;
   if (attachment) {
     const preview = $(attachment.kind === 'image' ? 'attachment-image' : 'attachment-video');
@@ -229,6 +303,7 @@ function updateAttachment(attachment) {
   clearResult();
   clearError();
   updateMediaNotice();
+  saveDraft();
 }
 
 function videoDuration(url, signal) {
@@ -306,7 +381,7 @@ function validateResult(data, attachmentKind) {
   const shortText = (value, max) => typeof value === 'string' && value.trim() && Array.from(value).length <= max;
   if (!data || !shortText(data.content_summary, 160) || !Array.isArray(data.possible_meanings) || data.possible_meanings.length < 1 || data.possible_meanings.length > 2 ||
       !data.possible_meanings.every(item => shortText(item, 100)) || !shortText(data.reply, 120) ||
-      !shortText(data.reply_tip, 80) || !['local_rules', 'jev', 'unavailable'].includes(data.decision_source) ||
+      !shortText(data.reply_tip, 80) || !['local_rules', 'jev', 'llm', 'unavailable'].includes(data.decision_source) ||
       !['templates', 'llm'].includes(data.generation_source)) {
     throw new Error('这次的结果格式不完整，原来的文字还在，请重试。');
   }
@@ -346,7 +421,7 @@ function renderResult(data) {
   $('reply-text').value = data.reply;
   $('copy-status').textContent = '';
   const source = data.generation_source === 'templates' ? '本地模板，未调用 AI。' :
-    data.decision_source === 'jev' ? 'Jev 分析 · AI 生成。' : '分析服务暂不可用，AI 保留了多种理解。';
+    data.decision_source === 'jev' ? 'Jev 分析 · AI 生成。' : data.decision_source === 'llm' ? 'AI 分析 · AI 生成。' : '分析服务暂不可用，AI 保留了多种理解。';
   $('result-note').textContent = data.generation_source === 'templates' && typeof data.note === 'string' ? data.note :
     source + ' ' + (typeof data.note === 'string' ? data.note : '发送前，请确认内容符合真实情况。');
   $('result-status').textContent = '可编辑，再复制';
@@ -380,6 +455,7 @@ async function generateReply() {
     validateResult(data, attachment?.kind || (article ? 'article' : undefined));
     renderResult(data);
     state.submitted = { text, recipient: payload.recipient };
+    saveDraft();
     $('result-announcement').textContent = '分析和回复已准备好，可以编辑并复制。';
     $('result-title').focus({ preventScroll: true });
     if (matchMedia('(max-width: 650px)').matches) $('result-card').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -491,7 +567,8 @@ $('try-example').addEventListener('click', () => {
   inputChanged();
   $('source-text').focus();
 });
-$('mode-select').addEventListener('change', () => { state.modeSettled = true; setMode(); });
+$('mode-select').addEventListener('change', () => { state.modeSettled = true; setMode(); saveDraft(); });
+$('clear-draft').addEventListener('click', clearDraft);
 $('attachment-input').addEventListener('change', chooseAttachment);
 $('remove-attachment').addEventListener('click', () => { if (!state.busy && !state.sharing) updateAttachment(null); });
 $('cancel-request').addEventListener('click', () => state.controller?.abort());
@@ -502,8 +579,12 @@ $('reply-text').addEventListener('input', () => {
   nativeWechat.lastShare = null;
   $('copy-status').textContent = '';
   updateControls();
+  saveDraft();
 });
 $('retry-init').addEventListener('click', initialize);
+window.addEventListener('pagehide', saveDraft);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveDraft(); });
+restoreDraft();
 countInput();
 updateControls();
 initializeWechat();

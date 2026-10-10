@@ -34,6 +34,43 @@ public final class InputRulesTest {
         assertFalse(InputRules.sameOrigin(root, null));
     }
 
+    @Test public void usbDebugAllowsOnlyFixedLoopbackService() {
+        assertEquals(InputRules.USB_SERVICE_URL, InputRules.serviceUrl(" HTTP://127.0.0.1:4173 ", true));
+        assertEquals("http://127.0.0.1:4173", InputRules.origin(InputRules.USB_SERVICE_URL, true));
+        String[] invalid = {"http://localhost:4173/", "http://127.0.0.2:4173/", "http://10.0.2.2:4173/",
+            "http://192.168.1.10:4173/", "http://127.0.0.1/", "http://127.0.0.1:4174/",
+            "http://127.0.0.1.evil.test:4173/", "http://user@127.0.0.1:4173/", "http://[::1]:4173/",
+            "http://127.0.0.1:4173/path", "http://127.0.0.1:4173/?key=value", "http://127.0.0.1:4173/#fragment"};
+        for (String value : invalid) assertThrows(value, IllegalArgumentException.class, () -> InputRules.serviceUrl(value, true));
+    }
+
+    @Test public void usbDebugStillEnforcesExactPageOrigin() {
+        String root = InputRules.USB_SERVICE_URL;
+        assertTrue(InputRules.sameOrigin(root, "http://127.0.0.1:4173/app?view=reply#draft", true));
+        for (String value : new String[] {"http://127.0.0.1:4174/app", "https://127.0.0.1:4173/",
+            "http://localhost:4173/", "http://127.0.0.1.evil.test:4173/", "http://user@127.0.0.1:4173/",
+            "file:///tmp/a", "javascript:alert(1)", null}) {
+            assertFalse(InputRules.sameOrigin(root, value, true));
+        }
+        assertFalse(InputRules.sameOrigin("https://example.com/", root, true));
+    }
+
+    @Test public void releaseRejectsUsbEvenIfPreviouslySaved() {
+        assertThrows(IllegalArgumentException.class, () -> InputRules.serviceUrl(InputRules.USB_SERVICE_URL));
+        assertThrows(IllegalArgumentException.class, () -> InputRules.serviceUrl(InputRules.USB_SERVICE_URL, false));
+        assertThrows(IllegalArgumentException.class, () -> InputRules.origin(InputRules.USB_SERVICE_URL, false));
+        assertFalse(InputRules.sameOrigin(InputRules.USB_SERVICE_URL, InputRules.USB_SERVICE_URL, false));
+        assertEquals("https://example.com/", InputRules.serviceUrl("https://example.com", false));
+    }
+
+    @Test public void buildVariantControlsUsbOptIn() {
+        if (BuildConfig.DEBUG) {
+            assertEquals(InputRules.USB_SERVICE_URL, InputRules.serviceUrl(InputRules.USB_SERVICE_URL, BuildConfig.DEBUG));
+        } else {
+            assertThrows(IllegalArgumentException.class, () -> InputRules.serviceUrl(InputRules.USB_SERVICE_URL, BuildConfig.DEBUG));
+        }
+    }
+
     @Test public void appIdAndRequestIdsHaveStrictBoundaries() {
         assertTrue(InputRules.validAppId(""));
         assertTrue(InputRules.validAppId("wx0123456789abcdef"));

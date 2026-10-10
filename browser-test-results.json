@@ -19,6 +19,10 @@
     "WeChat UA/touch simulation completes the flow with manual copy when clipboard is unavailable",
     "configuration failure keeps live mode unavailable; local fallback and reconnect both work",
     "configuration outages preserve edited replies and provenance; reconnect respects the established or chosen mode",
+    "tab reload restores edited reply, recipient, chosen mode and truthful LLM source without another generation",
+    "refresh never stores attachment bytes and asks to reselect the file before analysing again",
+    "clear draft removes text and stored reply; malformed stored data never breaks the page",
+    "blocked browser storage keeps the full generation flow usable and explains that draft saving is unavailable",
     "late initialization does not change an in-flight request mode or discard its completed result",
     "configured live UI defaults to real generation, declares transmission and shows provenance; explicit mode changes clear stale output (mocked)",
     "a public WeChat article uses a 60s request and shows safely rendered title, fetched body and coverage before edited copy (mocked fetch/model)",
@@ -45,7 +49,7 @@
     "ready native WeChat and copy actions fit 320/390px with 44px targets; native SDK and callbacks are simulated, with no real message sent",
     "no uncaught JavaScript or Content Security Policy errors across exercised flows"
   ],
-  "passed": 41,
+  "passed": 45,
   "errors": [],
   "assets": {
     "/assets/LXGWWenKai-Regular.woff2": 200
