@@ -924,7 +924,7 @@ try {
   await generate(nativePage);
   const nativeDraft = '  妈，关心我收到了。\n我们晚点聊聊。🌹  ';
   await nativePage.locator('#reply-text').fill(nativeDraft);
-  assert.equal(await nativePage.locator('#wechat-reply').isVisible(), true);
+  assert.equal(await nativePage.locator('#wechat-reply').isVisible(), false);
   assert.equal(await nativePage.locator('#wechat-reply').isDisabled(), true);
   assert.match(await nativePage.locator('#share-note').innerText(), /尚未开通微信直连.*复制/);
   await nativePage.locator('#wechat-reply').dispatchEvent('click');
@@ -940,7 +940,7 @@ try {
   assert.equal(await nativePage.locator('#reply-text').inputValue(), nativeDraft);
   assert.match(await nativePage.locator('#copy-status').innerText(), /已复制/);
   assert.match(await nativePage.locator('#share-note').innerText(), /选择联系人.*确认发送/);
-  check('Android JSON bridge keeps missing-app-id sharing disabled with working copy; focus rechecks ready capability without losing edited drafts');
+  check('Android JSON bridge hides missing-app-id sharing with working copy; focus rechecks ready capability without losing edited drafts');
 
   await nativePage.locator('#wechat-reply').click();
   const nativeFirstShare = await nativePage.evaluate(() => window.__nativeMessages.at(-1));
@@ -1030,6 +1030,159 @@ try {
   await nativePage.evaluate(() => { window.__throwNativeShare = false; });
   check('native errors, cancellation, thrown bridge calls and accelerated 10s timeout preserve drafts and restore copy; blank and >10240 UTF-8 bytes never post');
 
+  const inboundPage = await nativeContext.newPage();
+  await inboundPage.addInitScript(installWechatBridge, { platform: 'android', reason: 'ready' });
+  observe(inboundPage);
+  let inboundReplyRequests = 0;
+  let inboundAttachmentReads = 0;
+  let releaseSlowInbound;
+  let markSlowInboundStarted;
+  const slowInboundStarted = new Promise(resolve => { markSlowInboundStarted = resolve; });
+  inboundPage.on('request', request => { if (new URL(request.url()).pathname === '/api/reply') inboundReplyRequests++; });
+  await inboundPage.route('**/api/reply', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(resultFixture) }));
+  await inboundPage.route('**/.xingyu-share/*', async route => {
+    inboundAttachmentReads++;
+    const token = new URL(route.request().url()).pathname.split('/').at(-1);
+    if (token === 'image-slow') {
+      markSlowInboundStarted();
+      await new Promise(resolve => { releaseSlowInbound = resolve; });
+    }
+    return route.fulfill({ contentType: token === 'image-mime-bad' ? 'text/plain' : 'image/png', body: pngBytes });
+  });
+  await inboundPage.goto(base, { waitUntil: 'networkidle' });
+  const dispatchInbound = detail => inboundPage.evaluate(value => window.dispatchEvent(new CustomEvent('xingyu-inbound-share', { detail: value })), detail);
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'image-external', attachment: { kind: 'image', mime: 'image/png', size: pngBytes.length, name: '外部图片.png', url: 'https://example.com/.xingyu-share/unsafe-token' } });
+  assert.equal(await inboundPage.locator('#inbound-share').isVisible(), false);
+  assert.equal(inboundAttachmentReads, 0, 'cross-origin attachment URLs must be ignored before fetch');
+  const oldInboundSource = '这是一份还没处理完的旧草稿。';
+  const oldInboundReply = '妈，这份回复我还在修改。';
+  await inboundPage.locator('#source-text').fill(oldInboundSource);
+  await generate(inboundPage);
+  await inboundPage.locator('#reply-text').fill(oldInboundReply);
+  let releaseBusyInbound;
+  let markBusyInboundStarted;
+  const busyInboundStarted = new Promise(resolve => { markBusyInboundStarted = resolve; });
+  await inboundPage.route('**/api/reply', async route => {
+    markBusyInboundStarted();
+    await new Promise(resolve => { releaseBusyInbound = resolve; });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(resultFixture) });
+  }, { times: 1 });
+  const busyInboundResponse = inboundPage.waitForResponse(replyResponse);
+  await inboundPage.locator('#translate-button').click();
+  await busyInboundStarted;
+  await inboundPage.waitForFunction(() => document.querySelector('#translate-button').disabled);
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'text-during-request', text: '请求结束后才应出现的外部文字。' });
+  assert.equal(await inboundPage.locator('#inbound-share').isVisible(), false);
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), oldInboundSource);
+  releaseBusyInbound();
+  await busyInboundResponse;
+  await settled(inboundPage);
+  assert.equal(await inboundPage.locator('#inbound-share').isVisible(), true);
+  await inboundPage.locator('#inbound-dismiss').click();
+  assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'text-during-request')), [{ type: 'ackInboundShare', id: 'text-during-request', action: 'dismissed' }]);
+  await inboundPage.locator('#reply-text').fill(oldInboundReply);
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'text-dismiss', entry: 'process_text', text: '外部新文字，不应自动采用。' });
+  assert.equal(await inboundPage.locator('#inbound-share').isVisible(), true);
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), oldInboundSource);
+  assert.equal(await inboundPage.locator('#reply-text').inputValue(), oldInboundReply);
+  assert.equal(inboundReplyRequests, 2, 'receiving inbound text must not request analysis');
+  for (const width of [390, 320]) {
+    await inboundPage.setViewportSize({ width, height: 844 });
+    await noOverflow(inboundPage, width);
+    if (width === 390) await capture(inboundPage, 'inbound-share-390');
+  }
+  await inboundPage.locator('#inbound-dismiss').click();
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), oldInboundSource);
+  assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'text-dismiss')), [{ type: 'ackInboundShare', id: 'text-dismiss', action: 'dismissed' }]);
+
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'text-return', text: '返回时也不能覆盖草稿。' });
+  await inboundPage.locator('#inbound-return').click();
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), oldInboundSource);
+  assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'text-return')), [
+    { type: 'ackInboundShare', id: 'text-return', action: 'dismissed' },
+    { type: 'finishShareEntry', id: 'text-return' }
+  ]);
+
+  const acceptedInboundText = '明确接受后才放入的外部文字。';
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'text-accept', text: acceptedInboundText });
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), oldInboundSource);
+  await inboundPage.locator('#inbound-accept').click();
+  await inboundPage.locator('#inbound-share').waitFor({ state: 'hidden' });
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), acceptedInboundText);
+  assert.equal(inboundReplyRequests, 2);
+  assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'text-accept')), [{ type: 'ackInboundShare', id: 'text-accept', action: 'accepted' }]);
+  await generate(inboundPage);
+  await inboundPage.locator('#copy-reply').click();
+  assert.equal(await inboundPage.locator('#return-source').isVisible(), true);
+  await inboundPage.locator('#return-source').click();
+  assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'text-accept')), [
+    { type: 'ackInboundShare', id: 'text-accept', action: 'accepted' },
+    { type: 'finishShareEntry', id: 'text-accept' }
+  ]);
+  check('inbound text waits for explicit acceptance without analysis or draft loss; dismiss and both return paths send correlated native acknowledgements');
+
+  const inboundImage = { kind: 'image', mime: 'image/png', size: pngBytes.length, name: '外部分享图片.png', url: `${base}/.xingyu-share/image-good` };
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'image-good', attachment: inboundImage });
+  await inboundPage.locator('#inbound-accept').click();
+  await inboundPage.locator('#inbound-share').waitFor({ state: 'hidden' });
+  await inboundPage.waitForFunction(() => document.querySelector('#attachment-image').naturalWidth > 0);
+  assert.equal(await inboundPage.locator('#attachment-name').innerText(), inboundImage.name);
+  assert.equal(inboundAttachmentReads, 1);
+  assert.equal(inboundReplyRequests, 3, 'reading an inbound attachment must not request analysis');
+  assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'image-good')), [{ type: 'ackInboundShare', id: 'image-good', action: 'accepted' }]);
+
+  const importDraft = '导入附件时也要保留这份草稿。';
+  const latestInboundText = '这是导入期间收到的最新分享。';
+  await inboundPage.locator('#source-text').fill(importDraft);
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'image-slow', attachment: { ...inboundImage, url: `${base}/.xingyu-share/image-slow` } });
+  await inboundPage.locator('#inbound-accept').click();
+  await slowInboundStarted;
+  await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'text-after-slow-image', text: latestInboundText });
+  assert.equal(await inboundPage.locator('#inbound-share').isVisible(), false);
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), importDraft);
+  releaseSlowInbound();
+  await inboundPage.waitForFunction(text => !document.querySelector('#inbound-share').hidden && document.querySelector('#inbound-share-preview').textContent.includes(text), latestInboundText);
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), importDraft);
+  assert.equal(await inboundPage.locator('#attachment-name').innerText(), inboundImage.name);
+  assert.equal(await inboundPage.evaluate(() => window.__nativeMessages.some(message => message.id === 'image-slow')), false);
+  await inboundPage.locator('#inbound-accept').click();
+  assert.equal(await inboundPage.locator('#source-text').inputValue(), latestInboundText);
+  assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'text-after-slow-image')), [{ type: 'ackInboundShare', id: 'text-after-slow-image', action: 'accepted' }]);
+  check('a newer inbound share supersedes a slow attachment import without draft loss, stale acknowledgement or silent loss');
+
+  const preservedInboundDraft = '附件读取失败时保留这份草稿。';
+  await inboundPage.locator('#source-text').fill(preservedInboundDraft);
+  for (const [id, attachment, errorText] of [
+    ['image-mime', { ...inboundImage, url: `${base}/.xingyu-share/image-mime-bad` }, '读取失败'],
+    ['image-size', { ...inboundImage, size: pngBytes.length + 1, url: `${base}/.xingyu-share/image-size-bad` }, '不完整']
+  ]) {
+    await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id, attachment });
+    await inboundPage.locator('#inbound-accept').click();
+    await inboundPage.waitForFunction(text => document.querySelector('#inbound-share-note').textContent.includes(text), errorText);
+    assert.equal(await inboundPage.locator('#source-text').inputValue(), preservedInboundDraft);
+    assert.equal(await inboundPage.locator('#attachment-name').innerText(), inboundImage.name);
+    assert.equal(await inboundPage.evaluate(inboundId => window.__nativeMessages.some(message => message.id === inboundId), id), false);
+  }
+  assert.equal(inboundReplyRequests, 3);
+  check('same-origin token images are read locally into an attachment; MIME and byte-count mismatches preserve the existing draft and attachment without acknowledgement or AI calls');
+  await inboundPage.close();
+
+  const bridgeLessPage = await nativeContext.newPage();
+  await bridgeLessPage.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => {} } }));
+  await bridgeLessPage.route('**/api/reply', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(resultFixture) }));
+  observe(bridgeLessPage);
+  await bridgeLessPage.goto(base, { waitUntil: 'networkidle' });
+  await bridgeLessPage.evaluate(() => window.dispatchEvent(new CustomEvent('xingyu-inbound-share', { detail: { schemaVersion: 1, type: 'inboundShare', id: 'text-no-bridge', text: '没有原生消息桥时也能导入。' } })));
+  assert.equal(await bridgeLessPage.locator('#inbound-return').isVisible(), false);
+  assert.match(await bridgeLessPage.locator('#inbound-share-note').innerText(), /系统返回键/);
+  await bridgeLessPage.locator('#inbound-accept').click();
+  await generate(bridgeLessPage);
+  await bridgeLessPage.locator('#copy-reply').click();
+  assert.equal(await bridgeLessPage.locator('#return-source').isVisible(), false);
+  assert.match(await bridgeLessPage.locator('#copy-status').innerText(), /系统返回键/);
+  check('bridge-less Android fallback imports and copies normally while hiding no-op return actions and naming the system back key');
+  await bridgeLessPage.close();
+
   const iosPage = await nativeContext.newPage();
   await iosPage.addInitScript(installWechatBridge, { platform: 'ios', reason: 'ready' });
   observe(iosPage);
@@ -1068,7 +1221,7 @@ try {
 
   assert.deepEqual(errors, []);
   check('no uncaught JavaScript or Content Security Policy errors across exercised flows');
-  const report = { date: '2026-10-10', scope: 'text, media, article, live-mode recovery, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
+  const report = { date: '2026-10-10', scope: 'text, media, article, live-mode recovery, inbound Android share target, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'inbound-share-390.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
   await writeFile(new URL('../browser-test-results.json', import.meta.url), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ passed: checks.length, screenshots: screenshotDir }));
 } finally {

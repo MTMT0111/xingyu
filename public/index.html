@@ -55,6 +55,19 @@
       <li id="step-understand"><span>02</span> 读懂关心</li>
       <li id="step-reply"><span>03</span> 改好，再发送</li>
     </ol>
+    <section id="inbound-share" class="inbound-share" aria-labelledby="inbound-share-title" hidden>
+      <div class="inbound-copy">
+        <span class="inbound-kicker">系统分享</span>
+        <h2 id="inbound-share-title">收到一段内容</h2>
+        <p id="inbound-share-preview" class="inbound-preview"></p>
+        <p id="inbound-share-note" class="inbound-note" role="status" aria-live="polite">尚未上传，也不会自动分析。</p>
+      </div>
+      <div class="inbound-actions">
+        <button id="inbound-dismiss" type="button">保留当前内容</button>
+        <button id="inbound-return" type="button">返回原应用</button>
+        <button id="inbound-accept" class="inbound-primary" type="button">放入编辑区</button>
+      </div>
+    </section>
     <section class="workbench" aria-label="长辈消息回复助手">
       <form id="translate-form" class="input-panel" novalidate>
         <div class="panel-heading"><h2><span class="heading-dot" aria-hidden="true"></span>收到的内容</h2><span class="tiny-label">文字、图片或小视频</span></div>
@@ -100,7 +113,7 @@
           <div class="meaning-block"><h3>可以这样理解</h3><ul id="possible-meanings"></ul><p id="reply-tip-text" class="reply-tip"></p></div>
           <div class="reply-label"><label for="reply-text">可以这样回</label><span>改成你自己的话，再发送</span></div>
           <textarea id="reply-text" rows="4" aria-label="可编辑的回复"></textarea>
-          <div class="copy-row"><span id="copy-status" role="status"></span><button id="wechat-reply" class="primary-button" type="button" aria-describedby="share-note" disabled hidden><span id="wechat-reply-text">去微信选人</span><span aria-hidden="true">↗</span></button><button id="copy-reply" type="button" disabled><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="6" y="5" width="9" height="11" rx="2"/><path d="M11 3H5a2 2 0 0 0-2 2v6"/></svg>复制回复</button><button id="share-reply" type="button" aria-describedby="share-note" disabled hidden><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 11V2m-3 3 3-3 3 3M4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1"/></svg><span id="share-reply-text">系统分享</span></button></div>
+          <div class="copy-row"><span id="copy-status" role="status"></span><button id="wechat-reply" class="primary-button" type="button" aria-describedby="share-note" disabled hidden><span id="wechat-reply-text">去微信选人</span><span aria-hidden="true">↗</span></button><button id="return-source" class="primary-button" type="button" hidden><span>返回原应用</span><span aria-hidden="true">↩</span></button><button id="copy-reply" type="button" disabled><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="6" y="5" width="9" height="11" rx="2"/><path d="M11 3H5a2 2 0 0 0-2 2v6"/></svg>复制回复</button><button id="share-reply" type="button" aria-describedby="share-note" disabled hidden><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 11V2m-3 3 3-3 3 3M4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1"/></svg><span id="share-reply-text">系统分享</span></button></div>
           <p id="share-note" class="share-note">当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。</p>
           <p id="result-note" class="result-note"></p>
         </div>

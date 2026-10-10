@@ -1,8 +1,19 @@
 # 星语 · 微信客户端接入
 
-安卓与 iPhone 客户端复用这套网页和后端。客户端只负责打开服务、选择图片/视频、连接微信官方 SDK；AI 密钥留在服务器。网页的“妈妈/爸爸/其他长辈”仍是回复称呼，真实收件人在微信中选择。
+安卓与 iPhone 客户端复用这套网页和后端。Android 还支持系统分享接收与选中文字处理；AI 密钥留在服务器。网页的“妈妈/爸爸/其他长辈”只是回复称呼，真实收件人仍由用户在微信中选择。
 
-**当前账号限制：**用户于 2026-10-10 在开放平台确认个人主体不能创建移动应用，本阶段暂停 AppID 申请路线。下面的 SDK 流程是有合格主体及有效 AppID 时的实现设计，不是当前可用状态。个人试用优先使用网页复制回微信；系统分享仅作可选尝试。当前也没有实现从微信直接分享内容进星语的接收扩展。
+**当前账号限制：**用户于 2026-10-10 在开放平台确认个人主体不能创建移动应用，本阶段暂停 AppID 申请。直接在页面调微信选联系人仍需合格主体的移动应用 AppID，以及匹配包名/签名；下面 SDK 流程不是当前可用状态。Android 系统分享接收、分析、复制和返回来源应用均不需要微信 AppID。
+
+## Android 系统入口
+
+- `ACTION_SEND`：接收一段纯文字、一张 JPG/PNG/WebP 图片或一段 MP4/WebM/MOV 视频；不接收多选内容。
+- `ACTION_PROCESS_TEXT`：支持该入口的应用可将选中文字交给星语。微信是否露出分享/选中文字入口由其版本及 ROM 决定，不能保证所有聊天内容可直接导入。
+- 页面先显示确认条和文字/文件信息；确认放入编辑区后才预览附件，主动点生成才上传和分析。已有输入、附件或回复时，必须选择保留原草稿或改用新内容。
+- 复制回复后可主动“返回原应用”，使用系统返回栈恢复来源；不自动定位联系人、替换来源文字或发送消息。桥接不可用时使用系统返回键。
+
+系统入口不安装额外插件，不申请存储/联系人权限，也没有常驻服务、悬浮窗、无障碍或剪贴板监听。媒体只读取本次授权的 `content://`，图片 4 MiB、视频 20 MiB/60 秒，文字 6000 个 Unicode 字符；来源撤回授权或进程被回收后可能需要重新分享。iOS 分享接收扩展仍未实现。
+
+这套交互直接采用 Android 的成熟系统模式：[接收其他应用分享的数据](https://developer.android.com/develop/ui/compose/sharing/receive) 与 [`ACTION_PROCESS_TEXT`](https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT)。用户从原应用主动召唤、确认后才导入，完成后回到原任务栈；因此安装包更小，也不会要求敏感的悬浮窗或无障碍权限。
 
 ## 已实现的流程
 
@@ -22,7 +33,7 @@
 
 完整步骤分别见 clients/android/README.md 和 clients/ios/README.md。安卓开发签名只供开发测试；正式版需使用自己持有的签名，并与微信开放平台登记的应用一致。iOS 必须在 Mac 上编译和签名，源码静态检查不是 iOS 编译通过。
 
-本仓库附带新版 [Android 开发版 APK](downloads/xingyu-android-debug.apk)。本轮 Debug / Release 均实际构建，各 9 项 JUnit 通过，lint 0 错误、2 条既有警告；开发包签名校验通过。开发包 SHA-256 为 `3d9acc3bd6f49fe36adf0f2e357d2e9009dfb45c567996326edc4f1d6296a3ac`，签名 MD5 为 `47695d55708a06168886218f9e8ba954`，包名为 `com.xingyu.reply`；这些不是正式发行签名。工具链及未验证项见 `native-build-results.json`。
+仓库的 [Android 开发版 APK](downloads/xingyu-android-debug.apk) 已更新为系统分享接收版本。本次 Debug / Release 均构建成功，各 12/12 项 JUnit 通过，lint 0 错误、2 条既有警告。Debug 包 1,319,223 字节，SHA-256 为 `46731c64d74d08782c28938f2f187fbd09c351936e16fa839655f3b4566299f9`；签名校验通过，证书 MD5 为 `47695d55708a06168886218f9e8ba954`。包名为 `com.xingyu.reply`，开发签名不作为正式发行签名；完整证据见 `native-build-results.json`。
 
 安装上述新版开发包后先填 HTTPS 根地址，或在 Android Debug 设置中选择“USB 本地调试”。USB 转发命令、Studio 内置设备镜像与演示步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。旧版 APK 没有 USB 入口；本轮构建状态见 `QA.md`。当前没有可安装的 iPhone IPA，需在 Mac 上编译签名。
 
@@ -40,6 +51,6 @@
 
 Android 使用 SDK transaction 关联回调。iOS SDK 响应没有 transaction：正常阶段只允许一个待返回请求；发生未知结果后停止归因迟到回调，后续仅报告 SDK 是否接受交接，避免把旧响应当成新分享结果。请以微信聊天中实际显示为准。
 
-当前优先验收“真实生成 → 编辑 → 复制 → 微信粘贴 → 返回保稿”；SDK 选人验收等待合法主体及 AppID 条件满足。页面用 sessionStorage 暂存当前标签页文字草稿，刷新可恢复；附件文件不保存，操作系统清理、关闭 WebView 或更换服务地址后的恢复不作保证。当前没有连接 ADB 设备，尚未真机验证。
+当前优先真机验收“`ACTION_SEND` / `ACTION_PROCESS_TEXT` → 确认导入 → 真实生成 → 编辑 → 复制 → 返回来源粘贴”，并检查微信版本 / ROM 入口展示、临时 URI 授权与草稿冲突；SDK 选人验收等待合法主体及 AppID 条件满足。页面用 sessionStorage 暂存当前标签页文字草稿，刷新可恢复；附件文件不保存，操作系统清理、关闭 WebView 或更换服务地址后的恢复不作保证。ADB 设备仍为 0，尚未真机验证。
 
 官方依据：[Android 接入与分享](https://developers.weixin.qq.com/doc/oplatform/Mobile_App/Share_and_Favorites/Android.html)、[iOS 接入与分享](https://developers.weixin.qq.com/doc/oplatform/Mobile_App/Share_and_Favorites/iOS.html)。

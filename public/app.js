@@ -6,6 +6,9 @@ let pendingConfig = null;
 const draftKey = 'xingyu-draft-v1';
 let attachmentNeedsReselect = false;
 const nativeWechat = { post: null, available: false, reason: 'checking', pending: new Map(), refreshing: false, lastShare: null };
+let pendingInboundShare = null;
+let activeInboundId = null;
+let acceptingInboundShare = false;
 let examples = [
   { text: '今天降温了，多穿点。忙也要记得吃饭，别总熬夜。' },
   { text: '这周末有空回来吃饭吗？想给你做你爱吃的菜。' },
@@ -169,11 +172,149 @@ function initializeWechat() {
   }
   window.addEventListener('focus', refreshWechat);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshWechat(); });
+  window.addEventListener('xingyu-inbound-share', event => receiveInboundShare(event.detail));
   refreshWechat();
 }
 
+function validInboundText(text) {
+  if (typeof text !== 'string' || !text.trim() || Array.from(text).length > 6000 || text.includes('\u0000')) return false;
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      if (++index >= text.length || text.charCodeAt(index) < 0xdc00 || text.charCodeAt(index) > 0xdfff) return false;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return false;
+  }
+  return true;
+}
+
+function normalizeInboundShare(value) {
+  let data;
+  try { data = typeof value === 'string' ? JSON.parse(value) : value; } catch { return null; }
+  if (!data || data.schemaVersion !== 1 || data.type !== 'inboundShare' || typeof data.id !== 'string' || !/^[\w.:-]{1,128}$/.test(data.id)) return null;
+  const text = data.text === undefined || data.text === null || data.text === '' ? '' : data.text;
+  if (text && !validInboundText(text)) return null;
+  let attachment = null;
+  if (data.attachment !== undefined) {
+    const item = data.attachment;
+    const mimeKinds = { 'image/jpeg': 'image', 'image/png': 'image', 'image/webp': 'image', 'video/mp4': 'video', 'video/webm': 'video', 'video/quicktime': 'video' };
+    if (!item || typeof item !== 'object' || mimeKinds[item.mime] !== item.kind || !Number.isSafeInteger(item.size) || item.size < 1 || item.size > (item.kind === 'image' ? 4 : 20) * 1024 * 1024 ||
+        typeof item.name !== 'string' || !item.name.trim() || Array.from(item.name).length > 120 || /[\u0000-\u001f\u007f/\\]/.test(item.name)) return null;
+    let url;
+    try { url = new URL(item.url, location.href); } catch { return null; }
+    if (url.origin !== location.origin || url.search || url.hash || !/^\/\.xingyu-share\/[\w-]{8,128}$/.test(url.pathname)) return null;
+    attachment = { kind: item.kind, mime: item.mime, size: item.size, name: item.name, url: url.href };
+  }
+  return text || attachment ? { id: data.id, text, attachment, entry: data.entry === 'process_text' ? 'process_text' : 'share' } : null;
+}
+
+function hasDraftContent() {
+  return Boolean($('source-text').value.trim() || state.attachment || state.result || $('reply-text').value.trim() || attachmentNeedsReselect);
+}
+
+function acknowledgeInbound(id, action, finish = false) {
+  if (!nativeWechat.post) return;
+  try {
+    nativeWechat.post({ type: 'ackInboundShare', id, action });
+    if (finish) nativeWechat.post({ type: 'finishShareEntry', id });
+  } catch { /* The native host may already be closing. */ }
+}
+
+function hideInboundShare() {
+  pendingInboundShare = null;
+  $('inbound-share').hidden = true;
+  document.body.removeAttribute('data-entry');
+  updateControls();
+}
+
+function receiveInboundShare(value) {
+  const inbound = normalizeInboundShare(value);
+  if (!inbound) return;
+  pendingInboundShare = inbound;
+  activeInboundId = null;
+  $('return-source').hidden = true;
+  if (state.busy || state.sharing || acceptingInboundShare) {
+    $('inbound-share').hidden = true;
+    return;
+  }
+  presentInboundShare(inbound);
+  updateControls();
+}
+
+function presentInboundShare(inbound) {
+  document.body.dataset.entry = 'share';
+  const conflict = hasDraftContent();
+  $('inbound-share-title').textContent = conflict ? '这里还有一份未完成的草稿' : inbound.entry === 'process_text' ? '已选中一段文字' : inbound.attachment?.kind === 'image' ? '收到一张图片' : inbound.attachment?.kind === 'video' ? '收到一段视频' : '收到一段文字';
+  const preview = inbound.text || inbound.attachment.name;
+  $('inbound-share-preview').textContent = conflict ? `使用新内容会替换当前输入、附件和分析结果。新内容：${preview}` : preview;
+  $('inbound-share-note').textContent = nativeWechat.post ? '尚未上传，也不会自动分析。' : '尚未上传，也不会自动分析；返回原应用请使用系统返回键。';
+  $('inbound-dismiss').textContent = conflict ? '继续原草稿' : '暂不使用';
+  $('inbound-accept').textContent = conflict ? '改用新内容' : '放入编辑区';
+  $('inbound-return').hidden = !nativeWechat.post;
+  $('inbound-share').hidden = false;
+  $('inbound-share').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+
+async function acceptInboundShare() {
+  const inbound = pendingInboundShare;
+  if (!inbound || state.busy || state.sharing || acceptingInboundShare) return;
+  acceptingInboundShare = true;
+  let nextAttachment = null;
+  updateControls();
+  $('inbound-share-note').textContent = inbound.attachment ? '正在安全读取附件，尚未发送给 AI。' : '正在放入编辑区。';
+  try {
+    if (inbound.attachment) {
+      const response = await fetch(inbound.attachment.url, { cache: 'no-store', credentials: 'same-origin' });
+      const mime = (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!response.ok || mime !== inbound.attachment.mime) throw new Error('分享的附件读取失败，请返回原应用后重试。');
+      const blob = await response.blob();
+      if (!blob.size || blob.size !== inbound.attachment.size || blob.size > (inbound.attachment.kind === 'image' ? 4 : 20) * 1024 * 1024) throw new Error('分享的附件不完整，请返回原应用后重试。');
+      const file = new File([blob], inbound.attachment.name, { type: mime });
+      nextAttachment = { file, kind: inbound.attachment.kind, mime, url: URL.createObjectURL(file), duration: null };
+      if (nextAttachment.kind === 'video') {
+        const controller = new AbortController();
+        nextAttachment.duration = await videoDuration(nextAttachment.url, controller.signal);
+        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给星语。');
+      }
+    }
+    if (pendingInboundShare !== inbound) {
+      if (nextAttachment?.url) URL.revokeObjectURL(nextAttachment.url);
+      nextAttachment = null;
+      return;
+    }
+    updateAttachment(nextAttachment);
+    $('source-text').value = inbound.text;
+    inputChanged();
+    activeInboundId = inbound.id;
+    acknowledgeInbound(inbound.id, 'accepted');
+    hideInboundShare();
+    $('draft-status').textContent = '分享内容已放入；确认后再点“帮我回一句”';
+    $('source-text').focus();
+  } catch (error) {
+    if (nextAttachment?.url) URL.revokeObjectURL(nextAttachment.url);
+    if (pendingInboundShare === inbound) $('inbound-share-note').textContent = error.message;
+  } finally {
+    acceptingInboundShare = false;
+    updateControls();
+  }
+}
+
+function dismissInboundShare(finish = false) {
+  if (!pendingInboundShare) return;
+  const id = pendingInboundShare.id;
+  if (!finish) activeInboundId = id;
+  acknowledgeInbound(id, 'dismissed', finish);
+  hideInboundShare();
+}
+
+function returnToSource() {
+  if (!activeInboundId || !nativeWechat.post) return;
+  try { nativeWechat.post({ type: 'finishShareEntry', id: activeInboundId }); }
+  catch { /* The native host may already be closing. */ }
+}
+
 function updateControls() {
-  const locked = state.busy || state.sharing;
+  const locked = state.busy || state.sharing || acceptingInboundShare;
+  if (!locked && pendingInboundShare && $('inbound-share').hidden) presentInboundShare(pendingInboundShare);
   const empty = !state.result || !$('reply-text').value.trim();
   if (!state.busy) $('translate-button-text').textContent = state.result ? '再想一句' : '帮我回一句';
   $('clear-draft').disabled = locked || !($('source-text').value || state.result || state.attachment || attachmentNeedsReselect);
@@ -190,8 +331,9 @@ function updateControls() {
   $('share-reply').disabled = locked || empty;
   $('share-reply-text').textContent = state.sharing ? '正在分享…' : '系统分享';
   $('share-note').textContent = $('share-reply').hidden ? '当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。' : '系统菜单里有微信时才能继续选人；没有微信请复制回复。';
-  $('wechat-reply').hidden = !nativeWechat.post;
+  $('wechat-reply').hidden = !nativeWechat.post || !nativeWechat.available;
   $('wechat-reply').disabled = locked || empty || !nativeWechat.available;
+  for (const id of ['inbound-accept', 'inbound-dismiss', 'inbound-return']) $(id).disabled = locked;
   if (nativeWechat.post) {
     const notes = { ready: '接下来由你在微信选择联系人，并确认发送。', checking: '正在检查微信连接…', missing_app_id: '当前客户端尚未开通微信直连，可先复制回复回微信发送。', wechat_not_installed: '这台设备未安装微信，可先复制回复。', invalid_configuration: '微信连接配置不完整，请检查客户端设置。', sdk_unavailable: '暂时无法连接微信，可复制回复后发送。' };
     $('share-note').textContent = notes[nativeWechat.reason];
@@ -399,6 +541,7 @@ function validateResult(data, attachmentKind) {
 
 function renderResult(data) {
   nativeWechat.lastShare = null;
+  $('return-source').hidden = true;
   $('content-summary').textContent = data.content_summary;
   $('content-evidence').hidden = !data.evidence;
   $('content-evidence').open = false;
@@ -481,7 +624,8 @@ async function copyReply() {
   try {
     if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
     await navigator.clipboard.writeText(reply);
-    $('copy-status').textContent = '已复制，回微信粘贴即可。';
+    $('copy-status').textContent = activeInboundId ? nativeWechat.post ? '已复制，返回后在原应用输入框粘贴发送。' : '已复制，请用系统返回键回原应用粘贴发送。' : '已复制，回微信粘贴即可。';
+    $('return-source').hidden = !(activeInboundId && nativeWechat.post);
   } catch {
     $('reply-text').focus();
     $('reply-text').select();
@@ -570,6 +714,10 @@ $('try-example').addEventListener('click', () => {
 $('mode-select').addEventListener('change', () => { state.modeSettled = true; setMode(); saveDraft(); });
 $('clear-draft').addEventListener('click', clearDraft);
 $('attachment-input').addEventListener('change', chooseAttachment);
+$('inbound-accept').addEventListener('click', acceptInboundShare);
+$('inbound-dismiss').addEventListener('click', () => dismissInboundShare(false));
+$('inbound-return').addEventListener('click', () => dismissInboundShare(true));
+$('return-source').addEventListener('click', returnToSource);
 $('remove-attachment').addEventListener('click', () => { if (!state.busy && !state.sharing) updateAttachment(null); });
 $('cancel-request').addEventListener('click', () => state.controller?.abort());
 $('copy-reply').addEventListener('click', copyReply);
@@ -577,6 +725,7 @@ $('share-reply').addEventListener('click', shareReply);
 $('wechat-reply').addEventListener('click', shareWechatReply);
 $('reply-text').addEventListener('input', () => {
   nativeWechat.lastShare = null;
+  $('return-source').hidden = true;
   $('copy-status').textContent = '';
   updateControls();
   saveDraft();

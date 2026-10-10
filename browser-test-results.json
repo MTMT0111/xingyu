@@ -1,6 +1,6 @@
 {
   "date": "2026-10-10",
-  "scope": "text, media, article, live-mode recovery, system share and Android/iOS WeChat bridge interaction",
+  "scope": "text, media, article, live-mode recovery, inbound Android share target, system share and Android/iOS WeChat bridge interaction",
   "browser": "154.0.8037.98",
   "checks": [
     "single-page initial state, honest demo disclosure and keyboard skip link",
@@ -41,15 +41,19 @@
     "all system share failures explain the reported cause, preserve the exact draft and restore explicit copy without retrying",
     "blank drafts and in-flight generation cannot share; browsers with share but no optional canShare still work",
     "share and copy stay usable at 320/390px with 44px buttons; relationship options never become fake WeChat contacts",
-    "Android JSON bridge keeps missing-app-id sharing disabled with working copy; focus rechecks ready capability without losing edited drafts",
+    "Android JSON bridge hides missing-app-id sharing with working copy; focus rechecks ready capability without losing edited drafts",
     "Android shares only exact edited text and correlated ids; locks duplicates without AI loading, never claims delivery, and unknown native results ask the user to confirm in WeChat",
     "late native share results cannot overwrite a newer handoff or an edited draft, even when the edited text returns to its original value",
     "native errors, cancellation, thrown bridge calls and accelerated 10s timeout preserve drafts and restore copy; blank and >10240 UTF-8 bytes never post",
+    "inbound text waits for explicit acceptance without analysis or draft loss; dismiss and both return paths send correlated native acknowledgements",
+    "a newer inbound share supersedes a slow attachment import without draft loss, stale acknowledgement or silent loss",
+    "same-origin token images are read locally into an attachment; MIME and byte-count mismatches preserve the existing draft and attachment without acknowledgement or AI calls",
+    "bridge-less Android fallback imports and copies normally while hiding no-op return actions and naming the system back key",
     "iOS posts structured bridge objects and accepts CustomEvent replies; regenerated results ignore previous native callbacks",
     "ready native WeChat and copy actions fit 320/390px with 44px targets; native SDK and callbacks are simulated, with no real message sent",
     "no uncaught JavaScript or Content Security Policy errors across exercised flows"
   ],
-  "passed": 45,
+  "passed": 49,
   "errors": [],
   "assets": {
     "/assets/LXGWWenKai-Regular.woff2": 200
@@ -72,6 +76,7 @@
     "screenshots/core/media-video-320.png",
     "screenshots/core/share-reply-390.png",
     "screenshots/core/share-reply-320.png",
+    "screenshots/core/inbound-share-390.png",
     "screenshots/core/native-ready-390.png",
     "screenshots/core/native-ready-320.png"
   ],
@@ -87,7 +92,7 @@
     "cloudResponses": "mocked",
     "previewReadyStateMinimum": 2
   },
-  "systemShareVerification": "Web Share APIs mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested",
+  "systemShareVerification": "Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested",
   "nativeWechatVerification": {
     "androidTransport": "Mocked postMessage(JSON string) and onmessage",
     "iosTransport": "Mocked postMessage(object) and CustomEvent detail",

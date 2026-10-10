@@ -24,7 +24,8 @@ inclusion: always
 - 当前本地示例是规则与模板。真实模式由 LLM 直接分析并回复；配置 Jev 密钥后增加结构化判断。来源分别为 llm / jev，已配置 Jev 的调用失败标 unavailable；不能冒充 Jev 已验证。
 - 微信 H5 的最小路径是粘贴与复制。没有能力自动读取或发送私人微信聊天；后续 HTTPS 部署与真机验收单独记录。
 - `clients/android` 和 `clients/ios` 承载同一 H5，并通过微信官方 OpenSDK 分享编辑后的纯文本。真实联系人只能在微信内选择；关系下拉框不是联系人列表。未配置移动应用 AppID 时禁用原生分享并保留复制，不用虚构配置。
-- 用户已确认当前个人主体无法创建移动应用，本阶段暂停 AppID 申请路线，优先网页复制回微信。系统分享是可选入口；从微信分享进本应用的接收入口尚未实现，不能混淆两个方向。Jev 账户已创建但密钥与真实调用仍未完成。
+- 用户已确认当前个人主体无法创建移动应用，本阶段暂停 AppID 申请。Android 系统 `ACTION_SEND` 接收单段文字、单张 JPG/PNG/WebP 或单个 MP4/WebM/MOV，`ACTION_PROCESS_TEXT` 接收选中文字；这些入口不需微信 AppID、额外插件、常驻服务或存储权限。微信是否显示入口由版本与 ROM 决定。页面内 SDK 直接选联系人仍需合格主体的移动应用 AppID 及匹配包名/签名。Jev 账户已创建但密钥与真实调用仍未完成。
+- 系统分享先显示确认条，不自动上传或分析；有草稿必须允许保留，主动接受后才放入编辑区，点击生成才发往模型。复制后由用户点击返回来源 App，再手动粘贴发送。临时 `content://` 授权失效须重新分享；不读取后台剪贴板、不使用无障碍或悬浮窗。iOS 分享接收扩展仍未实现。
 - 原生桥接仅信任配置的精确 origin 和主 frame。正式版只允许 HTTPS；Android Debug 额外允许 http://127.0.0.1:4173 配合 adb reverse 做 USB 本地演示，不放开其他 HTTP 地址。只提交回复正文；SDK 接受交接不代表送达。取消、错误和未知结果保留当前草稿；导航或改稿后旧回调失效。iOS 没有 transaction，超时后本进程仅报告交接，不再归因迟到回调。
 
 ## 代码与验证
@@ -33,9 +34,10 @@ inclusion: always
 - API 为 `/api/config`、`/api/examples`、`/api/reply`。修改契约必须同步前端、服务器与测试。
 - API 密钥只留在服务端环境；不要读取或打印 `.env` 和用户凭据。保留输入边界、超时中止、静态白名单、来源检查与并发限制。
 - 工程检查运行 `npm test`；浏览器检查运行 `node tests/browser-smoke.mjs`，需要本机 Playwright 和 Chrome 路径。
-- Android 使用已校验版本的 Gradle wrapper，运行 `testDebugUnitTest lintDebug assembleDebug`。iOS 需 Mac/Xcode 构建并执行 XCTest；Windows 的静态检查不能标成编译通过。详细客户端配置见 `CLIENTS.md`，当前没有 AppID 或微信真机验收记录。
+- Android 使用已校验版本的 Gradle wrapper，检查 Debug / Release 单元测试、lint 与构建；系统入站还要单独检查 Intent、临时授权和用户确认。iOS 需 Mac/Xcode 构建并执行 XCTest；Windows 的静态检查不能标成编译通过。详细客户端配置见 `CLIENTS.md`，当前没有 AppID 或微信真机验收记录。
 - 更改后如实记录执行工具、结果和未验证项。由 Codex 写的文件不能标成 Kiro 生成；没有 Kiro 运行记录就不能声称 Kiro 已完成任务。
 - 历史 Kiro CLI 已登录、加载当时的 Steering，随后受账号临时锁定阻断；本轮极简页面由 Codex 完成，更新这个文件不代表 Kiro 已重新运行。实际记录见 `KIRO.md`。
+- `.kiro/specs/android-share-plugin/` 由 Codex 编写，记录已实现入口和待验收边界，待 Kiro 实际审阅；不能将这些文档称为 Kiro 产出。没有连接安卓设备，系统入口与来源返回尚未真机验收。
 
 项目说明：#[[file:README.md]]
 现有验证：#[[file:QA.md]]

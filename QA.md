@@ -2,15 +2,23 @@
 
 日期：2026-10-10。版本：6.0.0。环境：Windows、Node.js 24.19.0、Chrome 154.0.8037.98。本轮在已有客户端与界面上增加 LLM 独立流程、当前标签页草稿暂存及 Android USB 本地调试；Node 运行依赖未增加。
 
-## 本轮状态
+## Android 系统分享接收增补
+
+本轮新增 Android `ACTION_SEND`（单段文字 / JPG、PNG、WebP / MP4、WebM、MOV）与 `ACTION_PROCESS_TEXT`。页面先确认导入，已有草稿可保留或主动替换；不会因收到分享而上传、调用模型或发送。复制完成后可主动返回来源 App。这条系统入口不需要微信 AppID、额外插件、存储权限或常驻服务。
+
+本轮浏览器 49/49 通过，JS / CSP 错误均为 0，包含入站确认、草稿冲突、连续分享竞态、无桥接降级、媒体导入、复制后返回及截图；原生桥接和事件为模拟，证据为 `browser-test-results.json`。Android 本轮 Debug / Release 均构建成功，各 12/12 项单元测试通过，lint 0 错误、2 条既有警告，开发包签名有效；详见 `native-build-results.json`。ADB 仍无设备，未做真实微信分享菜单、Android URI 授权、选中文字或来源返回栈验收；不同微信版本 / ROM 是否露出入口尚未验证。正式 SDK 选联系人仍缺合格主体 AppID 及匹配包名/签名。既有 7 例真实 LLM 验收不替代系统入口实机测试。
+
+真机需覆盖：文字/单图/单视频、PROCESS_TEXT、已有草稿不覆盖、先确认后手动生成、空/超限/多选/失效授权拒绝、编辑复制后主动返回、进程回收后的重新分享。步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。
+
+## LLM、浏览器与本地状态
 
 本地 `http://127.0.0.1:4173` 已启动，`/api/config` 实测返回 `liveAvailable: true`、`decisionMode: llm`、`mediaAvailable: true`、`videoAvailable: true`。这只证明服务已配置可用入口，不等于所有输入均已通过真实模型验收。
 
 | 检查 | 当前结果 | 边界 |
 | --- | --- | --- |
 | npm test | 46 项通过 | 模型服务使用测试替身，覆盖 LLM 独立与可选 Jev 分支 |
-| 浏览器回归 | 45/45 通过，JS 与 CSP 错误均为 0 | 包含草稿与复制恢复；模型和微信 SDK 为测试替身 |
-| Android 构建与测试 | Debug / Release 均构建成功，各 9 项测试通过 | lint 0 错误、2 条既有警告；验证 Debug 回环地址及 Release HTTPS 限制，不代表真机运行 |
+| 浏览器回归 | 49/49 通过，JS 与 CSP 错误均为 0 | 含系统分享接收确认、草稿保护、连续分享竞态、无桥接降级与返回；原生桥接、模型和微信 SDK 为测试替身 |
+| Android 构建与测试 | 本轮 Debug / Release 均构建成功，各 12/12 项测试通过 | lint 0 错误、2 条既有警告，开发包签名有效；覆盖新增输入规则，不代表 Intent/URI/微信真机运行 |
 | 7 个合成案例的真实 LLM 闭环 | 7/7 通过，均 HTTP 200 | `llm_only`、`jevTested: false`，真实浏览器、服务端、本地 ASR 和云模型；未发送微信消息 |
 | Jev | 尚未配置密钥 | LLM 可独立运行，Jev 分支仍未实际验证 |
 | 安卓真机与 Studio 镜像 | 未验证，ADB 设备列表为空 | 常见路径未发现 Studio；已有工作目录 SDK，不随仓库分发 |

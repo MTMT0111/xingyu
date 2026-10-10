@@ -6,12 +6,12 @@
     "releaseUnsignedApkBuilt": true,
     "debugSignatureVerified": true,
     "debugApk": "app/build/outputs/apk/debug/app-debug.apk",
-    "debugApkBytes": 1290194,
-    "debugApkSha256": "3d9acc3bd6f49fe36adf0f2e357d2e9009dfb45c567996326edc4f1d6296a3ac"
+    "debugApkBytes": 1319223,
+    "debugApkSha256": "46731c64d74d08782c28938f2f187fbd09c351936e16fa839655f3b4566299f9"
   },
   "unitTests": {
-    "debug": { "tests": 9, "failures": 0, "errors": 0 },
-    "release": { "tests": 9, "failures": 0, "errors": 0 }
+    "debug": { "tests": 12, "failures": 0, "errors": 0 },
+    "release": { "tests": 12, "failures": 0, "errors": 0 }
   },
   "lint": {
     "debug": { "errors": 0, "warnings": 2 },
@@ -30,6 +30,6 @@
     "newPluginsInstalled": 0,
     "emulatorInstalledOrStarted": false
   },
-  "notTested": ["physical device launch", "WebView clipboard on device", "WeChat on-device paste or SDK sharing"],
+  "notTested": ["physical device launch", "ACTION_SEND and ACTION_PROCESS_TEXT from real apps", "WebView clipboard on device", "WeChat on-device paste or SDK sharing"],
   "buildWarnings": ["SDK metadata XML version mismatch", "Existing WeChat SDK D8 stack-map warnings in release build"]
 }

@@ -96,4 +96,36 @@ public final class InputRulesTest {
         }
         assertFalse(InputRules.validText(null));
     }
+
+    @Test public void parsesInboundTextAtThePageBoundary() {
+        assertTrue(InputRules.plainTextMime(" Text/Plain; charset=UTF-8 "));
+        assertFalse(InputRules.plainTextMime("text/html"));
+        assertFalse(InputRules.plainTextMime(null));
+        assertEquals(" 妈，晚点回你。 ", InputRules.inboundText(" 妈，晚点回你。 "));
+        assertEquals("🌹".repeat(6000), InputRules.inboundText("🌹".repeat(6000)));
+        for (CharSequence value : new CharSequence[] {null, "", " \t\n", "a\u0000b", "\uD800", "🌹".repeat(6001)}) {
+            assertThrows(IllegalArgumentException.class, () -> InputRules.inboundText(value));
+        }
+    }
+
+    @Test public void resolvesOnlySupportedMediaTypesAndLimits() {
+        assertEquals("image/jpeg", InputRules.mediaMime("image/*", "IMAGE/JPEG; charset=binary"));
+        assertEquals("image/jpeg", InputRules.mediaMime("image/jpg", null));
+        assertEquals("video/mp4", InputRules.mediaMime(" video/mp4 ", null));
+        assertEquals("image", InputRules.mediaKind("image/webp"));
+        assertEquals("video", InputRules.mediaKind("video/quicktime"));
+        assertEquals(4L * 1024 * 1024, InputRules.maxMediaBytes("image/png"));
+        assertEquals(20L * 1024 * 1024, InputRules.maxMediaBytes("video/webm"));
+        for (String[] types : new String[][] {{"image/*", null}, {"*/*", "image/png"}, {"image/*", "video/mp4"},
+            {"image/gif", "image/gif"}, {"text/plain", null}, {null, null}}) {
+            assertThrows(IllegalArgumentException.class, () -> InputRules.mediaMime(types[0], types[1]));
+        }
+    }
+
+    @Test public void cleansProviderFileNamesWithoutTrustingPaths() {
+        assertEquals("etcpasswd.jpg", InputRules.safeDisplayName("../../etc\\passwd.jpg", "image/jpeg"));
+        assertEquals("分享的视频", InputRules.safeDisplayName("\u0000/\\\t", "video/mp4"));
+        String longName = InputRules.safeDisplayName("图".repeat(130), "image/png");
+        assertEquals(120, longName.codePointCount(0, longName.length()));
+    }
 }

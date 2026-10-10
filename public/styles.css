@@ -45,6 +45,17 @@ h1 { font: 400 42px/1.3 WenKai, "Microsoft YaHei", sans-serif; letter-spacing: 1
 .workflow span { font-size: 10px; letter-spacing: .8px; color: #8597b0; }
 .workflow [aria-current] { color: var(--blue); }
 .workflow [aria-current] span { color: #92701c; }
+.inbound-share { display: flex; align-items: center; justify-content: space-between; gap: 22px; margin: 0 0 15px; padding: 16px 18px; border-block: 1px solid #dfe7f0; background: #f7faff; }
+.inbound-copy { min-width: 0; }
+.inbound-kicker { display: block; margin-bottom: 2px; color: #9a7724; font-size: 10px; letter-spacing: 1px; }
+.inbound-share h2 { color: #355488; font: 400 17px/1.5 WenKai, "Microsoft YaHei", sans-serif; }
+.inbound-preview { max-width: 620px; margin-top: 3px; color: #4f627e; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.inbound-note { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.inbound-actions { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.inbound-actions button { padding: 8px 12px; border: 1px solid #dbe4ef; border-radius: 8px; background: #fff; color: #567095; font-size: 12px; }
+.inbound-actions .inbound-primary { border-color: var(--blue); background: var(--blue); color: #fff; }
+.inbound-actions button:hover:not(:disabled) { border-color: #93a9c8; }
+.inbound-actions .inbound-primary:hover:not(:disabled) { background: #2c498d; }
 .workbench { display: grid; grid-template-columns: 1fr 1fr; overflow: clip; background: #fff; border: 1px solid #e3e9f0; border-radius: 20px; box-shadow: 0 14px 44px #34579206; }
 .input-panel, .output-panel { padding: 30px 32px 28px; min-width: 0; }
 .input-panel { border-right: 1px solid var(--line); }
@@ -183,6 +194,10 @@ summary::-webkit-details-marker { display: none; }
   .workflow { justify-content: space-between; gap: 8px; margin-bottom: 14px; font-size: 11px; }
   .workflow li { gap: 5px; }
   .workflow li + li:before { display: none; }
+  .inbound-share { align-items: stretch; flex-direction: column; gap: 12px; padding: 14px; }
+  .inbound-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .inbound-actions button { width: 100%; }
+  .inbound-actions .inbound-primary { grid-column: 1 / -1; grid-row: 1; }
   .input-panel, .output-panel { padding: 22px; }
   .input-panel { border-right: 0; border-bottom: 1px solid var(--line); }
   .panel-heading { margin-bottom: 18px; padding-bottom: 14px; }

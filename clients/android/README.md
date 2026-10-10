@@ -1,8 +1,18 @@
 # 星语 Android 客户端
 
-当前用户已确认个人主体不能创建微信移动应用，AppID 申请路线暂缓。以下 SDK 配置步骤仅供后续具备资格时使用；当前先使用页面复制回微信。这个客户端尚未实现接收微信“分享给其他应用”的内容。
+当前用户已确认个人主体不能创建微信移动应用，AppID 申请路线暂缓。以下 SDK 配置步骤仅供后续具备资格时使用；当前先使用页面复制回微信。Android 系统分享入口不需要微信开放平台 AppID。
 
 加载你真实部署的 HTTPS 星语页面；Debug 开发版还支持通过 USB 连接电脑上的本地服务。服务地址和移动应用 AppID 在原生设置中填写；没有 AppID 时保留网页分析、编辑和复制，微信能力返回 `missing_app_id`，不会伪装已接入。具备有效 AppID 后，才可通过微信官方 OpenSDK 将编辑后的纯文本交给微信选人发送。
+
+## 像插件一样调用
+
+- 在微信或其他应用点系统**分享**，选择“星语”，通过 `ACTION_SEND` 导入一段纯文字、一个 JPG/PNG/WebP 图片或一个 MP4/WebM/MOV 视频；只接收单个内容项。微信是否露出入口及提供什么内容取决于版本与手机 ROM，没有入口时仍可复制或保存媒体。
+- 在支持 Android“处理文字”（`ACTION_PROCESS_TEXT`）的应用中长按选中文字，也可选择“星语”。
+- 外部内容先显示在页面确认条；已有草稿不会被静默覆盖。只有确认后才写入输入框或附件区，也不会自动调用模型、上传或发送。
+- 图片上限 4 MiB，视频上限 20 MiB / 60 秒，文字上限 6000 个 Unicode 字符。媒体只接受临时 `content://` 授权，以流方式读取；不申请联系人或存储权限，不复制到公共目录。
+- 复制回复后可点“返回原应用”。系统分享面板是否允许固定“星语”由 Android/手机厂商决定，应用不使用悬浮窗、无障碍、后台服务或剪贴板监听。
+
+若要实现页面内的“直接去微信选联系人”，仍需有资格的企业等主体在微信开放平台创建并审核移动应用，登记包名与签名后取得 AppID。系统分享进入星语、页面分析、复制回复和返回原应用均不需要该接口。
 
 ## USB 本地演示（优先使用真机）
 
@@ -35,14 +45,14 @@ Android Studio 可直接打开此目录。命令行需要 Android SDK 35、Build
 
 项目已包含 Gradle 8.10.2 wrapper；macOS/Linux 使用 `./gradlew`。通过 `ANDROID_HOME` 或仅本机 `local.properties` 的 `sdk.dir` 指定 SDK。Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。Release 默认不配置签名，需要开发者自己的 keystore；release 禁止 WebView 调试。不要上传签名私钥。
 
-Gradle 默认使用 1 GB 最大堆和一个 worker，不开启并行构建；命令行使用 `--no-daemon` 在构建结束后释放构建进程。9 个 JUnit 用例覆盖 HTTPS、Debug loopback、正式版拒绝 HTTP、桥接同源、AppID 和分享文字边界；分别运行 Debug/Release 两个变体。尚未完成设备验收；构建和单元测试不能证明微信真实分享已接通。页面进程终止的恢复属于设备验收项。
+Gradle 默认使用 1 GB 最大堆和一个 worker，不开启并行构建；命令行使用 `--no-daemon` 在构建结束后释放构建进程。12 个 JUnit 用例覆盖 HTTPS、Debug loopback、正式版拒绝 HTTP、桥接同源、AppID、分享文字、媒体类型/大小和文件名边界；分别运行 Debug/Release 两个变体。尚未完成设备验收；构建和单元测试不能证明微信真实分享已接通。页面进程终止的恢复属于设备验收项。
 
 ## 真实配置与验收
 
-1. 部署已有星语服务到有效 HTTPS 域名，在手机可正常访问。服务地址必须是根地址，无账号、查询参数、片段或子路径；支持 ASCII 域名和 IPv4，以及明确端口。暂不支持 IPv6/Unicode 域名直接输入，可使用域名的 ASCII/Punycode 形式。
+1. USB 本地演示按上文使用固定 Debug 回环地址；脱离 USB 时再部署有效 HTTPS 服务。服务地址必须是根地址，无账号、查询参数、片段或子路径；支持 ASCII 域名和 IPv4，以及明确端口。暂不支持 IPv6/Unicode 域名直接输入，可使用域名的 ASCII/Punycode 形式。
 2. 安装 APK，设置服务地址。若服务启用 HTTP Basic 试用口令，客户端会弹出原生输入框，使用用户名 `trial`。口令不写入设置、不打印日志；Android WebView 可能在本进程认证会话中缓存凭据，应用不请求持久保存。
-3. 在微信开放平台创建并审核移动应用。Android 包名默认 `com.xingyu.reply`；登记**实际安装 APK** 的 MD5 应用签名。Debug 和正式签名不同，更换包名/签名需同步开放平台配置。把真实 AppID 填入应用设置，无需 AppSecret。
-4. 安装官方微信。生成并编辑一条回复，点击网页的微信按钮，确认微信显示选人及文字，手动选择联系人并确认发送；也应手动测试取消流程。客户端不读取通讯录、不选择联系人、不自动点发送。
+3. 当前个人主体不能创建微信移动应用，系统分享接收、复制与返回来源均跳过 AppID 配置。只有后续具备合格主体资格并需要 SDK 直接选人时，才申请并审核移动应用，登记默认包名 `com.xingyu.reply` 和**实际安装 APK** 的 MD5 签名；Debug / Release 签名不同，变更需同步平台，配置真实 AppID，无需 AppSecret。
+4. 当前先从来源 App 分享或选中文字进入星语，确认、生成、编辑、复制，再主动返回粘贴。未来 SDK 配置有效后另行验收微信按钮、选人及取消；客户端不读取通讯录、不选择联系人、不自动点发送。
 5. 手动检查首次 HTTP Basic 登录、错误口令重试、图片/视频文件选择、离线重试，以及从设置/微信返回后草稿保留。切换服务地址会重载；同地址修改 AppID、原生返回键和打开设置复用原 WebView。系统终止进程后不保证未提交草稿恢复。
 
 暂无真实 AppID、匹配签名和真机微信的环境，不能宣称已通过微信真机分享验收。单元测试只验证输入边界，APK 构建也不能替代真机验收。
@@ -60,6 +70,21 @@ window.XingyuWeChat.postMessage(JSON.stringify({ type: 'capabilities', id: 'chec
 window.XingyuWeChat.postMessage(JSON.stringify({ type: 'shareText', id: 'reply-1', text: '妈，我晚点给你打电话。' }));
 ```
 
+原生分享入口在受信页面加载后派发固定事件。`entry` 为 `share` 或 `process_text`；附件 URL 是当前服务 origin 下的随机、无缓存临时流：
+
+```js
+window.addEventListener('xingyu-inbound-share', async event => {
+  // { schemaVersion: 1, type: 'inboundShare', id, entry, text?, attachment?: { url, name, mime, size, kind } }
+  const share = event.detail;
+  // 用户确认并完成附件 fetch 后再确认；放弃时把 accepted 改为 dismissed。
+  window.XingyuWeChat?.postMessage(JSON.stringify({ type: 'ackInboundShare', id: share.id, action: 'accepted' }));
+  // 用户复制完成并主动要求返回来源应用时再调用。
+  window.XingyuWeChat?.postMessage(JSON.stringify({ type: 'finishShareEntry', id: share.id }));
+});
+```
+
+`ackInboundShare.action` 只接受 `accepted` 或 `dismissed`，并且只认当前分享 ID。`finishShareEntry` 仅在本次 Activity 确由分享/处理文字入口打开、且 ID 匹配时返回来源应用；普通启动时忽略。WebMessage bridge 不可用时文字事件仍能导入，但页面无法发送确认或主动结束 Activity，用户可使用系统返回键；原生文字在事件交付后清理，媒体在页面读取完后清理，未读取媒体最多在当前进程保留五分钟。
+
 能力结果含 `available`、`platform: 'android'` 与固定 `reason`：`ready`、`missing_app_id`、`wechat_not_installed`、`invalid_configuration`、`sdk_unavailable`。若系统 WebView 不支持 WebMessageListener，则不注入桥接，网页应使用已有复制方式。
 
 分享先返回 `shareText / handoff` 或 `shareText / error`。SDK 回调可能追加 `shareResult`：`completed`、`cancelled`、`error`。`completed` 只对应官方 SDK 的成功回调，**不是收件人已收到或已读**。无法得到微信联系人身份。微信版本/进程生命周期可能导致无回调；120 秒后报告 `result_unknown`，不能据此认定未发送，用户可自行查看微信。此时客户端也不会自动重试。
@@ -68,7 +93,7 @@ window.XingyuWeChat.postMessage(JSON.stringify({ type: 'shareText', id: 'reply-1
 
 ## 安全边界
 
-桥接同时检查官方 origin allowlist、主 frame、消息来源与当前 WebView origin。未采用 `addJavascriptInterface`。Release 只加载同源 HTTPS；Debug 额外放行 `http://127.0.0.1:4173`，网络配置只给 `127.0.0.1` 开启明文，应用层继续限制端口与来源。两种变体都阻止外部导航和弹窗，不绕过证书校验；文件选择使用系统文档选择器，只授权用户选中的文件，不请求联系人/存储权限。模型服务密钥留在服务器，客户端只保存非秘密服务地址和 AppID。
+桥接同时检查官方 origin allowlist、主 frame、消息来源与当前 WebView origin。未采用 `addJavascriptInterface`。Release 只加载同源 HTTPS；Debug 额外放行 `http://127.0.0.1:4173`，网络配置只给 `127.0.0.1` 开启明文，应用层继续限制端口与来源。两种变体都阻止外部导航和弹窗，不绕过证书校验；文件选择使用系统文档选择器，只授权用户选中的文件，不请求联系人/存储权限。入站媒体实际读取到非空且不超过上限后才交给页面，不调用持久 URI 授权；桥接可用时确认或放弃会立即清理引用。进程被系统回收后不能保证临时 URI 仍可读取，客户端会明确要求重新分享。模型服务密钥留在服务器，客户端只保存非秘密服务地址和 AppID。
 
 配置的整个 origin 视为可信应用代码；应仅填写你控制并保持安全的星语域名。桥接不替代服务端 XSS 防护。WebView 页面上的同源脚本可请求打开微信，最终联系人选择与发送确认由微信完成。
 
@@ -76,6 +101,8 @@ window.XingyuWeChat.postMessage(JSON.stringify({ type: 'shareText', id: 'reply-1
 
 ## 官方依据
 
+- [Android 接收系统分享](https://developer.android.com/training/sharing/receive)：按 action 与 MIME 声明接收范围，并让用户确认内容。
+- [ACTION_PROCESS_TEXT](https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT)：系统选中文字处理入口。
 - [WebView 访问本地开发服务器](https://developer.android.com/develop/ui/views/layout/webapps/access-local-server)：ADB reverse 支持 USB 真机和模拟器，无需公网服务。
 - [Android 真机调试](https://developer.android.com/studio/run/device)：USB 调试与设备授权。
 - [Android 网络安全配置](https://developer.android.com/privacy-and-security/security-config)：按域名控制明文连接。

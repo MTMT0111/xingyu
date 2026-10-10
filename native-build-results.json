@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-10T08:20:30.785140+00:00",
+  "checkedAt": "2026-10-10T14:48:42+00:00",
   "version": "6.0.0",
   "android": {
     "status": "debug_apk_built_and_signature_verified",
@@ -24,9 +24,9 @@
       "lintRelease"
     ],
     "unitTests": {
-      "tests": 18,
-      "debug": 9,
-      "release": 9,
+      "tests": 24,
+      "debug": 12,
+      "release": 12,
       "failures": 0,
       "errors": 0,
       "skipped": 0
@@ -41,8 +41,8 @@
       "review": "Android 13 back callback attribute is ignored on older Android; JavaScript is required for the trusted same-origin H5."
     },
     "artifact": "downloads/xingyu-android-debug.apk",
-    "bytes": 1290194,
-    "sha256": "3d9acc3bd6f49fe36adf0f2e357d2e9009dfb45c567996326edc4f1d6296a3ac",
+    "bytes": 1319223,
+    "sha256": "46731c64d74d08782c28938f2f187fbd09c351936e16fa839655f3b4566299f9",
     "signatureVerified": true,
     "signatureType": "development_debug",
     "certificateMD5": "47695d55708a06168886218f9e8ba954",
@@ -52,6 +52,11 @@
     "connectedAdbDevices": 0,
     "installedOnDevice": false,
     "realWechatShareTested": false,
+    "inboundActionsImplemented": ["ACTION_SEND", "ACTION_PROCESS_TEXT"],
+    "inboundSingleItemTypes": ["text/plain", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"],
+    "inboundShareDeviceTested": false,
+    "processTextDeviceTested": false,
+    "returnToSourceDeviceTested": false,
     "renderProcessRecoveryDeviceTested": false,
     "buildWarnings": [
       "SDK metadata parser warns about XML v4; build succeeded.",
@@ -74,7 +79,9 @@
     "report": "clients/ios/source-validation-results.json"
   },
   "web": {
-    "browserGroupsPassed": 45,
+    "browserGroupsPassed": 49,
+    "javascriptErrors": 0,
+    "cspErrors": 0,
     "nativeBridgeMocked": true,
     "realMessageSent": false,
     "report": "browser-test-results.json",
@@ -82,6 +89,8 @@
   },
   "outstanding": [
     "Android USB device installation, clipboard and WeChat manual paste acceptance",
+    "Real-device ACTION_SEND text/single-image/single-video and ACTION_PROCESS_TEXT validation",
+    "WeChat version and OEM ROM share-menu availability, content URI grants, draft conflicts and return-to-source behavior",
     "Optional Jev credentials and real Jev validation",
     "Controlled HTTPS service for use without USB",
     "Registered mobile WeChat AppID if legally eligible; currently blocked for personal subject",

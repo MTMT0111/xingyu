@@ -3,8 +3,11 @@ package com.xingyu.reply;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.AssetFileDescriptor;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.net.http.SslError;
@@ -12,6 +15,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.OpenableColumns;
 import android.text.InputType;
 import android.view.View;
 import android.view.WindowInsets;
@@ -34,6 +38,7 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.WebMessageCompat;
 import androidx.webkit.WebViewCompat;
@@ -44,16 +49,24 @@ import com.tencent.mm.opensdk.modelmsg.WXTextObject;
 import com.tencent.mm.opensdk.openapi.IWXAPI;
 import com.tencent.mm.opensdk.openapi.WXAPIFactory;
 import java.io.ByteArrayInputStream;
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 /** A small trusted-origin host. The server keeps LLM/Jev credentials; this app never needs them. */
 public final class MainActivity extends Activity {
     private static final int FILE_REQUEST = 701;
+    private static final String INBOUND_PATH = "/.xingyu-share/";
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService inboundExecutor = Executors.newSingleThreadExecutor();
     private SharedPreferences preferences;
     private WebView web;
     private FrameLayout content;
@@ -64,7 +77,8 @@ public final class MainActivity extends Activity {
     private ProgressBar progress;
     private volatile String serviceUrl = "";
     private String appId = "", loadingUrl = "";
-    private boolean bridgeSupported, listenerAdded, settingsVisible, pageFailed;
+    private boolean bridgeSupported, settingsVisible, pageFailed;
+    private volatile boolean listenerAdded;
     private IWXAPI wechat;
     private boolean registered;
     private ValueCallback<Uri[]> fileCallback;
@@ -72,6 +86,42 @@ public final class MainActivity extends Activity {
     private JavaScriptReplyProxy pendingProxy;
     private String pendingId, pendingOrigin;
     private Runnable shareTimeout;
+    private volatile InboundShare inboundShare;
+    private String externalEntryId;
+    private volatile long inboundGeneration;
+    private boolean pageReady, inboundDispatched, attachmentValidationPending, destroyed;
+
+    private static final class InboundCandidate {
+        final String id, text, declaredMime;
+        final Uri uri;
+        InboundCandidate(String id, String text, String declaredMime, Uri uri) {
+            this.id = id;
+            this.text = text;
+            this.declaredMime = declaredMime;
+            this.uri = uri;
+        }
+    }
+
+    private static final class InboundShare {
+        final String id, entry, text, mime, kind, name, token;
+        final Uri uri;
+        final long size;
+        InboundShare(String id, String entry, String text) {
+            this(id, entry, text, null, null, null, null, null, 0);
+        }
+        InboundShare(String id, String entry, String text, String mime, String kind, String name, String token, Uri uri, long size) {
+            this.id = id;
+            this.entry = entry;
+            this.text = text;
+            this.mime = mime;
+            this.kind = kind;
+            this.name = name;
+            this.token = token;
+            this.uri = uri;
+            this.size = size;
+        }
+        boolean hasAttachment() { return uri != null; }
+    }
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -81,7 +131,10 @@ public final class MainActivity extends Activity {
         catch (IllegalArgumentException ignored) { serviceUrl = ""; }
         buildInterface();
         configureWechat();
+        boolean restored = restoreInboundState(state);
         if (serviceUrl.isEmpty()) showSettings(); else loadService();
+        if (!restored) receiveInboundIntent(getIntent());
+        else clearLaunchIntent();
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::navigateBack);
         }
@@ -258,12 +311,16 @@ public final class MainActivity extends Activity {
                 return !InputRules.sameOrigin(serviceUrl, url, BuildConfig.DEBUG);
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                WebResourceResponse inbound = interceptInbound(request);
+                if (inbound != null) return inbound;
                 String scheme = request.getUrl().getScheme();
                 if ("data".equals(scheme) || "blob".equals(scheme) || InputRules.sameOrigin(serviceUrl, request.getUrl().toString(), BuildConfig.DEBUG)) return null;
                 return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", Collections.emptyMap(), new ByteArrayInputStream(new byte[0]));
             }
             @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
                 if (view != web) return;
+                pageReady = false;
+                inboundDispatched = false;
                 loadingUrl = url;
                 clearPending();
                 pageFailed = false;
@@ -272,6 +329,11 @@ public final class MainActivity extends Activity {
                     view.stopLoading();
                     showError("已阻止跳转到其他网站。请返回星语服务。");
                 }
+            }
+            @Override public void onPageFinished(WebView view, String url) {
+                if (view != web || pageFailed || !InputRules.sameOrigin(serviceUrl, url, BuildConfig.DEBUG)) return;
+                pageReady = true;
+                dispatchInboundShare();
             }
             @Override public void onReceivedSslError(WebView view, SslErrorHandler ssl, SslError error) {
                 ssl.cancel();
@@ -294,6 +356,8 @@ public final class MainActivity extends Activity {
                 if (failedView == web) {
                     clearPending();
                     web = null;
+                    pageReady = false;
+                    inboundDispatched = false;
                     loadingUrl = "";
                     listenerAdded = false;
                     if (fileCallback != null) { fileCallback.onReceiveValue(null); fileCallback = null; }
@@ -327,6 +391,286 @@ public final class MainActivity extends Activity {
                 return true;
             }
         });
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String action = intent == null ? null : intent.getAction();
+        if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
+            receiveInboundIntent(intent);
+        } else {
+            externalEntryId = null;
+        }
+    }
+
+    private void receiveInboundIntent(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getAction();
+        if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action) && !Intent.ACTION_PROCESS_TEXT.equals(action)) return;
+        String entryId = UUID.randomUUID().toString();
+        clearInboundShare();
+        externalEntryId = entryId;
+        if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            clearLaunchIntent();
+            showInboundError("星语一次只能接收一段文字、一个图片或一个视频。");
+            return;
+        }
+        try {
+            if (Intent.ACTION_PROCESS_TEXT.equals(action)) {
+                queueInbound(new InboundShare(entryId, "process_text",
+                    InputRules.inboundText(intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT))));
+                clearLaunchIntent();
+                return;
+            }
+            Uri uri = sharedUri(intent);
+            if (InputRules.plainTextMime(intent.getType())) {
+                if (uri != null) throw new IllegalArgumentException("INVALID_TEXT_SHARE");
+                queueInbound(new InboundShare(entryId, "share",
+                    InputRules.inboundText(intent.getCharSequenceExtra(Intent.EXTRA_TEXT))));
+                clearLaunchIntent();
+                return;
+            }
+            if (uri == null || !"content".equalsIgnoreCase(uri.getScheme())) throw new IllegalArgumentException("INVALID_URI");
+            String caption = intent.hasExtra(Intent.EXTRA_TEXT)
+                ? InputRules.inboundText(intent.getCharSequenceExtra(Intent.EXTRA_TEXT)) : null;
+            InboundCandidate candidate = new InboundCandidate(entryId, caption, intent.getType(), uri);
+            attachmentValidationPending = true;
+            long generation = ++inboundGeneration;
+            clearLaunchIntent();
+            Toast.makeText(this, "正在安全导入分享内容…", Toast.LENGTH_SHORT).show();
+            inboundExecutor.execute(() -> validateInboundMedia(candidate, generation));
+        } catch (RuntimeException error) {
+            clearLaunchIntent();
+            showInboundError(inboundErrorMessage(error.getMessage()));
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static Uri extraStream(Intent intent) {
+        if (!intent.hasExtra(Intent.EXTRA_STREAM)) return null;
+        if (Build.VERSION.SDK_INT >= 33) return intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri.class);
+        Object value = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if (value == null || value instanceof Uri) return (Uri) value;
+        throw new IllegalArgumentException("INVALID_URI");
+    }
+
+    private static Uri sharedUri(Intent intent) {
+        Uri extra = extraStream(intent), clipped = null;
+        ClipData clip = intent.getClipData();
+        if (clip != null) {
+            if (clip.getItemCount() != 1) throw new IllegalArgumentException("MULTIPLE_ITEMS");
+            clipped = clip.getItemAt(0).getUri();
+        }
+        if (extra != null && clipped != null && !extra.equals(clipped)) throw new IllegalArgumentException("MULTIPLE_ITEMS");
+        return extra != null ? extra : clipped;
+    }
+
+    private void validateInboundMedia(InboundCandidate candidate, long generation) {
+        try {
+            String resolved = getContentResolver().getType(candidate.uri);
+            String mime = InputRules.mediaMime(candidate.declaredMime, resolved);
+            long max = InputRules.maxMediaBytes(mime), declaredSize = -1;
+            String displayName = null;
+            try (Cursor cursor = getContentResolver().query(candidate.uri,
+                new String[] {OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE}, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                    int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
+                    if (nameIndex >= 0 && !cursor.isNull(nameIndex)) displayName = cursor.getString(nameIndex);
+                    if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) declaredSize = cursor.getLong(sizeIndex);
+                }
+            }
+            if (declaredSize < 0) {
+                try (AssetFileDescriptor descriptor = getContentResolver().openAssetFileDescriptor(candidate.uri, "r")) {
+                    if (descriptor != null) declaredSize = descriptor.getLength();
+                }
+            }
+            if (declaredSize == 0) throw new IllegalArgumentException("EMPTY_MEDIA");
+            if (declaredSize > max) throw new IllegalArgumentException("MEDIA_TOO_LARGE");
+            long actualSize = 0;
+            byte[] buffer = new byte[64 * 1024];
+            try (InputStream stream = getContentResolver().openInputStream(candidate.uri)) {
+                if (stream == null) throw new IOException("missing stream");
+                for (int count; (count = stream.read(buffer)) != -1;) {
+                    if (generation != inboundGeneration) throw new IllegalArgumentException("CANCELLED");
+                    actualSize += count;
+                    if (actualSize > max) throw new IllegalArgumentException("MEDIA_TOO_LARGE");
+                }
+            }
+            if (actualSize == 0) throw new IllegalArgumentException("EMPTY_MEDIA");
+            InboundShare value = new InboundShare(candidate.id, "share", candidate.text, mime, InputRules.mediaKind(mime),
+                InputRules.safeDisplayName(displayName, mime), UUID.randomUUID().toString(), candidate.uri, actualSize);
+            handler.post(() -> {
+                if (destroyed || generation != inboundGeneration) return;
+                attachmentValidationPending = false;
+                queueInbound(value);
+            });
+        } catch (IllegalArgumentException error) {
+            inboundValidationFailed(generation, inboundErrorMessage(error.getMessage()));
+        } catch (IOException | RuntimeException error) {
+            inboundValidationFailed(generation, "无法读取这个分享文件，请回到原应用重新分享。");
+        }
+    }
+
+    private void inboundValidationFailed(long generation, String message) {
+        handler.post(() -> {
+            if (destroyed || generation != inboundGeneration) return;
+            attachmentValidationPending = false;
+            showInboundError(message);
+        });
+    }
+
+    private void queueInbound(InboundShare value) {
+        ++inboundGeneration;
+        attachmentValidationPending = false;
+        inboundShare = value;
+        externalEntryId = value.id;
+        inboundDispatched = false;
+        if (serviceUrl.isEmpty()) {
+            showSettings();
+            Toast.makeText(this, "分享内容已暂存，请先连接星语服务。", Toast.LENGTH_LONG).show();
+        } else {
+            hideSettings();
+            dispatchInboundShare();
+        }
+    }
+
+    private void dispatchInboundShare() {
+        InboundShare value = inboundShare;
+        if (value == null || inboundDispatched || !pageReady || !trustedPage()) return;
+        JSONObject detail = object("schemaVersion", 1, "type", "inboundShare", "id", value.id, "entry", value.entry);
+        try {
+            if (value.text != null) detail.put("text", value.text);
+            if (value.hasAttachment()) detail.put("attachment", object("url", InputRules.origin(serviceUrl, BuildConfig.DEBUG) + INBOUND_PATH + value.token,
+                "name", value.name, "mime", value.mime, "size", value.size, "kind", value.kind));
+        } catch (JSONException error) { throw new IllegalArgumentException("INVALID_INBOUND_SHARE"); }
+        String script = "window.dispatchEvent(new CustomEvent('xingyu-inbound-share',{detail:JSON.parse(" +
+            JSONObject.quote(detail.toString()) + ")}));";
+        inboundDispatched = true;
+        try {
+            web.evaluateJavascript(script, ignored -> {
+                if (!listenerAdded && !value.hasAttachment()) clearInboundShare(value.id);
+            });
+            if (!listenerAdded && value.hasAttachment()) {
+                handler.postDelayed(() -> clearInboundShare(value.id), 5 * 60 * 1000L);
+            }
+        }
+        catch (RuntimeException error) {
+            inboundDispatched = false;
+            showInboundError("暂时无法把分享内容交给页面，请重新加载后再试。");
+        }
+    }
+
+    private WebResourceResponse interceptInbound(WebResourceRequest request) {
+        String path = request.getUrl().getPath();
+        if (!InputRules.sameOrigin(serviceUrl, request.getUrl().toString(), BuildConfig.DEBUG) ||
+            path == null || !path.startsWith(INBOUND_PATH)) return null;
+        InboundShare value = inboundShare;
+        String token = path.substring(INBOUND_PATH.length());
+        if (!"GET".equals(request.getMethod()) || request.getUrl().getQuery() != null || value == null ||
+            !value.hasAttachment() || !token.equals(value.token)) return inboundResponse(404, "Not Found", "text/plain", 0, new byte[0]);
+        try {
+            InputStream stream = getContentResolver().openInputStream(value.uri);
+            if (stream == null) return inboundResponse(410, "Gone", "text/plain", 0, new byte[0]);
+            Runnable cleanup = listenerAdded ? null : () -> handler.post(() -> clearInboundShare(value.id));
+            return inboundResponse(200, "OK", value.mime, value.size, new BoundedInputStream(stream, value.size, cleanup));
+        } catch (IOException | RuntimeException error) {
+            return inboundResponse(410, "Gone", "text/plain", 0, new byte[0]);
+        }
+    }
+
+    private static WebResourceResponse inboundResponse(int status, String reason, String mime, long size, InputStream stream) {
+        HashMap<String, String> headers = new HashMap<>();
+        headers.put("Cache-Control", "no-store");
+        headers.put("X-Content-Type-Options", "nosniff");
+        if (size > 0) headers.put("Content-Length", Long.toString(size));
+        return new WebResourceResponse(mime, null, status, reason, headers, stream);
+    }
+
+    private static WebResourceResponse inboundResponse(int status, String reason, String mime, long size, byte[] body) {
+        return inboundResponse(status, reason, mime, size, new ByteArrayInputStream(body));
+    }
+
+    private static final class BoundedInputStream extends FilterInputStream {
+        private long remaining;
+        private final Runnable closeAction;
+        private boolean closed;
+        BoundedInputStream(InputStream stream, long size, Runnable closeAction) {
+            super(stream);
+            remaining = size;
+            this.closeAction = closeAction;
+        }
+        @Override public int read() throws IOException {
+            if (remaining == 0) {
+                if (super.read() != -1) throw new IOException("content changed");
+                return -1;
+            }
+            int value = super.read();
+            if (value != -1) remaining--;
+            return value;
+        }
+        @Override public int read(byte[] buffer, int offset, int length) throws IOException {
+            if (length == 0) return 0;
+            if (remaining == 0) return read() == -1 ? -1 : 0;
+            int count = super.read(buffer, offset, (int) Math.min(length, remaining));
+            if (count > 0) remaining -= count;
+            return count;
+        }
+        @Override public void close() throws IOException {
+            if (closed) return;
+            closed = true;
+            try { super.close(); }
+            finally { if (closeAction != null) closeAction.run(); }
+        }
+    }
+
+    private void clearInboundShare() {
+        ++inboundGeneration;
+        attachmentValidationPending = false;
+        inboundShare = null;
+        inboundDispatched = false;
+    }
+
+    private void clearInboundShare(String id) {
+        InboundShare value = inboundShare;
+        if (value != null && value.id.equals(id)) clearInboundShare();
+    }
+
+    private void clearLaunchIntent() {
+        setIntent(new Intent(this, MainActivity.class).setAction(Intent.ACTION_MAIN));
+    }
+
+    private static String inboundErrorMessage(String code) {
+        if ("MISSING_TEXT".equals(code) || "INVALID_TEXT".equals(code) || "INVALID_TEXT_SHARE".equals(code))
+            return "这段分享文字为空、过长或格式异常，请缩短后重试。";
+        if ("MULTIPLE_ITEMS".equals(code)) return "星语一次只能接收一个图片或视频。";
+        if ("EMPTY_MEDIA".equals(code)) return "这个分享文件是空的，请重新选择。";
+        if ("MEDIA_TOO_LARGE".equals(code)) return "图片不能超过 4 MB，视频不能超过 20 MB，请压缩后重试。";
+        if ("UNSUPPORTED_MEDIA".equals(code)) return "目前只支持 JPG、PNG、WebP 图片和 MP4、WebM、MOV 视频。";
+        return "无法读取这个分享内容，请回到原应用重新分享。";
+    }
+
+    private void showInboundError(String message) {
+        if (destroyed || isFinishing()) return;
+        new AlertDialog.Builder(this).setTitle("无法导入分享").setMessage(message)
+            .setPositiveButton("知道了", null).show();
+    }
+
+    private boolean restoreInboundState(Bundle state) {
+        if (state == null) return false;
+        externalEntryId = state.getString("inbound.entryId");
+        if (state.getBoolean("inbound.contentLost")) {
+            handler.post(() -> showInboundError("系统回收了页面后，无法继续读取原分享内容，请回到原应用重新分享。"));
+        }
+        return externalEntryId != null || state.getBoolean("inbound.contentLost");
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        state.putString("inbound.entryId", externalEntryId);
+        InboundShare value = inboundShare;
+        state.putBoolean("inbound.contentLost", attachmentValidationPending || value != null);
     }
 
     private void promptServicePassword(HttpAuthHandler auth, String host) {
@@ -392,6 +736,13 @@ public final class MainActivity extends Activity {
             } else if (type.equals("shareText")) {
                 Object rawText = request.opt("text");
                 shareText(id, rawText instanceof String ? (String) rawText : null, proxy);
+            } else if (type.equals("ackInboundShare")) {
+                Object rawAction = request.opt("action");
+                if (inboundShare != null && id.equals(inboundShare.id) && rawAction instanceof String &&
+                    (((String) rawAction).equals("accepted") || ((String) rawAction).equals("dismissed"))) clearInboundShare();
+            } else if (type.equals("finishShareEntry") && id.equals(externalEntryId)) {
+                externalEntryId = null;
+                finish();
             }
         } catch (JSONException ignored) { /* Malformed bridge input cannot reach the SDK. */ }
     }
@@ -491,10 +842,14 @@ public final class MainActivity extends Activity {
     private void navigateBack() {
         if (settingsVisible && !serviceUrl.isEmpty()) hideSettings();
         else if (!settingsVisible && web != null && web.canGoBack()) web.goBack();
+        else if (externalEntryId != null) { externalEntryId = null; finish(); }
         else moveTaskToBack(true);
     }
 
     @Override protected void onDestroy() {
+        destroyed = true;
+        inboundExecutor.shutdownNow();
+        clearInboundShare();
         clearPending();
         handler.removeCallbacksAndMessages(null);
         if (authDialog != null) authDialog.cancel();
