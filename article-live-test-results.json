@@ -1,0 +1,21 @@
+{
+  "status": "blocked",
+  "results": [
+    {
+      "url": "https://mp.weixin.qq.com/s/0kU5A8aKXHMeJf0kybTMww",
+      "source": "https://visitsz.wglj.suzhou.com.cn/news-detail.aspx?id=2727",
+      "status": "blocked",
+      "characterCount": 0,
+      "title": null,
+      "errorCategory": "restricted"
+    },
+    {
+      "url": "https://mp.weixin.qq.com/s/qH6d_G4iaQOkaoeBEYgvfA",
+      "source": "https://www.chnmuseum.cn/zx/gbxw/202609/t20260923_282658.shtml",
+      "status": "blocked",
+      "characterCount": 0,
+      "title": null,
+      "errorCategory": "restricted"
+    }
+  ]
+}

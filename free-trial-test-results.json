@@ -1,0 +1,53 @@
+{
+  "checkedAt": "2026-10-10T04:30:57.729Z",
+  "transport": "local HTTP only",
+  "bind": "127.0.0.1:4174",
+  "modelCalls": 0,
+  "publicHttpsVerified": false,
+  "cases": [
+    {
+      "name": "unauthenticated-page",
+      "status": 401
+    },
+    {
+      "name": "unauthenticated-config",
+      "status": 401
+    },
+    {
+      "name": "authenticated-page",
+      "status": 200
+    },
+    {
+      "name": "authenticated-config",
+      "status": 200
+    },
+    {
+      "name": "private-path:/.env",
+      "status": 404
+    },
+    {
+      "name": "private-path:/server.mjs",
+      "status": 404
+    },
+    {
+      "name": "private-path:/clients/android/local.properties",
+      "status": 404
+    },
+    {
+      "name": "private-path:/.git/config",
+      "status": 404
+    },
+    {
+      "name": "private-path:/work/free-trial/access.json",
+      "status": 404
+    },
+    {
+      "name": "foreign-host",
+      "status": 403
+    },
+    {
+      "name": "foreign-origin",
+      "status": 403
+    }
+  ]
+}

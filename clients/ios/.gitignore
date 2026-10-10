@@ -1,0 +1,8 @@
+Pods/
+Xingyu.xcodeproj/
+Xingyu.xcworkspace/
+Config/Local.xcconfig
+DerivedData/
+*.xcuserstate
+xcuserdata/
+__pycache__/

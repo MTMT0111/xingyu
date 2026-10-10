@@ -1,0 +1,77 @@
+{
+  "startedAt": "2026-10-09T17:47:01.073087+00:00",
+  "archive": "<original-workspace>\\outputs\\星语-分享接话器-开发版.zip",
+  "archiveBytes": 3426075,
+  "archiveSha256": "3e11ed978f695c6de4f8f728e040d20a38d35e9ca017b0c14df69526ee3c6216",
+  "packageEntries": 53,
+  "cleanDirectory": "<original-workspace>\\work\\package-smoke-4183d7cd99",
+  "projectDirectory": "<original-workspace>\\work\\package-smoke-4183d7cd99\\mama-translator",
+  "excludedContentCheck": {
+    "envAbsent": true,
+    "nodeModulesAbsentBeforeInstall": true,
+    "modelWeightsAbsent": true,
+    "credentialPatternHits": 0,
+    "privateEnvironmentCopied": false
+  },
+  "notes": [
+    "Credential scan matches common API-key and private-key formats; it is not an exhaustive secret detector."
+  ],
+  "completedAt": "2026-10-09T17:48:21.710Z",
+  "status": "passed",
+  "install": {
+    "command": "npm ci --no-audit --no-fund",
+    "exitCode": 0,
+    "packagesAdded": 7,
+    "globalInstall": false,
+    "nodeVersion": "v24.19.0"
+  },
+  "startup": {
+    "command": "node --env-file-if-exists=.env server.mjs",
+    "process": "independent child process",
+    "bind": "127.0.0.1",
+    "randomPort": 59896,
+    "cloudConfigurationExplicitlyBlank": true,
+    "privateEnvLoaded": false,
+    "expectedMissingEnvNotice": true
+  },
+  "checks": {
+    "config": {
+      "status": 200,
+      "mode": "demo",
+      "liveAvailable": false,
+      "mediaAvailable": false,
+      "videoAvailable": false,
+      "label": "本地体验 · 非实时 AI"
+    },
+    "text": {
+      "status": 200,
+      "contentSummaryPresent": true,
+      "replyPresent": true,
+      "generationSource": "templates",
+      "decisionSource": "local_rules"
+    },
+    "imageLiveWithoutConfiguration": {
+      "status": 503,
+      "error": "真实 AI 尚未配置。可以继续本地体验，或按 README 配置 Jev 与 LLM。",
+      "code": "NOT_CONFIGURED"
+    },
+    "rootPageStatus": 200
+  },
+  "documentation": {
+    "readmeInstallAndStartCommandsPresent": true,
+    "mediaRequirementsFilePresent": true,
+    "mediaModelDownloadCommandPresent": true,
+    "packagedVideoFixturePresent": true,
+    "envExamplePresent": true,
+    "mediaInstallationRerun": false
+  },
+  "cloudRequestsSent": false,
+  "fullTestSuiteRerun": false,
+  "originalArchivePreserved": true,
+  "limitations": [
+    "This verifies an independently installed package in local demo mode, not real cloud credentials or WeChat deployment.",
+    "Python dependency installation and model download were inspected, not repeated."
+  ],
+  "childProcessExited": true,
+  "pathRedactionNote": "Historical test on the original development machine. Personal directory prefixes redacted for repository sharing; results are unchanged."
+}

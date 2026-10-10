@@ -1,0 +1,39 @@
+{
+  "scope": "HTML/CSS visual refinement only",
+  "views": [
+    {
+      "width": 1440,
+      "overflow": false,
+      "inputTop": 332,
+      "smallTargets": [],
+      "screenshots": [
+        "empty-1440.png",
+        "reply-1440.png"
+      ]
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "inputTop": 266.3125,
+      "smallTargets": [],
+      "screenshots": [
+        "empty-390.png",
+        "reply-390.png"
+      ]
+    },
+    {
+      "width": 320,
+      "overflow": false,
+      "inputTop": 262,
+      "smallTargets": [],
+      "screenshots": [
+        "empty-320.png",
+        "reply-320.png"
+      ]
+    }
+  ],
+  "errors": [],
+  "nativeShare": "disabled",
+  "cloudModelsCalled": false,
+  "fullBrowserRegressionRun": false
+}

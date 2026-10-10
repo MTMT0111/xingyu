@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#fafbf8">
+  <meta name="description" content="读懂长辈分享的文字、图片和小视频，理解一点，回得自然一点。">
+  <title>星语 · 把关心，好好回给他们</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%2334529a'/%3E%3Cpath d='m20 7 3 10 10 3-10 3-3 10-3-10-10-3 10-3Z' fill='%23ffe29a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#source-text">跳到消息输入</a>
+  <header class="site-header container">
+    <a class="brand" href="/" aria-label="星语首页"><span aria-hidden="true">✦</span>星语<span class="brand-en">XINGYU</span></a>
+    <span class="header-note">给牵挂你的人，一点回音</span>
+  </header>
+  <main class="container">
+    <section class="intro" aria-labelledby="hero-title">
+      <div class="intro-copy">
+        <p class="eyebrow"><span aria-hidden="true"></span> 一句话，让彼此近一点</p>
+        <h1 id="hero-title">把关心，<br>好好<span class="title-mark">回给他们。</span></h1>
+        <p class="intro-description">先读懂那份关心，<br class="mobile-break">再回一句自己的话。</p>
+      </div>
+      <svg class="planet-art" viewBox="0 0 390 255" aria-hidden="true">
+        <defs>
+          <filter id="ink-grain" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".1" numOctaves="2" seed="8" result="grain"/><feDisplacementMap in="SourceGraphic" in2="grain" scale="1.7"/></filter>
+          <clipPath id="little-planet"><ellipse cx="219" cy="188" rx="102" ry="49"/></clipPath>
+        </defs>
+        <g filter="url(#ink-grain)">
+          <path d="M102 183C127 124 232 135 295 147c70 14 83 38 35 61-51 26-197 33-242 11-30-14-22-29 14-36Z" stroke="#cbd9e8" stroke-width="1.2" fill="none"/>
+          <ellipse cx="219" cy="188" rx="102" ry="49" fill="#f6d56e"/>
+          <g clip-path="url(#little-planet)" fill="none" stroke-linecap="round">
+            <path d="M119 178c49-36 108-29 181-8M125 191c46-22 111-22 180-1M137 207c54-13 99-9 154 6" stroke="#ffe8a2" stroke-width="10"/>
+            <path d="M125 214c53 9 128 8 171-15M156 225c48 7 78 3 109-5" stroke="#d6b64e" stroke-width="6" opacity=".5"/>
+          </g>
+          <path d="M226 174c-7-16-2-40 0-61" stroke="#577b72" stroke-width="3.2" fill="none"/>
+          <path d="M225 149c-17-3-23-14-26-19 14 0 22 6 26 19m2-14c9-13 21-18 25-17-2 12-11 20-25 17" fill="#71968a"/>
+          <path d="M225 121c-16-8-21-18-17-28-1-13 14-21 23-16 14-3 24 10 17 22-1 11-9 18-23 22Z" fill="#e88578"/>
+          <path d="M223 114c-12-11-13-24-2-27 10-5 19 3 14 11-3 7-12 6-15 0m-9-4c-6 11 5 21 17 25" stroke="#f8c3a9" stroke-width="2.5" fill="none"/>
+          <path d="M175 180v-76c0-60 103-60 103 0v76" stroke="#96aec3" stroke-width="1.5" fill="none"/>
+          <path d="M187 110v-10c0-25 13-38 29-43" stroke="#c7d5df" stroke-width="2" fill="none"/>
+          <path d="m98 83 4 12 12 4-12 4-4 12-4-12-12-4 12-4Z" fill="#efcc61"/>
+          <path d="m310 56 3 9 9 3-9 3-3 9-3-9-9-3 9-3Z" fill="#385998"/>
+          <path d="m337 141 2 6 6 2-6 2-2 6-2-6-6-2 6-2Z" fill="#e4bd4b"/>
+          <circle cx="135" cy="52" r="2.3" fill="#9eb5d4"/><circle cx="294" cy="122" r="2" fill="#9eb5d4"/>
+          <path d="M124 249h56m122-24h25" stroke="#dbe3e9" stroke-width="1.4"/>
+        </g>
+      </svg>
+    </section>
+
+    <section class="workbench" aria-label="长辈消息回复助手">
+      <form id="translate-form" class="input-panel" novalidate>
+        <div class="panel-heading"><h2><span class="heading-dot" aria-hidden="true"></span>收到的内容</h2><span class="tiny-label">文字、图片或小视频</span></div>
+        <div class="recipient-row"><label for="recipient-select">想回复谁</label><select id="recipient-select"><option value="mother">妈妈</option><option value="father">爸爸</option><option value="elder">其他长辈</option></select></div>
+        <label for="source-text" class="sr-only">长辈发来的消息</label>
+        <div class="source-wrap">
+          <textarea id="source-text" rows="4" placeholder="把收到的消息、文章正文或公众号链接，粘贴到这里。" aria-describedby="source-counter"></textarea>
+          <span id="source-counter" class="counter">0 / 6000</span>
+        </div>
+        <div class="attachment-tools">
+          <label for="attachment-input">或添加图片 / 小视频 <span>选填 · 每次一个</span></label>
+          <input id="attachment-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mov" aria-describedby="attachment-help">
+          <p id="attachment-help">图片 ≤4 MB；视频 ≤20 MB、60 秒。选择后不会自动上传。</p>
+        </div>
+        <div id="attachment-preview" class="attachment-preview" hidden>
+          <div class="attachment-heading"><span id="attachment-name"></span><button id="remove-attachment" type="button" aria-label="移除附件">移除</button></div>
+          <img id="attachment-image" alt="已选图片的本地预览" hidden>
+          <video id="attachment-video" controls playsinline preload="metadata" aria-label="已选视频的本地预览" hidden></video>
+          <p id="attachment-detail"></p>
+        </div>
+        <p id="media-note" class="media-note" role="status" hidden></p>
+        <div class="example-row"><span>没有现成的消息？</span><button id="try-example" type="button">试一条示例 <span aria-hidden="true">↗</span></button></div>
+        <div id="form-error" class="error-message" role="alert" hidden></div>
+        <div class="generation-actions"><button id="translate-button" class="primary-button" type="submit"><span id="translate-button-text">帮我回一句</span><span aria-hidden="true">→</span></button><button id="cancel-request" type="button" hidden>取消</button></div>
+        <p id="privacy-note" class="privacy-note">本地示例：按关键词匹配文案，未调用 AI。</p>
+        <div id="mode-controls" class="mode-controls" hidden><label for="mode-select">生成方式</label><select id="mode-select"><option value="demo">本地示例</option><option value="live">真实 AI</option></select></div>
+        <div id="init-error" class="connection-note" role="status" hidden><span>服务连接暂时不稳定。</span><button id="retry-init" type="button">重新连接</button></div>
+      </form>
+
+      <section id="result-card" class="output-panel" aria-labelledby="result-title" aria-busy="false">
+        <div class="panel-heading"><h2 id="result-title" tabindex="-1"><span class="heading-dot reply-dot" aria-hidden="true"></span>准备好的回音</h2><span id="result-status" class="tiny-label">等你的一句话</span></div>
+        <div id="empty-state" class="empty-state">
+          <div class="envelope" aria-hidden="true"><span>✦</span><i></i></div>
+          <h3>让对话，轻轻接下去。</h3>
+          <p>这里会整理好内容，<br>再陪你想一句合适的回复。</p>
+          <span class="empty-caption">YOUR WORDS, A LITTLE WARMER</span>
+        </div>
+        <div id="loading-state" class="loading-state" role="status" hidden><span class="loading-dot" aria-hidden="true"></span><span id="loading-text">正在想一句合适的回应…</span></div>
+        <div id="result-content" hidden>
+          <div class="content-block"><h3>内容说了什么</h3><p id="content-summary"></p></div>
+          <details id="content-evidence" class="content-evidence" hidden><summary>查看识别内容</summary><div id="visual-evidence"><h4 id="visual-evidence-title">画面与文字</h4><p id="visual-summary"></p></div><div id="audio-evidence"><h4>视频中的话</h4><p id="audio-status"></p><p id="audio-transcript"></p></div><p id="evidence-coverage"></p></details>
+          <div class="meaning-block"><h3>可以这样理解</h3><ul id="possible-meanings"></ul><p id="reply-tip-text" class="reply-tip"></p></div>
+          <div class="reply-label"><label for="reply-text">可以这样回</label><span>改成你自己的话</span></div>
+          <textarea id="reply-text" rows="4" aria-label="可编辑的回复"></textarea>
+          <div class="copy-row"><span id="copy-status" role="status"></span><button id="wechat-reply" class="primary-button" type="button" aria-describedby="share-note" disabled hidden><span id="wechat-reply-text">去微信选人</span><span aria-hidden="true">↗</span></button><button id="copy-reply" type="button" disabled><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="6" y="5" width="9" height="11" rx="2"/><path d="M11 3H5a2 2 0 0 0-2 2v6"/></svg>复制回复</button><button id="share-reply" type="button" aria-describedby="share-note" disabled hidden><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 11V2m-3 3 3-3 3 3M4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1"/></svg><span id="share-reply-text">系统分享</span></button></div>
+          <p id="share-note" class="share-note">当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。</p>
+          <p id="result-note" class="result-note"></p>
+        </div>
+        <div id="result-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+      </section>
+    </section>
+    <footer class="site-footer">
+      <span id="mode-label"><i aria-hidden="true"></i>本地示例 · 非实时 AI</span>
+      <details id="wechat-guide"><summary>微信里怎么用？</summary><p>粘贴文字或公众号文章链接，也可以添加保存好的图片、小视频；生成后检查、编辑回复。若有“系统分享”按钮，可打开系统菜单；菜单里有微信时，再选择联系人并确认发送。也可复制后回原聊天发送。这里的“想回复谁”仅调整称呼，不读取微信联系人。普通视频链接和视频号卡片暂不能自动读取，请上传视频文件。当前地址仅供本机预览，手机使用需部署到 HTTPS 网站。</p></details>
+      <span class="footer-thought">理解对方，也照顾自己的感受。</span>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "xingyu-elder-replies",
+  "version": "6.0.0",
+  "private": true,
+  "type": "module",
+  "description": "星语：适配微信 H5 的长辈消息回复助手",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:live": "node --env-file-if-exists=.env scripts/live-smoke.mjs",
+    "test:video": "node --env-file-if-exists=.env scripts/video-local-smoke.mjs"
+  },
+  "dependencies": {
+    "htmlparser2": "10.0.0"
+  }
+}

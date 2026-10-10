@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+node_modules/
+models/
+__pycache__/
+test-results/
+work/
+.venv/
+*.log
+*.jks
+*.keystore
+*.p12
+*.p8
+*.pem
+*.key
+*.mobileprovision

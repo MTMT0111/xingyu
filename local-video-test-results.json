@@ -1,0 +1,57 @@
+{
+  "startedAt": "2026-10-09T17:20:48.036Z",
+  "completedAt": "2026-10-09T17:20:50.428Z",
+  "status": "passed",
+  "localASRReal": true,
+  "cloudModelsMocked": true,
+  "fullLiveModelPass": false,
+  "scope": "Real local video decoding and Whisper ASR through HTTP business flow; visual LLM, Jev and reply LLM are explicit fixtures. This is not a complete real cloud-model test.",
+  "fixture": {
+    "filename": "parent-message.mp4",
+    "bytes": 171384,
+    "sha256": "2349dffb185dc357dd3947be4ea0d0d150b930e64b04d4cc2511f89411bc71f5",
+    "provenance": "Local Windows SAPI Huihui Chinese synthetic speech with generated subtitle video; no private user media."
+  },
+  "runtime": {
+    "python": "<original-user-profile>/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe",
+    "pythonPath": "<original-workspace>/work/media-deps",
+    "whisperModel": "<original-workspace>/work/media-model",
+    "model": "Systran/faster-whisper-base",
+    "device": "cpu",
+    "computeType": "int8"
+  },
+  "http": {
+    "status": 200,
+    "seconds": 2.281,
+    "cloudFixtureCalls": 3,
+    "order": [
+      "vision_fixture",
+      "jev_fixture",
+      "reply_fixture"
+    ],
+    "frameCount": 6,
+    "duration": 11.417,
+    "audioStatus": "transcribed",
+    "realTranscript": "孩子 晚上寄的吃饭天寄凉了 多穿一件衣服有空的时候 给妈妈打个电话",
+    "contentSummary": "视频提醒孩子吃饭、天凉添衣，并希望有空给妈妈打电话。",
+    "evidenceReachedJevAndReply": true
+  },
+  "cancellation": {
+    "code": "MEDIA_CANCELLED",
+    "seconds": 0.108,
+    "childProcessExited": true
+  },
+  "cleanup": {
+    "ownedTemporaryDirectories": 2,
+    "ownedDirectoriesRemaining": 0,
+    "unrelatedDirectoriesTouched": false,
+    "preexistingDirectories": 0,
+    "afterDirectories": 0
+  },
+  "limitations": [
+    "ASR transcript contains homophone errors; users should be allowed to review it.",
+    "No real cloud provider was contacted in this test.",
+    "This test does not validate WeChat on a physical phone."
+  ],
+  "pathRedactionNote": "Historical test on the original development machine. Personal directory prefixes redacted for repository sharing; results are unchanged."
+}

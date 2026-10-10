@@ -1,0 +1,3 @@
+#include "Base.xcconfig"
+XINGYU_ALLOW_RUNTIME_CONFIG = YES
+#include? "../Pods/Target Support Files/Pods-Xingyu/Pods-Xingyu.debug.xcconfig"

@@ -1,0 +1,53 @@
+{
+  "checkedAt": "2026-10-10T04:28:59.538Z",
+  "provider": "DeepSeek",
+  "model": "deepseek-flash",
+  "status": "passed",
+  "realApiCalls": 2,
+  "jevTested": false,
+  "fullLiveModelPass": false,
+  "scope": "Official DeepSeek text generation and vision with synthetic fixtures; not the complete Jev/application chain.",
+  "cases": [
+    {
+      "name": "parent-message-text",
+      "status": "passed",
+      "httpStatus": 200,
+      "output": {
+        "content_summary": "一条降温提醒，叮嘱出门加衣、再忙也要好好吃饭。",
+        "possible_meanings": [
+          "可能只是日常关心，怕你着凉。",
+          "也许想借这句话和你聊几句近况。"
+        ],
+        "reply_tip": "先接住关心，再说说自己的情况，顺便问一句家里冷不冷。",
+        "reply": "妈，知道啦，我出门会加衣服的。你那边也降温了吗？家里冷不冷，你自己也多穿点，别光顾着惦记我。"
+      },
+      "model": "deepseek-flash",
+      "usage": {
+        "prompt_tokens": 716,
+        "completion_tokens": 107,
+        "total_tokens": 823,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 716
+      },
+      "elapsedMs": 1333
+    },
+    {
+      "name": "synthetic-image-vision",
+      "status": "passed",
+      "httpStatus": 200,
+      "output": {
+        "visual_summary": "图片为浅米黄色背景的文字卡片，无其他图形或人物。顶部为深蓝色加粗标题，下方为三行深蓝色正文，内容为生活节奏与自我照顾的短句。画面清晰，文字完整可辨。",
+        "visible_text": "把日子过成自己的风景\n慢一点也没关系，照顾好自己。\n别和别人比较，每个人都有自己的节奏。\n今天认真吃饭，明天继续向前。"
+      },
+      "model": "deepseek-flash",
+      "usage": {
+        "prompt_tokens": 424,
+        "completion_tokens": 95,
+        "total_tokens": 519,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 424
+      },
+      "elapsedMs": 1401
+    }
+  ]
+}

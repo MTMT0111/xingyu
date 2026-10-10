@@ -1,0 +1,18 @@
+{
+  "startedAt": "2026-10-10T04:29:58.070Z",
+  "status": "blocked",
+  "fullLiveModelPass": false,
+  "execution": "Real browser → local server → official Jev and configured LLM; no mocks or automatic retries.",
+  "limitation": "Seven synthetic, non-private text/image/video samples and basic checks do not prove comprehensive semantic quality or WeChat device compatibility. Video uses sampled frames and fallible local speech recognition.",
+  "missingNames": [
+    "TYPESAFE_API_KEY"
+  ],
+  "cases": [],
+  "requestCount": 0,
+  "failure": {
+    "stage": "configuration",
+    "code": "MISSING_CONFIGURATION"
+  },
+  "completedAt": "2026-10-10T04:29:58.072Z",
+  "pageErrorCount": 0
+}

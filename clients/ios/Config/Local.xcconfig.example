@@ -1,0 +1,8 @@
+// Fill real registration values. This file contains no AppSecret or model keys.
+// In xcconfig URLs write https:/$()/host/ so // is not treated as a comment.
+XINGYU_APP_URL =
+XINGYU_WECHAT_APP_ID =
+XINGYU_UNIVERSAL_LINK =
+XINGYU_ASSOCIATED_DOMAIN =
+DEVELOPMENT_TEAM =
+// Change PRODUCT_BUNDLE_IDENTIFIER in project.yml to the registered bundle ID.

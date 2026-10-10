@@ -1,0 +1,81 @@
+{
+  "checkedAt": "2026-10-10T02:55:30.068379+00:00",
+  "version": "6.0.0",
+  "android": {
+    "status": "debug_apk_built_and_signature_verified",
+    "applicationId": "com.xingyu.reply",
+    "versionName": "1.0",
+    "gradle": "8.10.2",
+    "agp": "8.8.2",
+    "compileSdk": 35,
+    "targetSdk": 35,
+    "minSdk": 24,
+    "buildTools": "35.0.0",
+    "buildJdk": "23.0.1",
+    "sourceCompatibility": 17,
+    "wechatSDK": "6.8.40",
+    "androidxWebkit": "1.17.1",
+    "passedGradleTasks": [
+      "testDebugUnitTest",
+      "assembleDebug",
+      "lintDebug"
+    ],
+    "unitTests": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 2,
+      "warningIds": [
+        "UnusedAttribute",
+        "SetJavaScriptEnabled"
+      ],
+      "review": "Android 13 back callback attribute is ignored on older Android; JavaScript is required for the trusted same-origin H5."
+    },
+    "artifact": "downloads/xingyu-android-debug.apk",
+    "bytes": 1308525,
+    "sha256": "845944ac4b698a22265087cbe1d2d67978ea5b333ad16e7fbf76a93e9fe70387",
+    "signatureVerified": true,
+    "signatureType": "development_debug",
+    "certificateMD5": "47695d55708a06168886218f9e8ba954",
+    "certificateSHA256": "15008f681fbceaaf959bec6a9df4b1730c904a2d79e78e32cf41b1299794ebba",
+    "latestJavaSourceCompiled": true,
+    "gradleDistributionSHA256": "31c55713e40233a8303827ceb42ca48a47267a0ad4bab9177123121e71524c26",
+    "connectedAdbDevices": 0,
+    "installedOnDevice": false,
+    "realWechatShareTested": false,
+    "renderProcessRecoveryDeviceTested": false,
+    "buildWarnings": [
+      "SDK metadata parser warns about XML v4; build succeeded.",
+      "Initial D8 build warned about stack-map tables in the official WeChat SDK; no runtime/device validation performed."
+    ]
+  },
+  "ios": {
+    "status": "source_only_static_checks_passed",
+    "wechatSDK": "2.0.9",
+    "minIOS": "14.0",
+    "staticChecks": 19,
+    "xctestMethodsWritten": 10,
+    "compiled": false,
+    "xctestsExecuted": false,
+    "signedIPAProduced": false,
+    "realWechatShareTested": false,
+    "reason": "This environment is Windows; Xcode/Mac and Apple signing are unavailable.",
+    "report": "clients/ios/source-validation-results.json"
+  },
+  "web": {
+    "browserGroupsPassed": 41,
+    "nativeBridgeMocked": true,
+    "realMessageSent": false,
+    "report": "browser-test-results.json"
+  },
+  "outstanding": [
+    "Registered mobile WeChat AppID and platform configuration",
+    "Controlled HTTPS service with valid Jev/LLM credentials",
+    "iOS Xcode build and signing",
+    "Android/iOS device validation of generate, edit, select WeChat contact, confirm and return"
+  ]
+}

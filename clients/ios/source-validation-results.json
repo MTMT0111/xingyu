@@ -1,0 +1,34 @@
+{
+  "checkedAt": "2026-10-10T02:47:50.588433+00:00",
+  "status": "passed",
+  "checks": [
+    "plist_has_no_ATS_exceptions",
+    "official_wechat_query_schemes",
+    "associated_domain_uses_build_configuration",
+    "official_sdk_version_pinned",
+    "app_id_and_service_example_are_blank",
+    "share_is_text_only_session",
+    "only_single_pending_sdk_request",
+    "bridge_checks_main_document_frame_and_security_origin",
+    "reply_payload_uses_argument_serialization",
+    "popups_and_external_navigation_blocked",
+    "certificate_validation_not_bypassed",
+    "basic_auth_is_same_origin_session_only",
+    "release_disables_runtime_configuration",
+    "boundary_xctests_exist",
+    "nul_text_is_rejected",
+    "same_service_settings_reuse_webview",
+    "sdk_response_wait_is_bounded",
+    "timeout_permanently_stops_response_attribution",
+    "handoff_after_timeout_releases_pending"
+  ],
+  "staticChecks": 19,
+  "iosCompiled": false,
+  "xctestsExecuted": false,
+  "deviceTested": false,
+  "wechatSDKCalled": false,
+  "limitations": [
+    "Windows static source/configuration inspection only.",
+    "Xcode build, Swift/Objective-C interoperability, actual UIKit/WebKit behavior and registered WeChat handoff remain unverified."
+  ]
+}

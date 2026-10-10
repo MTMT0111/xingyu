@@ -1,0 +1,6 @@
+platform :ios, '14.0'
+project 'Xingyu.xcodeproj'
+
+target 'Xingyu' do
+  pod 'WechatOpenSDK-XCFramework', '2.0.9'
+end

@@ -1,0 +1,8 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      { "appID": "", "paths": ["/wechat/*"] }
+    ]
+  }
+}

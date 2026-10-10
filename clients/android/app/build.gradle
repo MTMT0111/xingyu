@@ -1,0 +1,30 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.xingyu.reply'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.xingyu.reply'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+    buildFeatures { buildConfig true }
+    buildTypes {
+        release {
+            debuggable false
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.17.1'
+    implementation 'com.tencent.mm.opensdk:wechat-sdk-android:6.8.40'
+    testImplementation 'junit:junit:4.13.2'
+}
