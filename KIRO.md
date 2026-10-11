@@ -82,3 +82,9 @@ Headless 需要单独配置 `KIRO_API_KEY`；如使用 IDE 交互登录，则在
 在媒体功能开发中，再次实际执行 `chat --v3 --no-interactive --trust-tools=read,grep`，限定只读审查产品范围、媒体处理、服务端及测试，禁止读取 `.env`。Kiro Agent Server 0.66.26 启动后仍返回 HTTP 403、`TEMPORARILY_SUSPENDED`，未完成模型审阅。本次没有可声称由 Kiro 生成的改动；账号恢复入口为 [Kiro 官方支持](https://support.aws.amazon.com/#/contacts/kiro)。
 
 Android 系统分享入口完成后又发起一次独立只读审阅，范围限定为 `.kiro/steering/project.md`、`.kiro/specs/android-share-plugin/`、Android 客户端、前端接收逻辑和对应测试。Windows 原生 CLI 仍为 2.28.0，Kiro Agent Server 仍为 0.66.26；会话 `sess_b1ba74a8-cf54-45e5-83cb-3f6482bb8c34` 已加载项目 Steering，但请求随即返回 HTTP 403、`TEMPORARILY_SUSPENDED`，退出码 1。解析结果仍为 **0 个模型回答、0 个工具调用**，因此 Android 方案及实现均由 Codex 完成，Kiro 实审任务继续保持未勾选。
+
+## 2026-10-11 提交前重试
+
+提交前再次用 Windows 原生 Kiro CLI 2.28.0 发起受限只读审阅，仅授权 `read,grep`，明确禁止读取 `.env`、密钥和用户数据，禁止修改文件或执行 shell。审阅范围为当前 Steering、Android 分享 spec、产品说明、README、前端、服务端和浏览器测试。
+
+Kiro Agent Server 0.66.26 启动成功，会话 `sess_a6d39a47-5525-4e82-8728-328d779763d4` 的 `steering_inclusion` 再次确认 `.kiro/steering/project.md` 已加载；提示阶段仍返回 HTTP 403、`TEMPORARILY_SUSPENDED`，请求 ID `55cee7ef-ad11-43f4-addc-030485f5c0a5`，退出码 1。结果为 **0 个模型回答、0 个工具调用、0 个文件修改**。这次尝试不能计为 Kiro 开发或审阅，比赛要求的 Kiro 实际参与仍未满足。
