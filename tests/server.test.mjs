@@ -416,6 +416,7 @@ test('HTTP trust boundaries reject malformed input, cross-origin writes, and ove
   assert.equal(crossOrigin.status, 403);
   const sameOrigin = await app.post(input(), { headers: { origin: app.base } });
   assert.equal(sameOrigin.status, 200);
+  assert.equal(sameOrigin.headers.get('referrer-policy'), 'same-origin');
   const oversized = await app.post(JSON.stringify({ text: 'a'.repeat(30 * 1024 * 1024) }));
   assert.equal(oversized.status, 413);
   const followup = await app.post(input());

@@ -1,6 +1,13 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+const settle = promises => Promise.all(promises.map(promise => Promise.resolve(promise).then(
+  value => ({ status: 'fulfilled', value }),
+  reason => ({ status: 'rejected', reason })
+)));
+const requestId = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID() :
+  Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('-');
 const state = { busy: false, sharing: false, initializing: false, mode: 'demo', modeSettled: false, liveAvailable: false, mediaAvailable: false, videoAvailable: false, attachment: null, controller: null, result: null, submitted: null, exampleIndex: -1 };
 let pendingConfig = null;
 const draftKey = 'xingyu-draft-v1';
@@ -18,8 +25,8 @@ let examples = [
 async function requestJSON(url, options, { timeout = 32000, signal } = {}) {
   const controller = new AbortController();
   const cancel = () => controller.abort();
-  if (signal?.aborted) cancel();
-  signal?.addEventListener('abort', cancel, { once: true });
+  if (signal && signal.aborted) cancel();
+  if (signal) signal.addEventListener('abort', cancel, { once: true });
   const timer = setTimeout(cancel, timeout);
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
@@ -28,14 +35,14 @@ async function requestJSON(url, options, { timeout = 32000, signal } = {}) {
       if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
       throw new Error('服务返回的内容不完整，请重试。');
     }
-    if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : '暂时没能生成回复，请重试。');
+    if (!response.ok) throw new Error(data && typeof data.error === 'string' ? data.error : '暂时没能生成回复，请重试。');
     return data;
   } catch (error) {
-    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
     if (error.name === 'AbortError') throw new Error('等得有点久了，输入和已有回复已保留，请再试一次。');
     if (error instanceof TypeError) throw new Error('暂时连接不上服务，输入和已有回复已保留，请稍后重试。');
     throw error;
-  } finally { clearTimeout(timer); signal?.removeEventListener('abort', cancel); }
+  } finally { clearTimeout(timer); if (signal) signal.removeEventListener('abort', cancel); }
 }
 
 function showError(message) {
@@ -48,7 +55,10 @@ function clearError() { $('form-error').hidden = true; }
 function saveDraft() {
   try {
     // Keep summaries and replies in this tab; omit file bytes, full OCR, article bodies and transcripts.
-    const result = state.result && Object.fromEntries(['content_summary', 'possible_meanings', 'reply_tip', 'reply', 'decision_source', 'generation_source', 'note'].map(key => [key, state.result[key]]));
+    const result = state.result && ['content_summary', 'possible_meanings', 'reply_tip', 'reply', 'decision_source', 'generation_source', 'note'].reduce((saved, key) => {
+      saved[key] = state.result[key];
+      return saved;
+    }, {});
     const draft = { text: $('source-text').value, recipient: $('recipient-select').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect) };
     if (draft.text.length > 24000 || draft.reply.length > 20000) throw new Error('Draft too large');
     if (draft.text || result || draft.hadAttachment) sessionStorage.setItem(draftKey, JSON.stringify(draft));
@@ -70,7 +80,7 @@ function restoreDraft() {
     if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['mother', 'father', 'elder'].includes(draft.recipient) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
     if (draft.result) {
       validateResult(draft.result);
-      if (draft.submitted?.text !== draft.text.trim() || draft.submitted?.recipient !== draft.recipient) throw new Error('Stale draft');
+      if (!draft.submitted || draft.submitted.text !== draft.text.trim() || draft.submitted.recipient !== draft.recipient) throw new Error('Stale draft');
     }
     $('source-text').value = draft.text;
     $('recipient-select').value = draft.recipient;
@@ -122,9 +132,9 @@ function receiveWechat(value) {
   try { data = typeof value === 'string' ? JSON.parse(value) : value; } catch { return; }
   if (!data || typeof data !== 'object' || typeof data.id !== 'string') return;
   if (data.type === 'shareResult') {
-    if (nativeWechat.lastShare?.id !== data.id || nativeWechat.lastShare.text !== $('reply-text').value) return;
+    if (!nativeWechat.lastShare || nativeWechat.lastShare.id !== data.id || nativeWechat.lastShare.text !== $('reply-text').value) return;
     const messages = { completed: '微信分享流程已返回，请到聊天中确认。', cancelled: '已取消微信分享，回复已保留。', error: '微信分享未完成，回复已保留，可复制后发送。' };
-    if (Object.hasOwn(messages, data.status)) $('copy-status').textContent = data.code === 'result_unknown' ? '微信未返回分享结果，请到微信确认；回复仍在这里。' : messages[data.status];
+    if (hasOwn(messages, data.status)) $('copy-status').textContent = data.code === 'result_unknown' ? '微信未返回分享结果，请到微信确认；回复仍在这里。' : messages[data.status];
     return;
   }
   const pending = nativeWechat.pending.get(data.id);
@@ -139,7 +149,7 @@ function receiveWechat(value) {
 
 function requestWechat(type, text) {
   return new Promise((resolve, reject) => {
-    const id = crypto.randomUUID();
+    const id = requestId();
     const timer = setTimeout(() => {
       nativeWechat.pending.delete(id);
       reject(new Error('微信未返回确认，请先查看微信；回复仍在这里。'));
@@ -163,10 +173,10 @@ async function refreshWechat() {
 }
 
 function initializeWechat() {
-  if (typeof window.XingyuWeChat?.postMessage === 'function') {
+  if (window.XingyuWeChat && typeof window.XingyuWeChat.postMessage === 'function') {
     nativeWechat.post = data => window.XingyuWeChat.postMessage(JSON.stringify(data));
     window.XingyuWeChat.onmessage = event => receiveWechat(event.data);
-  } else if (typeof window.webkit?.messageHandlers?.xingyuWeChat?.postMessage === 'function') {
+  } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.xingyuWeChat && typeof window.webkit.messageHandlers.xingyuWeChat.postMessage === 'function') {
     nativeWechat.post = data => window.webkit.messageHandlers.xingyuWeChat.postMessage(data);
     window.addEventListener('xingyu-wechat', event => receiveWechat(event.detail));
   }
@@ -243,7 +253,7 @@ function receiveInboundShare(value) {
 function presentInboundShare(inbound) {
   document.body.dataset.entry = 'share';
   const conflict = hasDraftContent();
-  $('inbound-share-title').textContent = conflict ? '这里还有一份未完成的草稿' : inbound.entry === 'process_text' ? '已选中一段文字' : inbound.attachment?.kind === 'image' ? '收到一张图片' : inbound.attachment?.kind === 'video' ? '收到一段视频' : '收到一段文字';
+  $('inbound-share-title').textContent = conflict ? '这里还有一份未完成的草稿' : inbound.entry === 'process_text' ? '已选中一段文字' : inbound.attachment && inbound.attachment.kind === 'image' ? '收到一张图片' : inbound.attachment && inbound.attachment.kind === 'video' ? '收到一段视频' : '收到一段文字';
   const preview = inbound.text || inbound.attachment.name;
   $('inbound-share-preview').textContent = conflict ? `使用新内容会替换当前输入、附件和分析结果。新内容：${preview}` : preview;
   $('inbound-share-note').textContent = nativeWechat.post ? '尚未上传，也不会自动分析。' : '尚未上传，也不会自动分析；返回原应用请使用系统返回键。';
@@ -277,7 +287,7 @@ async function acceptInboundShare() {
       }
     }
     if (pendingInboundShare !== inbound) {
-      if (nextAttachment?.url) URL.revokeObjectURL(nextAttachment.url);
+      if (nextAttachment && nextAttachment.url) URL.revokeObjectURL(nextAttachment.url);
       nextAttachment = null;
       return;
     }
@@ -290,7 +300,7 @@ async function acceptInboundShare() {
     $('draft-status').textContent = '分享内容已放入；确认后再点“帮我回一句”';
     $('source-text').focus();
   } catch (error) {
-    if (nextAttachment?.url) URL.revokeObjectURL(nextAttachment.url);
+    if (nextAttachment && nextAttachment.url) URL.revokeObjectURL(nextAttachment.url);
     if (pendingInboundShare === inbound) $('inbound-share-note').textContent = error.message;
   } finally {
     acceptingInboundShare = false;
@@ -423,7 +433,7 @@ function updateMediaNotice() {
 }
 
 function updateAttachment(attachment) {
-  const previousUrl = state.attachment?.url;
+  const previousUrl = state.attachment && state.attachment.url;
   $('attachment-video').pause();
   $('attachment-video').removeAttribute('src');
   $('attachment-video').load();
@@ -533,7 +543,7 @@ function validateResult(data, attachmentKind) {
       !['not_applicable', 'transcribed', 'silent'].includes(evidence.audio_status) || !shortText(evidence.coverage, 1000))) {
     throw new Error('识别内容不完整，输入和已有回复已保留，请重试。');
   }
-  if (attachmentKind && (data.generation_source !== 'llm' || evidence?.kind !== attachmentKind ||
+  if (attachmentKind && (data.generation_source !== 'llm' || !evidence || evidence.kind !== attachmentKind ||
       attachmentKind === 'video' && !['transcribed', 'silent'].includes(evidence.audio_status))) {
     throw new Error(attachmentKind === 'article' ? '这次没有读取到文章正文，输入和已有回复已保留，请重试。' : '这次没有完成附件分析，输入和已有回复已保留，请重试。');
   }
@@ -554,7 +564,7 @@ function renderResult(data) {
     $('audio-status').textContent = evidence.audio_status === 'silent' ? '未识别到可用语音，分析依据为画面内容。' : '已识别视频中的语音，转写可能存在误差。';
     $('evidence-coverage').textContent = evidence.coverage;
   }
-  $('possible-meanings').replaceChildren();
+  $('possible-meanings').textContent = '';
   for (const meaning of data.possible_meanings) {
     const item = document.createElement('li');
     item.textContent = meaning;
@@ -595,7 +605,7 @@ async function generateReply() {
     if (attachment) payload.attachment = { kind: attachment.kind, name: attachment.file.name, mime: attachment.mime, data: await readAttachment(attachment.file, controller.signal) };
     const data = await requestJSON('/api/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, { timeout: attachment ? 180000 : article ? 60000 : 32000, signal: controller.signal });
     if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    validateResult(data, attachment?.kind || (article ? 'article' : undefined));
+    validateResult(data, attachment && attachment.kind || (article ? 'article' : undefined));
     renderResult(data);
     state.submitted = { text, recipient: payload.recipient };
     saveDraft();
@@ -622,7 +632,7 @@ async function copyReply() {
     return;
   }
   try {
-    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') throw new Error('Clipboard unavailable');
     await navigator.clipboard.writeText(reply);
     $('copy-status').textContent = activeInboundId ? nativeWechat.post ? '已复制，返回后在原应用输入框粘贴发送。' : '已复制，请用系统返回键回原应用粘贴发送。' : '已复制，回微信粘贴即可。';
     $('return-source').hidden = !(activeInboundId && nativeWechat.post);
@@ -658,7 +668,7 @@ async function shareReply() {
       DataError: '系统未能将回复交给所选应用。',
       TypeError: '当前系统不支持分享这段文字。'
     };
-    const reason = Object.hasOwn(reasons, error?.name) ? reasons[error.name] : '系统分享未完成。';
+    const reason = error && hasOwn(reasons, error.name) ? reasons[error.name] : '系统分享未完成。';
     $('copy-status').textContent = reason + '回复已保留，可点“复制回复”回微信粘贴。';
   } finally {
     state.sharing = false;
@@ -690,10 +700,10 @@ async function initialize() {
   if (state.initializing) return;
   state.initializing = true;
   $('retry-init').disabled = true;
-  const results = await Promise.allSettled([requestJSON('/api/config'), requestJSON('/api/examples')]);
+  const results = await settle([requestJSON('/api/config'), requestJSON('/api/examples')]);
   const [config, sample] = results;
-  const connected = config.status === 'fulfilled' && typeof config.value?.liveAvailable === 'boolean';
-  applyConfig({ connected, liveAvailable: connected && config.value.liveAvailable, mediaAvailable: connected && config.value.mediaAvailable === true, videoAvailable: connected && config.value.videoAvailable === true, mode: config.status === 'fulfilled' ? config.value?.mode : 'demo' });
+  const connected = config.status === 'fulfilled' && config.value && typeof config.value.liveAvailable === 'boolean';
+  applyConfig({ connected, liveAvailable: connected && config.value.liveAvailable, mediaAvailable: connected && config.value.mediaAvailable === true, videoAvailable: connected && config.value.videoAvailable === true, mode: config.status === 'fulfilled' && config.value ? config.value.mode : 'demo' });
   if (sample.status === 'fulfilled' && Array.isArray(sample.value) && sample.value.length && sample.value.every(item => typeof item.text === 'string')) examples = sample.value;
   $('init-error').hidden = connected && sample.status === 'fulfilled';
   state.initializing = false;
@@ -719,7 +729,7 @@ $('inbound-dismiss').addEventListener('click', () => dismissInboundShare(false))
 $('inbound-return').addEventListener('click', () => dismissInboundShare(true));
 $('return-source').addEventListener('click', returnToSource);
 $('remove-attachment').addEventListener('click', () => { if (!state.busy && !state.sharing) updateAttachment(null); });
-$('cancel-request').addEventListener('click', () => state.controller?.abort());
+$('cancel-request').addEventListener('click', () => { if (state.controller) state.controller.abort(); });
 $('copy-reply').addEventListener('click', copyReply);
 $('share-reply').addEventListener('click', shareReply);
 $('wechat-reply').addEventListener('click', shareWechatReply);

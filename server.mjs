@@ -196,7 +196,8 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Referrer-Policy', 'no-referrer');
+    // Chrome 68 WebView sends Origin: null for same-origin POSTs under no-referrer.
+    res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     const host = req.headers.host ?? '';
     if (publicUrl ? host.toLowerCase() !== publicUrl.host : !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) return json(res, 403, { error: '不接受这个访问地址。', code: 'HOST_DENIED' });

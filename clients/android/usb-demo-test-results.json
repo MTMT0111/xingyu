@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-10",
+  "date": "2026-10-11",
   "build": {
     "mode": "offline, no persistent daemon, one worker, 1024 MiB JVM heap limit",
     "debugApkBuilt": true,
@@ -25,11 +25,50 @@
     "releaseBuildConfigDebugFalse": true
   },
   "environment": {
-    "adbAuthorizedDeviceCount": 0,
+    "platform": "Lenovo/MEmu",
+    "androidVersion": "9",
+    "apiLevel": 28,
+    "chromeWebViewVersion": "68.0.3440.70",
+    "adbDevice": "127.0.0.1:11509",
+    "adbAuthorizedDeviceCount": 1,
     "androidStudioFoundInStandardPathsOrRegistry": false,
+    "androidStudioAvdTested": false,
     "newPluginsInstalled": 0,
-    "emulatorInstalledOrStarted": false
+    "emulatorInstalledOrStarted": true
   },
-  "notTested": ["physical device launch", "ACTION_SEND and ACTION_PROCESS_TEXT from real apps", "WebView clipboard on device", "WeChat on-device paste or SDK sharing"],
-  "buildWarnings": ["SDK metadata XML version mismatch", "Existing WeChat SDK D8 stack-map warnings in release build"]
+  "runtime": {
+    "debugApkInstalled": true,
+    "adbReverse4173": true,
+    "localServiceLoaded": true,
+    "actionSendTextPassed": true,
+    "actionSendImagePassed": true,
+    "actionSendVideoPassed": true,
+    "actionProcessTextPassed": true,
+    "deepSeekTextPassed": true,
+    "deepSeekImagePassed": true,
+    "deepSeekVideoPassed": true,
+    "videoSeconds": 11.4,
+    "videoFramesExtracted": 6,
+    "videoSpeechTranscribed": true,
+    "videoReplyGenerated": true,
+    "clipboardFallbackSelectedFullReply": true,
+    "systemBackReturnedToSourceGallery": true
+  },
+  "legacyWebViewCompatibility": {
+    "unsupportedModernJavaScriptDependenciesRemoved": true,
+    "referrerPolicy": "same-origin",
+    "cssFallbacksAdded": true,
+    "retestedOnWebView68": true
+  },
+  "notTested": [
+    "physical Android device",
+    "real WeChat share menu, paste, delivery, or SDK sharing",
+    "Android Studio AVD",
+    "iOS build or device",
+    "TypeSafe/Jev live classification"
+  ],
+  "buildWarnings": [
+    "SDK metadata XML version mismatch",
+    "Existing WeChat SDK D8 stack-map warnings in release build"
+  ]
 }

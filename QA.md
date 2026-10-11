@@ -1,12 +1,16 @@
 # 星语 · 分享接话器验证记录
 
-日期：2026-10-10。版本：6.0.0。环境：Windows、Node.js 24.19.0、Chrome 154.0.8037.98。本轮在已有客户端与界面上增加 LLM 独立流程、当前标签页草稿暂存及 Android USB 本地调试；Node 运行依赖未增加。
+日期：2026-10-11。版本：6.0.0。环境：Windows、Node.js 24.19.0、Chrome 154.0.8037.98，以及 Lenovo/MEmu Android 9（API 28、Chrome/WebView 68.0.3440.70）。本轮在已有客户端与界面上增加 LLM 独立流程、当前标签页草稿暂存及 Android USB 本地调试；Node 运行依赖未增加。
 
 ## Android 系统分享接收增补
 
 本轮新增 Android `ACTION_SEND`（单段文字 / JPG、PNG、WebP / MP4、WebM、MOV）与 `ACTION_PROCESS_TEXT`。页面先确认导入，已有草稿可保留或主动替换；不会因收到分享而上传、调用模型或发送。复制完成后可主动返回来源 App。这条系统入口不需要微信 AppID、额外插件、存储权限或常驻服务。
 
-本轮浏览器 49/49 通过，JS / CSP 错误均为 0，包含入站确认、草稿冲突、连续分享竞态、无桥接降级、媒体导入、复制后返回及截图；原生桥接和事件为模拟，证据为 `browser-test-results.json`。Android 本轮 Debug / Release 均构建成功，各 12/12 项单元测试通过，lint 0 错误、2 条既有警告，开发包签名有效；详见 `native-build-results.json`。ADB 仍无设备，未做真实微信分享菜单、Android URI 授权、选中文字或来源返回栈验收；不同微信版本 / ROM 是否露出入口尚未验证。正式 SDK 选联系人仍缺合格主体 AppID 及匹配包名/签名。既有 7 例真实 LLM 验收不替代系统入口实机测试。
+本轮浏览器 49/49 通过，JS / CSP 错误均为 0，包含入站确认、草稿冲突、连续分享竞态、无桥接降级、媒体导入、复制后返回及截图；证据为 `browser-test-results.json`。Android Debug / Release 均构建成功，各 12/12 项单元测试通过，lint 0 错误、2 条既有警告，开发包签名有效；详见 `native-build-results.json`。
+
+随后在 Lenovo/MEmu Android 9 上通过 ADB 安装 APK、反向转发 4173 并连接真实本地服务。`ACTION_SEND` 文字、图片、视频与 `ACTION_PROCESS_TEXT` 均进入确认流程并通过；文字、图片、视频实际调用 DeepSeek 成功。11.4 秒视频实际抽取 6 帧、完成语音转写并生成回复；旧 WebView 缺少可用剪贴板写入时，复制操作降级为选中完整回复文字；系统返回键已回到来源图库。结果见 `clients/android/usb-demo-test-results.json`。
+
+初次加载暴露 WebView 68 不支持部分现代 JavaScript API；修复移除了这些依赖，使用 `Referrer-Policy: same-origin` 并增加 CSS 回退后复测通过。这仍不是实体手机、真实微信、Android Studio AVD 或 iOS 验收。微信是否露出系统入口、实体设备的 URI 授权与 ROM 行为仍未知；正式 SDK 选联系人也仍缺合格主体 AppID 及匹配包名/签名。
 
 真机需覆盖：文字/单图/单视频、PROCESS_TEXT、已有草稿不覆盖、先确认后手动生成、空/超限/多选/失效授权拒绝、编辑复制后主动返回、进程回收后的重新分享。步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。
 
@@ -21,10 +25,11 @@
 | Android 构建与测试 | 本轮 Debug / Release 均构建成功，各 12/12 项测试通过 | lint 0 错误、2 条既有警告，开发包签名有效；覆盖新增输入规则，不代表 Intent/URI/微信真机运行 |
 | 7 个合成案例的真实 LLM 闭环 | 7/7 通过，均 HTTP 200 | `llm_only`、`jevTested: false`，真实浏览器、服务端、本地 ASR 和云模型；未发送微信消息 |
 | Jev | 尚未配置密钥 | LLM 可独立运行，Jev 分支仍未实际验证 |
-| 安卓真机与 Studio 镜像 | 未验证，ADB 设备列表为空 | 常见路径未发现 Studio；已有工作目录 SDK，不随仓库分发 |
+| Android 9 / MEmu 运行 | APK 安装、ADB reverse、四类 Intent 与真实 DeepSeek 文字/图片/视频通过 | WebView 68；复制降级为选中文本；返回来源图库通过 |
+| 实体安卓、真实微信与 Studio AVD | 未验证 | MEmu 不代替实体机、微信版本/ROM 或 Android Studio AVD；常见路径未发现 Studio |
 | 本地 Node 内存快照 | 空闲 Working Set 51.4 MiB / Private Memory 26.8 MiB | 单次快照，非峰值，不含浏览器、IDE、Gradle、云模型或本地 ASR |
 
-复现步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。Android Debug 允许的 HTTP 例外仅是 USB 转发所用的 `127.0.0.1:4173`，Release 仍要求 HTTPS。页面新增 sessionStorage 草稿：仅当前标签页暂存文字与回复，不存附件文件，刷新后的附件需重选；本轮浏览器回归覆盖恢复、清空、过期数据及存储不可用。
+复现步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。Android Debug 允许的 HTTP 例外仅是 ADB 转发所用的 `127.0.0.1:4173`，Release 仍要求 HTTPS。页面新增 sessionStorage 草稿：仅当前标签页暂存文字与回复，不存附件文件，刷新后的附件需重选；本轮浏览器回归覆盖恢复、清空、过期数据及存储不可用。WebView 68 兼容修复不增加新依赖。
 
 真实案例包含关心、邀约、长文、健康说法、含义不明、图片与有声视频。文字生成本次耗时 0.928–1.799 秒，图片 3.268 秒，视频 5.926 秒；只代表本次样例和网络。视频实际执行本地抽帧与语音识别，并使用真实云视觉与 LLM。编辑后剪贴板与完整编辑文本一致，比较仅统一 Windows CRLF 换行，不裁剪空白；还检查健康说法与未知内容的回复边界。七个合成样例及规则检查不能证明普遍语义准确率，真实用户媒体、不同手机编码与微信交接仍需验证。结果见 `live-test-results.json`。
 
@@ -79,7 +84,7 @@
 
 Android 的 JSON 消息桥与 iOS 的对象消息桥均经过浏览器模拟：未配 AppID 禁用选人、回前台重新检测能力、仅分享完整编辑稿、防重复调用、10 KiB UTF-8 上限、取消/错误/超时保稿、旧请求与改稿后的回调失效。`result_unknown` 明确提示到微信确认，不把无回调当作发送失败。
 
-Android 使用实际 Android SDK 35、Gradle 8.10.2 和官方微信 SDK 6.8.40 构建。iOS 固定官方 SDK 2.0.9，具备 XcodeGen/CocoaPods 工程和测试源码，但本机没有 Mac/Xcode。当前无移动应用 AppID，ADB 未发现连接设备；两端都没有进行真实微信调用。
+Android 使用实际 Android SDK 35、Gradle 8.10.2 和官方微信 SDK 6.8.40 构建，并在 ADB 连接的 MEmu Android 9 上完成上述系统 Intent 与本地服务验证。iOS 固定官方 SDK 2.0.9，具备 XcodeGen/CocoaPods 工程和测试源码，但本机没有 Mac/Xcode。当前无移动应用 AppID；两端都没有进行真实微信调用。
 
 该轮浏览器完整运行 41/41 通过。此前一次旧媒体用例等待 `networkidle` 超时，原样重跑未复现，没有放宽断言或修改等待条件。
 
@@ -109,4 +114,4 @@ LLM 或媒体失败会明确报错，不替换成模板。Jev 不可用时明确
 
 尚无 HTTPS 部署和 iOS/Android 微信真机验收；不能称为已接入私人微信的插件。用户现已确认个人主体不能创建移动应用，SDK 所需 AppID 路线受资格阻碍，本阶段不继续申请。当前先验证网页复制回微信；未来具备资格时再评估平台登记和客户端签名，具体见 CLIENTS.md。
 
-Kiro 于 2026-10-10 再次调用仍返回 TEMPORARILY_SUSPENDED。实际开发与测试由 Codex 完成，Kiro 未产出审阅或代码；记录见 KIRO.md。比赛要求的真实 Kiro 参与仍待完成。
+Kiro 于 2026-10-11 再次调用仍返回 `TEMPORARILY_SUSPENDED`：CLI 2.28.0 / KAS 0.66.26 启动，但模型输出、工具调用和文件编辑均为 0。实际开发与测试由 Codex 完成；记录见 KIRO.md。比赛要求的真实 Kiro 参与仍待完成。
