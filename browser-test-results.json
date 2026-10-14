@@ -1,10 +1,10 @@
 {
-  "date": "2026-10-14",
-  "scope": "text, media, article, live-mode recovery, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction",
+  "date": "2026-10-15",
+  "scope": "text, media, article, live-mode recovery, compact plugin UI, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction",
   "browser": "155.0.8059.40",
   "checks": [
-    "single-page initial state, honest demo disclosure and keyboard skip link",
-    "local artwork loads and readable typography is applied",
+    "compact plugin initial state, honest demo disclosure and keyboard skip link",
+    "compact plugin brand, local typography and image assets render without browser-page decoration",
     "blank and over-limit Unicode messages fail locally without a request",
     "a 6000-character article reaches the backend and renders its content summary",
     "one example control cycles useful messages",
@@ -24,7 +24,7 @@
     "clear draft removes text and stored reply; malformed stored data never breaks the page",
     "blocked browser storage keeps the full generation flow usable and explains that draft saving is unavailable",
     "late initialization does not change an in-flight request mode or discard its completed result",
-    "configured live UI defaults to real generation, declares transmission and shows provenance; explicit mode changes clear stale output (mocked)",
+    "configured live UI passes reply style, defaults to real generation, declares transmission and shows provenance; explicit mode changes clear stale output (mocked)",
     "a public WeChat article uses a 60s request and shows safely rendered title, fetched body and coverage before edited copy (mocked fetch/model)",
     "article fetch failure, missing body evidence and cancellation preserve drafts; arbitrary URLs are not presented as fetched articles",
     "attachments stay local until submit; missing media config, unsupported files, 4/20 MiB limits and actual >60s video are rejected without uploading",
@@ -58,6 +58,7 @@
   "passed": 51,
   "errors": [],
   "assets": {
+    "/assets/MaShanZheng-Regular.woff2": 200,
     "/assets/LXGWWenKai-Regular.woff2": 200
   },
   "typography": {
@@ -65,7 +66,8 @@
     "input": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
     "inputSize": 16,
     "loadedFonts": [
-      "WenKai"
+      "WenKai",
+      "MaShan"
     ]
   },
   "screenshots": [

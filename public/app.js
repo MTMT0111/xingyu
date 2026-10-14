@@ -68,7 +68,7 @@ function saveDraft() {
       saved[key] = state.result[key];
       return saved;
     }, {});
-    const draft = { text: $('source-text').value, recipient: $('recipient-select').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect) };
+    const draft = { text: $('source-text').value, recipient: $('recipient-select').value, tone: $('tone-select').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect) };
     if (draft.text.length > 24000 || draft.reply.length > 20000) throw new Error('Draft too large');
     if (draft.text || result || draft.hadAttachment) sessionStorage.setItem(draftKey, JSON.stringify(draft));
     else sessionStorage.removeItem(draftKey);
@@ -86,13 +86,15 @@ function restoreDraft() {
     if (!raw) return;
     if (raw.length > 70000) throw new Error('Draft too large');
     const draft = JSON.parse(raw);
-    if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['mother', 'father', 'elder'].includes(draft.recipient) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
+    const tone = draft && draft.tone === undefined ? 'warm' : draft?.tone;
+    if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['mother', 'father', 'elder'].includes(draft.recipient) || !['warm', 'brief', 'boundary'].includes(tone) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
     if (draft.result) {
       validateResult(draft.result);
-      if (!draft.submitted || draft.submitted.text !== draft.text.trim() || draft.submitted.recipient !== draft.recipient) throw new Error('Stale draft');
+      if (!draft.submitted || draft.submitted.text !== draft.text.trim() || draft.submitted.recipient !== draft.recipient || (draft.submitted.tone ?? 'warm') !== tone) throw new Error('Stale draft');
     }
     $('source-text').value = draft.text;
     $('recipient-select').value = draft.recipient;
+    $('tone-select').value = tone;
     $('mode-select').value = draft.mode;
     state.mode = draft.mode;
     state.modeSettled = true;
@@ -355,7 +357,7 @@ function updateControls() {
   const locked = state.busy || state.sharing || acceptingInboundShare;
   if (!locked && pendingInboundShare && $('inbound-share').hidden) presentInboundShare(pendingInboundShare);
   const empty = !state.result || !$('reply-text').value.trim();
-  if (!state.busy) $('translate-button-text').textContent = state.result ? '再想一句' : '帮我回一句';
+  if (!state.busy) $('translate-button-text').textContent = state.result ? '换一种回复' : '读懂并准备回复';
   $('clear-draft').disabled = locked || !($('source-text').value || state.result || state.attachment || attachmentNeedsReselect);
   for (const id of ['step-input', 'step-understand', 'step-reply']) {
     if (id === (state.busy ? 'step-understand' : state.result ? 'step-reply' : 'step-input')) $(id).setAttribute('aria-current', 'step');
@@ -363,7 +365,7 @@ function updateControls() {
   }
   $('source-text').readOnly = locked;
   $('reply-text').readOnly = locked;
-  for (const id of ['translate-button', 'recipient-select', 'mode-select', 'try-example', 'retry-init', 'attachment-input', 'remove-attachment']) $(id).disabled = locked;
+  for (const id of ['translate-button', 'recipient-select', 'tone-select', 'mode-select', 'try-example', 'retry-init', 'attachment-input', 'remove-attachment']) $(id).disabled = locked;
   $('retry-init').disabled = locked || state.initializing;
   $('copy-reply').disabled = locked || empty;
   $('share-reply').hidden = !canShareReply();
@@ -386,7 +388,7 @@ function setBusy(busy, phase = 'text') {
   $('empty-state').hidden = busy || Boolean(state.result);
   updateControls();
   $('cancel-request').hidden = !busy || !state.controller;
-  $('translate-button-text').textContent = !busy ? (state.result ? '再想一句' : '帮我回一句') : phase === 'prepare' ? '正在准备附件…' : phase === 'media' ? '正在读懂内容…' : phase === 'article' ? '正在读懂文章…' : '正在想一句回复…';
+  $('translate-button-text').textContent = !busy ? (state.result ? '换一种回复' : '读懂并准备回复') : phase === 'prepare' ? '正在准备附件…' : phase === 'media' ? '正在读懂内容…' : phase === 'article' ? '正在读懂文章…' : '正在想一句回复…';
   $('loading-text').textContent = phase === 'prepare' ? '正在检查附件，文件还没有上传。' : phase === 'media' ? '正在识别内容、整理理解。视频可能需要一两分钟，可以随时取消。' : phase === 'article' ? '正在读取公众号正文、整理理解，可以随时取消。' : '正在想一句合适的回应…';
 }
 
@@ -406,7 +408,7 @@ function inputChanged() {
   pendingAndroidAutoGenerate = null;
   countInput();
   clearError();
-  if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient)) {
+  if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient || $('tone-select').value !== (state.submitted.tone ?? 'warm'))) {
     clearResult();
     $('result-announcement').textContent = '消息或回复对象已修改，请重新生成。';
   }
@@ -626,7 +628,7 @@ async function generateReply() {
   }
   const unavailable = mediaError();
   if (unavailable) { showError(unavailable); return; }
-  const payload = { text, recipient: $('recipient-select').value, mode: state.mode };
+  const payload = { text, recipient: $('recipient-select').value, tone: $('tone-select').value, mode: state.mode };
   state.modeSettled = true;
   const attachment = state.attachment;
   const article = !attachment && state.mode === 'live' && /https:\/\/mp\.weixin\.qq\.com\/s(?:[/?#\s]|$)/i.test(text);
@@ -639,7 +641,7 @@ async function generateReply() {
     if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
     validateResult(data, attachment && attachment.kind || (article ? 'article' : undefined));
     renderResult(data);
-    state.submitted = { text, recipient: payload.recipient };
+    state.submitted = { text, recipient: payload.recipient, tone: payload.tone };
     saveDraft();
     $('result-announcement').textContent = '分析和回复已准备好，可以编辑并复制。';
     $('result-title').focus({ preventScroll: true });
@@ -761,6 +763,7 @@ async function initialize() {
 $('translate-form').addEventListener('submit', event => { event.preventDefault(); generateReply(); });
 $('source-text').addEventListener('input', inputChanged);
 $('recipient-select').addEventListener('change', inputChanged);
+$('tone-select').addEventListener('change', inputChanged);
 $('source-text').addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); generateReply(); } });
 $('try-example').addEventListener('click', () => {
   if (state.busy || state.sharing) return;
