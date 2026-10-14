@@ -83,6 +83,13 @@ public final class InputRulesTest {
         assertFalse(InputRules.validRequestId("a".repeat(129)));
     }
 
+    @Test public void quickReplyRequiresTheExactOneTimeToken() {
+        assertTrue(InputRules.quickReplyTokenMatches("token-1", "token-1"));
+        assertFalse(InputRules.quickReplyTokenMatches("token-2", "token-1"));
+        assertFalse(InputRules.quickReplyTokenMatches(null, "token-1"));
+        assertFalse(InputRules.quickReplyTokenMatches("token-1", null));
+    }
+
     @Test public void sharesExactTextWithinUtf8Limit() {
         assertTrue(InputRules.validText("妈，放心，我晚点给你打电话。"));
         assertTrue(InputRules.validText("a".repeat(10240)));

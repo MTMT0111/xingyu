@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#fafbf8">
   <meta name="description" content="读懂长辈分享的文字、图片和小视频，理解一点，回得自然一点。">
-  <title>星语 · 把关心，好好回给他们</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%2334529a'/%3E%3Cpath d='m20 7 3 10 10 3-10 3-3 10-3-10-10-3 10-3Z' fill='%23ffe29a'/%3E%3C/svg%3E">
+  <title>好好回 · 把关心，好好回给他们</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%2334529a'/%3E%3Cpath d='M8 9h24v17H19l-8 6v-6H8Z' fill='%23ffe29a'/%3E%3Cpath d='M13 14h14v2H13Zm0 6h9v2h-9Z' fill='%2334529a'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/styles.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#source-text">跳到消息输入</a>
   <header class="site-header container">
-    <a class="brand" href="/" aria-label="星语首页"><span aria-hidden="true">✦</span>星语<span class="brand-en">XINGYU</span></a>
+    <a class="brand" href="/" aria-label="好好回首页">好好回<span class="brand-en">HAOHAOHUI</span></a>
     <span class="header-note">给牵挂你的人，一点回音</span>
   </header>
   <main class="container">
@@ -41,10 +41,6 @@
           <path d="M223 114c-12-11-13-24-2-27 10-5 19 3 14 11-3 7-12 6-15 0m-9-4c-6 11 5 21 17 25" stroke="#f8c3a9" stroke-width="2.5" fill="none"/>
           <path d="M175 180v-76c0-60 103-60 103 0v76" stroke="#96aec3" stroke-width="1.5" fill="none"/>
           <path d="M187 110v-10c0-25 13-38 29-43" stroke="#c7d5df" stroke-width="2" fill="none"/>
-          <path d="m98 83 4 12 12 4-12 4-4 12-4-12-12-4 12-4Z" fill="#efcc61"/>
-          <path d="m310 56 3 9 9 3-9 3-3 9-3-9-9-3 9-3Z" fill="#385998"/>
-          <path d="m337 141 2 6 6 2-6 2-2 6-2-6-6-2 6-2Z" fill="#e4bd4b"/>
-          <circle cx="135" cy="52" r="2.3" fill="#9eb5d4"/><circle cx="294" cy="122" r="2" fill="#9eb5d4"/>
           <path d="M124 249h56m122-24h25" stroke="#dbe3e9" stroke-width="1.4"/>
         </g>
       </svg>
@@ -70,18 +66,18 @@
     </section>
     <section class="workbench" aria-label="长辈消息回复助手">
       <form id="translate-form" class="input-panel" novalidate>
-        <div class="panel-heading"><h2><span class="heading-dot" aria-hidden="true"></span>收到的内容</h2><span class="tiny-label">文字、图片或小视频</span></div>
+        <div class="panel-heading"><h2><span class="heading-dot" aria-hidden="true"></span>微信里的内容</h2><span class="tiny-label">文字、图片或短视频</span></div>
         <div class="recipient-row"><label for="recipient-select">想回复谁</label><select id="recipient-select"><option value="mother">妈妈</option><option value="father">爸爸</option><option value="elder">其他长辈</option></select></div>
         <label for="source-text" class="sr-only">长辈发来的消息</label>
         <div class="source-wrap">
-          <textarea id="source-text" rows="4" placeholder="把收到的消息、文章正文或公众号链接，粘贴到这里。" aria-describedby="source-counter"></textarea>
+          <textarea id="source-text" rows="4" placeholder="粘贴微信消息、公众号正文或链接。" aria-describedby="source-counter"></textarea>
           <span id="source-counter" class="counter">0 / 6000</span>
         </div>
         <div class="draft-row"><span id="draft-status" role="status">草稿仅在当前标签页暂存</span><button id="clear-draft" type="button" disabled>清空草稿</button></div>
         <div class="attachment-tools">
-          <label for="attachment-input">或添加图片 / 小视频 <span>选填 · 每次一个</span></label>
+          <label for="attachment-input">或添加微信图片 / 短视频 <span>选填 · 每次一个</span></label>
           <input id="attachment-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mov" aria-describedby="attachment-help">
-          <p id="attachment-help">图片 ≤4 MB；视频 ≤20 MB、60 秒。选择后不会自动上传。</p>
+          <p id="attachment-help">图片 ≤4 MB；视频 ≤20 MB、60 秒。可从微信分享，或保存后选择。</p>
         </div>
         <div id="attachment-preview" class="attachment-preview" hidden>
           <div class="attachment-heading"><span id="attachment-name"></span><button id="remove-attachment" type="button" aria-label="移除附件">移除</button></div>
@@ -101,7 +97,7 @@
       <section id="result-card" class="output-panel" aria-labelledby="result-title" aria-busy="false">
         <div class="panel-heading"><h2 id="result-title" tabindex="-1"><span class="heading-dot reply-dot" aria-hidden="true"></span>准备好的回音</h2><span id="result-status" class="tiny-label">等你的一句话</span></div>
         <div id="empty-state" class="empty-state">
-          <div class="envelope" aria-hidden="true"><span>✦</span><i></i></div>
+          <div class="reply-mark" aria-hidden="true"><i></i><i></i></div>
           <h3>让对话，轻轻接下去。</h3>
           <p>这里会整理好内容，<br>再陪你想一句合适的回复。</p>
           <span class="empty-caption">YOUR WORDS, A LITTLE WARMER</span>

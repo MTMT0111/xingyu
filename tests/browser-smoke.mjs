@@ -171,11 +171,14 @@ try {
   assert.equal(await page.locator('#copy-reply').isDisabled(), true);
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), editedReply, 'blank edits must not replace the clipboard');
   await page.locator('#reply-text').fill(editedReply);
-  await page.evaluate(() => Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async () => { throw new Error('Denied'); } }));
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async () => { throw new Error('Denied'); } });
+    document.execCommand = () => false;
+  });
   await page.locator('#copy-reply').click();
   assert.match(await page.locator('#copy-status').innerText(), /已选中|长按|手动/);
   assert.deepEqual(await page.locator('#reply-text').evaluate(el => [el.selectionStart, el.selectionEnd]), [0, editedReply.length]);
-  check('copy uses the exact edited reply; empty edits are blocked and clipboard denial selects text');
+  check('copy uses the exact edited reply; empty edits are blocked and two failed clipboard methods leave the reply selected');
 
   let releaseFailure;
   let retryRequests = 0;
@@ -275,17 +278,25 @@ try {
   wechat.setDefaultTimeout(10000);
   const wechatPage = await wechat.newPage();
   observe(wechatPage);
-  await wechatPage.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined }));
+  await wechatPage.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    window.__legacyCopies = [];
+    document.execCommand = command => { window.__legacyCopies.push(command); return command === 'copy'; };
+  });
   await wechatPage.goto(base, { waitUntil: 'networkidle' });
   await wechatPage.locator('#try-example').click();
   await generate(wechatPage);
   await wechatPage.locator('#reply-text').fill('妈，收到您的关心啦。');
   await wechatPage.locator('#copy-reply').click();
+  assert.match(await wechatPage.locator('#copy-status').innerText(), /已复制/);
+  assert.deepEqual(await wechatPage.evaluate(() => window.__legacyCopies), ['copy']);
+  await wechatPage.evaluate(() => { document.execCommand = () => false; });
+  await wechatPage.locator('#copy-reply').click();
   assert.match(await wechatPage.locator('#copy-status').innerText(), /已选中|长按|手动/);
   assert.deepEqual(await wechatPage.locator('#reply-text').evaluate(el => [el.selectionStart, el.selectionEnd]), [0, '妈，收到您的关心啦。'.length]);
   await noOverflow(wechatPage, 390);
   await wechat.close();
-  check('WeChat UA/touch simulation completes the flow with manual copy when clipboard is unavailable');
+  check('WeChat UA/touch simulation uses legacy one-tap copy when available and keeps selected-text fallback when both clipboard paths fail');
 
   const recovery = await context.newPage();
   observe(recovery);
@@ -1030,6 +1041,90 @@ try {
   await nativePage.evaluate(() => { window.__throwNativeShare = false; });
   check('native errors, cancellation, thrown bridge calls and accelerated 10s timeout preserve drafts and restore copy; blank and >10240 UTF-8 bytes never post');
 
+  const pluginPage = await nativeContext.newPage();
+  await pluginPage.addInitScript(installWechatBridge, { platform: 'android', reason: 'ready' });
+  observe(pluginPage);
+  let pluginReplyRequests = 0;
+  pluginPage.on('request', request => { if (new URL(request.url()).pathname === '/api/reply') pluginReplyRequests++; });
+  await pluginPage.route('**/api/reply', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(resultFixture) }));
+  await pluginPage.goto(`${base}/?host=android`, { waitUntil: 'networkidle' });
+  const dispatchPluginInbound = detail => pluginPage.evaluate(value => window.dispatchEvent(new CustomEvent('xingyu-inbound-share', { detail: value })), detail);
+  assert.equal(await pluginPage.locator('body').getAttribute('data-host'), 'android');
+  for (const selector of ['.site-header', '.intro', '.workflow', '.site-footer', '.draft-row', '.example-row', '.mode-controls', '.empty-state']) assert.equal(await pluginPage.locator(selector).isHidden(), true);
+  await dispatchPluginInbound({ schemaVersion: 1, type: 'inboundShare', id: 'clipboard-entry', entry: 'clipboard', text: '妈妈问我今天有没有按时吃饭。' });
+  assert.equal(await pluginPage.locator('#inbound-share-title').innerText(), '剪贴板里的一段文字');
+  assert.equal(await pluginPage.locator('#inbound-accept').innerText(), '识别并准备回复');
+  await capture(pluginPage, 'plugin-inbound-390');
+  await pluginPage.setViewportSize({ width: 390, height: 520 });
+  const pluginResponse = pluginPage.waitForResponse(replyResponse);
+  await pluginPage.locator('#inbound-accept').click();
+  await pluginResponse;
+  await settled(pluginPage);
+  await pluginPage.locator('#result-content').waitFor({ state: 'visible' });
+  assert.equal(pluginReplyRequests, 1);
+  assert.equal(await pluginPage.locator('#source-text').inputValue(), '妈妈问我今天有没有按时吃饭。');
+  assert.equal(await pluginPage.locator('body').getAttribute('data-entry'), 'share');
+  await pluginPage.waitForFunction(() => {
+    const bounds = document.querySelector('#copy-reply').getBoundingClientRect();
+    return bounds.top >= 0 && bounds.bottom <= innerHeight;
+  });
+  const pluginCopyBox = await pluginPage.locator('#copy-reply').boundingBox();
+  assert.ok(pluginCopyBox.y >= 0 && pluginCopyBox.y + pluginCopyBox.height <= 520);
+  await noOverflow(pluginPage, 390);
+  await pluginPage.close();
+  check('Android plugin mode removes secondary controls and one explicit confirmation closes clipboard import → analysis → editable reply in a short viewport');
+
+  const pluginRacePage = await nativeContext.newPage();
+  await pluginRacePage.addInitScript(installWechatBridge, { platform: 'android', reason: 'ready' });
+  observe(pluginRacePage);
+  let releasePluginConfig;
+  const pluginConfigGate = new Promise(resolve => { releasePluginConfig = resolve; });
+  let pluginRaceReplyRequests = 0;
+  await pluginRacePage.route('**/api/config', async route => {
+    await pluginConfigGate;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ mode: 'live', liveAvailable: true, mediaAvailable: true, videoAvailable: true }) });
+  });
+  await pluginRacePage.route('**/api/reply', route => {
+    pluginRaceReplyRequests++;
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify(resultFixture) });
+  });
+  await pluginRacePage.goto(`${base}/?host=android`, { waitUntil: 'domcontentloaded' });
+  await pluginRacePage.evaluate(() => window.dispatchEvent(new CustomEvent('xingyu-inbound-share', { detail: { schemaVersion: 1, type: 'inboundShare', id: 'startup-race', entry: 'clipboard', text: '妈妈提醒我早点休息。' } })));
+  await pluginRacePage.locator('#inbound-accept').click();
+  assert.equal(pluginRaceReplyRequests, 0, 'reply must wait until startup config settles');
+  const pluginRaceResponse = pluginRacePage.waitForResponse(replyResponse);
+  releasePluginConfig();
+  await pluginRaceResponse;
+  await pluginRacePage.locator('#result-content').waitFor({ state: 'visible' });
+  assert.equal(pluginRaceReplyRequests, 1);
+  await pluginRacePage.close();
+
+  const pluginEditRacePage = await nativeContext.newPage();
+  await pluginEditRacePage.addInitScript(installWechatBridge, { platform: 'android', reason: 'ready' });
+  observe(pluginEditRacePage);
+  let releaseEditedPluginConfig;
+  const editedPluginConfigGate = new Promise(resolve => { releaseEditedPluginConfig = resolve; });
+  let editedPluginReplyRequests = 0;
+  await pluginEditRacePage.route('**/api/config', async route => {
+    await editedPluginConfigGate;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ mode: 'live', liveAvailable: true, mediaAvailable: true, videoAvailable: true }) });
+  });
+  await pluginEditRacePage.route('**/api/reply', route => {
+    editedPluginReplyRequests++;
+    return route.fulfill({ contentType: 'application/json', body: JSON.stringify(resultFixture) });
+  });
+  await pluginEditRacePage.goto(`${base}/?host=android`, { waitUntil: 'domcontentloaded' });
+  await pluginEditRacePage.evaluate(() => window.dispatchEvent(new CustomEvent('xingyu-inbound-share', { detail: { schemaVersion: 1, type: 'inboundShare', id: 'startup-edit-race', entry: 'clipboard', text: '妈妈提醒我早点休息。' } })));
+  await pluginEditRacePage.locator('#inbound-accept').click();
+  await pluginEditRacePage.locator('#source-text').fill('我修改了这段文字，先不要自动提交。');
+  const editedPluginConfigResponse = pluginEditRacePage.waitForResponse(response => new URL(response.url()).pathname === '/api/config');
+  releaseEditedPluginConfig();
+  await editedPluginConfigResponse;
+  await pluginEditRacePage.waitForFunction(() => !document.querySelector('#retry-init').disabled);
+  assert.equal(editedPluginReplyRequests, 0);
+  await pluginEditRacePage.close();
+  check('Android one-confirmation flow waits for slow startup config, generates exactly once when unchanged, and cancels auto-submit after an edit');
+
   const inboundPage = await nativeContext.newPage();
   await inboundPage.addInitScript(installWechatBridge, { platform: 'android', reason: 'ready' });
   observe(inboundPage);
@@ -1104,11 +1199,17 @@ try {
   ]);
 
   const acceptedInboundText = '明确接受后才放入的外部文字。';
+  await inboundPage.setViewportSize({ width: 390, height: 520 });
   await dispatchInbound({ schemaVersion: 1, type: 'inboundShare', id: 'text-accept', text: acceptedInboundText });
   assert.equal(await inboundPage.locator('#source-text').inputValue(), oldInboundSource);
   await inboundPage.locator('#inbound-accept').click();
   await inboundPage.locator('#inbound-share').waitFor({ state: 'hidden' });
+  await inboundPage.waitForFunction(() => document.activeElement.id === 'translate-button');
   assert.equal(await inboundPage.locator('#source-text').inputValue(), acceptedInboundText);
+  assert.equal(await inboundPage.evaluate(() => document.activeElement.id), 'translate-button');
+  assert.equal(await inboundPage.locator('body').getAttribute('data-entry'), 'share');
+  const generateBox = await inboundPage.locator('#translate-button').boundingBox();
+  assert.ok(generateBox.y >= 0 && generateBox.y + generateBox.height <= 520);
   assert.equal(inboundReplyRequests, 2);
   assert.deepEqual(await inboundPage.evaluate(() => window.__nativeMessages.filter(message => message.id === 'text-accept')), [{ type: 'ackInboundShare', id: 'text-accept', action: 'accepted' }]);
   await generate(inboundPage);
@@ -1221,7 +1322,7 @@ try {
 
   assert.deepEqual(errors, []);
   check('no uncaught JavaScript or Content Security Policy errors across exercised flows');
-  const report = { date: '2026-10-10', scope: 'text, media, article, live-mode recovery, inbound Android share target, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'inbound-share-390.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
+  const report = { date: '2026-10-13', scope: 'text, media, article, live-mode recovery, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'plugin-inbound-390.png', 'inbound-share-390.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
   await writeFile(new URL('../browser-test-results.json', import.meta.url), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ passed: checks.length, screenshots: screenshotDir }));
 } finally {

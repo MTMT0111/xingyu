@@ -2,8 +2,10 @@ package com.xingyu.reply;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipboardManager;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
@@ -60,9 +62,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 /** A small trusted-origin host. The server keeps LLM/Jev credentials; this app never needs them. */
 public final class MainActivity extends Activity {
+    public static final String ACTION_QUICK_REPLY = "com.xingyu.reply.action.QUICK_REPLY";
+    static final String EXTRA_QUICK_REPLY_TOKEN = "com.xingyu.reply.extra.QUICK_REPLY_TOKEN";
+    static final String PREFS_NAME = "xingyu";
+    static final String PREF_QUICK_REPLY_TOKEN = "quickReplyToken";
     private static final int FILE_REQUEST = 701;
     private static final String INBOUND_PATH = "/.xingyu-share/";
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -74,6 +81,7 @@ public final class MainActivity extends Activity {
     private LinearLayout errorView;
     private TextView errorText;
     private EditText addressInput, appIdInput;
+    private Button pasteButton, copyReturnButton, shareButton, settingsButton, returnButton;
     private ProgressBar progress;
     private volatile String serviceUrl = "";
     private String appId = "", loadingUrl = "";
@@ -89,7 +97,7 @@ public final class MainActivity extends Activity {
     private volatile InboundShare inboundShare;
     private String externalEntryId;
     private volatile long inboundGeneration;
-    private boolean pageReady, inboundDispatched, attachmentValidationPending, destroyed;
+    private boolean pageReady, inboundDispatched, attachmentValidationPending, pendingClipboardImport, destroyed;
 
     private static final class InboundCandidate {
         final String id, text, declaredMime;
@@ -125,7 +133,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        preferences = getSharedPreferences("xingyu", MODE_PRIVATE);
+        preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         appId = preferences.getString("wechatAppId", "");
         try { serviceUrl = InputRules.serviceUrl(preferences.getString("serviceUrl", ""), BuildConfig.DEBUG); }
         catch (IllegalArgumentException ignored) { serviceUrl = ""; }
@@ -135,6 +143,7 @@ public final class MainActivity extends Activity {
         if (serviceUrl.isEmpty()) showSettings(); else loadService();
         if (!restored) receiveInboundIntent(getIntent());
         else clearLaunchIntent();
+        updateToolbar();
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::navigateBack);
         }
@@ -157,10 +166,18 @@ public final class MainActivity extends Activity {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(android.view.Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(16), 0, dp(8), 0);
-        TextView title = label("✦ 星语", 20);
+        TextView title = label("好好回", 20);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(54), 1));
-        Button configure = button("设置", this::showSettings);
-        toolbar.addView(configure);
+        returnButton = toolbarButton("返回", this::navigateBack);
+        copyReturnButton = toolbarButton("复制返回", this::copyReplyAndReturn);
+        pasteButton = toolbarButton("粘贴", this::pasteClipboard);
+        shareButton = toolbarButton("发送", this::shareEditedReply);
+        settingsButton = toolbarButton("设置", this::showSettings);
+        toolbar.addView(returnButton);
+        toolbar.addView(copyReturnButton);
+        toolbar.addView(pasteButton);
+        toolbar.addView(shareButton);
+        toolbar.addView(settingsButton);
         root.addView(toolbar);
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(100);
@@ -190,8 +207,8 @@ public final class MainActivity extends Activity {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(24), dp(28), dp(24), dp(28));
-        form.addView(label("把星语带到手机", 25));
-        form.addView(label("连接星语服务，读懂关心，复制回复回微信。", 15));
+        form.addView(label("把好好回带到手机", 25));
+        form.addView(label("连接好好回服务；复制微信消息后，可从快捷磁贴或桌面快捷入口立即开始。", 15));
         if (BuildConfig.DEBUG) {
             form.addView(button("USB 本地调试", () -> {
                 addressInput.setText(InputRules.USB_SERVICE_URL);
@@ -199,7 +216,7 @@ public final class MainActivity extends Activity {
             }));
             form.addView(label("手机连上电脑并开启 USB 调试，在电脑运行本地服务和 adb reverse tcp:4173 tcp:4173 后点此连接。无需公网域名或微信 AppID。", 13));
         }
-        form.addView(label("星语服务地址", 16));
+        form.addView(label("好好回服务地址", 16));
         addressInput = input("HTTPS 根地址", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         addressInput.setText(serviceUrl);
         form.addView(addressInput);
@@ -208,7 +225,7 @@ public final class MainActivity extends Activity {
         appIdInput = input("wx 开头的移动应用 AppID", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         appIdInput.setText(appId);
         form.addView(appIdInput);
-        form.addView(label("微信直达需要审核通过的移动应用，以及匹配的包名和签名。暂未配置时，仍可在网页复制回复。", 14));
+        form.addView(label("微信直达需要审核通过的移动应用，以及匹配的包名和签名。暂未配置时，可用系统分享选择微信。", 14));
         form.addView(button("保存并打开", this::saveSettings));
         form.addView(button("返回页面", () -> {
             if (!serviceUrl.isEmpty()) hideSettings();
@@ -249,6 +266,7 @@ public final class MainActivity extends Activity {
         settings.setVisibility(View.VISIBLE);
         settings.bringToFront();
         if (web != null) web.setVisibility(View.GONE);
+        updateToolbar();
     }
 
     private void hideSettings() {
@@ -256,6 +274,7 @@ public final class MainActivity extends Activity {
         settings.setVisibility(View.GONE);
         if (web != null) web.setVisibility(View.VISIBLE);
         if (pageFailed) errorView.bringToFront();
+        updateToolbar();
     }
 
     private void loadService() {
@@ -277,8 +296,8 @@ public final class MainActivity extends Activity {
         pageFailed = false;
         errorView.setVisibility(View.GONE);
         hideSettings();
-        loadingUrl = serviceUrl;
-        web.loadUrl(serviceUrl);
+        loadingUrl = serviceUrl + "?host=android";
+        web.loadUrl(loadingUrl);
     }
 
     private void createWebView() {
@@ -325,14 +344,16 @@ public final class MainActivity extends Activity {
                 clearPending();
                 pageFailed = false;
                 errorView.setVisibility(View.GONE);
+                updateToolbar();
                 if (!InputRules.sameOrigin(serviceUrl, url, BuildConfig.DEBUG)) {
                     view.stopLoading();
-                    showError("已阻止跳转到其他网站。请返回星语服务。");
+                    showError("已阻止跳转到其他网站。请返回好好回服务。");
                 }
             }
             @Override public void onPageFinished(WebView view, String url) {
                 if (view != web || pageFailed || !InputRules.sameOrigin(serviceUrl, url, BuildConfig.DEBUG)) return;
                 pageReady = true;
+                updateToolbar();
                 dispatchInboundShare();
             }
             @Override public void onReceivedSslError(WebView view, SslErrorHandler ssl, SslError error) {
@@ -341,7 +362,7 @@ public final class MainActivity extends Activity {
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (view == web && request.isForMainFrame()) showError(BuildConfig.DEBUG && serviceUrl.equals(InputRules.USB_SERVICE_URL)
-                    ? "未连上电脑的星语服务。请启动本地服务、确认 USB 已授权，再运行 adb reverse tcp:4173 tcp:4173 后重新加载。"
+                    ? "未连上电脑的好好回服务。请启动本地服务、确认 USB 已授权，再运行 adb reverse tcp:4173 tcp:4173 后重新加载。"
                     : "暂时连接不上服务。请检查网络和服务地址后重试。");
             }
             @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
@@ -397,23 +418,32 @@ public final class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String action = intent == null ? null : intent.getAction();
-        if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
+        if (ACTION_QUICK_REPLY.equals(action) || Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
             receiveInboundIntent(intent);
         } else {
             externalEntryId = null;
+            updateToolbar();
         }
     }
 
     private void receiveInboundIntent(Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
+        if (ACTION_QUICK_REPLY.equals(action)) {
+            pendingClipboardImport = consumeQuickReplyToken(intent);
+            clearLaunchIntent();
+            if (pendingClipboardImport && hasWindowFocus()) handler.post(this::pasteClipboard);
+            else if (!pendingClipboardImport) Toast.makeText(this, "点顶部“粘贴”后开始分析。", Toast.LENGTH_LONG).show();
+            return;
+        }
         if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action) && !Intent.ACTION_PROCESS_TEXT.equals(action)) return;
         String entryId = UUID.randomUUID().toString();
         clearInboundShare();
         externalEntryId = entryId;
+        updateToolbar();
         if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
             clearLaunchIntent();
-            showInboundError("星语一次只能接收一段文字、一个图片或一个视频。");
+            showInboundError("好好回一次只能接收一段文字、一个图片或一个视频。");
             return;
         }
         try {
@@ -526,10 +556,11 @@ public final class MainActivity extends Activity {
         attachmentValidationPending = false;
         inboundShare = value;
         externalEntryId = value.id;
+        updateToolbar();
         inboundDispatched = false;
         if (serviceUrl.isEmpty()) {
             showSettings();
-            Toast.makeText(this, "分享内容已暂存，请先连接星语服务。", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "分享内容已暂存，请先连接好好回服务。", Toast.LENGTH_LONG).show();
         } else {
             hideSettings();
             dispatchInboundShare();
@@ -644,7 +675,7 @@ public final class MainActivity extends Activity {
     private static String inboundErrorMessage(String code) {
         if ("MISSING_TEXT".equals(code) || "INVALID_TEXT".equals(code) || "INVALID_TEXT_SHARE".equals(code))
             return "这段分享文字为空、过长或格式异常，请缩短后重试。";
-        if ("MULTIPLE_ITEMS".equals(code)) return "星语一次只能接收一个图片或视频。";
+        if ("MULTIPLE_ITEMS".equals(code)) return "好好回一次只能接收一个图片或视频。";
         if ("EMPTY_MEDIA".equals(code)) return "这个分享文件是空的，请重新选择。";
         if ("MEDIA_TOO_LARGE".equals(code)) return "图片不能超过 4 MB，视频不能超过 20 MB，请压缩后重试。";
         if ("UNSUPPORTED_MEDIA".equals(code)) return "目前只支持 JPG、PNG、WebP 图片和 MP4、WebM、MOV 视频。";
@@ -655,6 +686,73 @@ public final class MainActivity extends Activity {
         if (destroyed || isFinishing()) return;
         new AlertDialog.Builder(this).setTitle("无法导入分享").setMessage(message)
             .setPositiveButton("知道了", null).show();
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused && pendingClipboardImport) pasteClipboard();
+    }
+
+    private boolean consumeQuickReplyToken(Intent intent) {
+        String provided = intent.getStringExtra(EXTRA_QUICK_REPLY_TOKEN);
+        String expected = preferences.getString(PREF_QUICK_REPLY_TOKEN, null);
+        if (!InputRules.quickReplyTokenMatches(provided, expected)) return false;
+        return preferences.edit().remove(PREF_QUICK_REPLY_TOKEN).commit();
+    }
+
+    private void pasteClipboard() {
+        pendingClipboardImport = false;
+        try {
+            ClipboardManager clipboard = getSystemService(ClipboardManager.class);
+            ClipData clip = clipboard == null ? null : clipboard.getPrimaryClip();
+            CharSequence text = clip != null && clip.getItemCount() > 0 ? clip.getItemAt(0).getText() : null;
+            queueInbound(new InboundShare(UUID.randomUUID().toString(), "clipboard", InputRules.inboundText(text)));
+            clearLaunchIntent();
+        } catch (RuntimeException error) {
+            new AlertDialog.Builder(this).setTitle("剪贴板里没有可用文字")
+                .setMessage("请先在微信复制一段消息，再点“粘贴”或快捷磁贴。好好回不会在后台监听剪贴板。")
+                .setPositiveButton("知道了", null).show();
+        }
+    }
+
+    private void shareEditedReply() {
+        readEditedReply(text -> {
+            Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text);
+            Intent chooser = Intent.createChooser(send, "选择发送到哪里");
+            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, new ComponentName[] {getComponentName()});
+            try { startActivity(chooser); }
+            catch (ActivityNotFoundException error) { Toast.makeText(this, "系统里没有可用的分享应用。", Toast.LENGTH_LONG).show(); }
+        });
+    }
+
+    private void copyReplyAndReturn() {
+        readEditedReply(text -> {
+            try {
+                ClipboardManager clipboard = getSystemService(ClipboardManager.class);
+                if (clipboard == null) throw new IllegalStateException("clipboard unavailable");
+                clipboard.setPrimaryClip(ClipData.newPlainText("好好回回复", text));
+                externalEntryId = null;
+                finish();
+            } catch (RuntimeException error) {
+                Toast.makeText(this, "复制失败，请保留页面后重试。", Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void readEditedReply(ValueCallback<String> callback) {
+        if (!pageReady || settingsVisible || pageFailed || !trustedPage()) {
+            Toast.makeText(this, "页面还没准备好，请稍后再试。", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        web.evaluateJavascript("(()=>{const e=document.getElementById('reply-text');return e?e.value:''})()", value -> {
+            try {
+                Object decoded = new JSONTokener(value).nextValue();
+                if (!(decoded instanceof String) || !InputRules.validText((String) decoded)) throw new JSONException("invalid reply");
+                callback.onReceiveValue((String) decoded);
+            } catch (JSONException | RuntimeException error) {
+                Toast.makeText(this, "请先生成并确认一条回复。", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private boolean restoreInboundState(Bundle state) {
@@ -682,7 +780,7 @@ public final class MainActivity extends Activity {
         EditText password = input("服务访问口令", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         if (Build.VERSION.SDK_INT >= 26) password.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         password.setSaveEnabled(false);
-        authDialog = new AlertDialog.Builder(this).setTitle("连接星语服务")
+        authDialog = new AlertDialog.Builder(this).setTitle("连接好好回服务")
             .setMessage("此服务需要访问口令。用户名为 trial；口令只用于本次连接。")
             .setView(password)
             .setPositiveButton("连接", (dialog, which) -> {
@@ -826,6 +924,7 @@ public final class MainActivity extends Activity {
         errorView.setVisibility(View.VISIBLE);
         if (!settingsVisible) errorView.bringToFront();
         progress.setVisibility(View.GONE);
+        updateToolbar();
     }
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
@@ -841,9 +940,19 @@ public final class MainActivity extends Activity {
     @Override public void onBackPressed() { navigateBack(); }
     private void navigateBack() {
         if (settingsVisible && !serviceUrl.isEmpty()) hideSettings();
-        else if (!settingsVisible && web != null && web.canGoBack()) web.goBack();
         else if (externalEntryId != null) { externalEntryId = null; finish(); }
+        else if (!settingsVisible && web != null && web.canGoBack()) web.goBack();
         else moveTaskToBack(true);
+    }
+
+    private void updateToolbar() {
+        if (pasteButton == null) return;
+        boolean external = externalEntryId != null;
+        returnButton.setVisibility(external ? View.VISIBLE : View.GONE);
+        copyReturnButton.setVisibility(external ? View.VISIBLE : View.GONE);
+        pasteButton.setVisibility(external ? View.GONE : View.VISIBLE);
+        settingsButton.setVisibility(external ? View.GONE : View.VISIBLE);
+        shareButton.setEnabled(pageReady && !settingsVisible && !pageFailed);
     }
 
     @Override protected void onDestroy() {
@@ -885,6 +994,18 @@ public final class MainActivity extends Activity {
         button.setAllCaps(false);
         button.setMinHeight(dp(48));
         button.setOnClickListener(view -> action.run());
+        return button;
+    }
+
+    private Button toolbarButton(String title, Runnable action) {
+        Button button = button(title, action);
+        button.setMinHeight(dp(44));
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setPadding(dp(10), 0, dp(10), 0);
+        button.setTextSize(13);
+        button.setTextColor(Color.rgb(54, 85, 156));
+        button.setBackgroundColor(Color.TRANSPARENT);
         return button;
     }
 

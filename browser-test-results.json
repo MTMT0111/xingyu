@@ -1,7 +1,7 @@
 {
-  "date": "2026-10-10",
-  "scope": "text, media, article, live-mode recovery, inbound Android share target, system share and Android/iOS WeChat bridge interaction",
-  "browser": "154.0.8037.98",
+  "date": "2026-10-14",
+  "scope": "text, media, article, live-mode recovery, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction",
+  "browser": "155.0.8059.40",
   "checks": [
     "single-page initial state, honest demo disclosure and keyboard skip link",
     "local artwork loads and readable typography is applied",
@@ -9,14 +9,14 @@
     "a 6000-character article reaches the backend and renders its content summary",
     "one example control cycles useful messages",
     "real local backend closes message → possible meanings → editable reply on one page",
-    "copy uses the exact edited reply; empty edits are blocked and clipboard denial selects text",
+    "copy uses the exact edited reply; empty edits are blocked and two failed clipboard methods leave the reply selected",
     "pending requests lock edits and prevent duplicates; failures preserve hand-edited drafts and retry succeeds",
     "recipient changes clear stale output and mom, dad, elder replies use correct addresses; Ctrl+Enter works",
     "input/example changes clear stale output; unseen shares stay honest and ambiguous messages retain alternatives",
     "malformed successful responses fail clearly without rendering garbage or losing input",
     "input and generated HTML-like text remain text, never executable markup",
     "320/390/1440px layouts do not overflow, mobile controls are at least 44px, reduced motion is respected",
-    "WeChat UA/touch simulation completes the flow with manual copy when clipboard is unavailable",
+    "WeChat UA/touch simulation uses legacy one-tap copy when available and keeps selected-text fallback when both clipboard paths fail",
     "configuration failure keeps live mode unavailable; local fallback and reconnect both work",
     "configuration outages preserve edited replies and provenance; reconnect respects the established or chosen mode",
     "tab reload restores edited reply, recipient, chosen mode and truthful LLM source without another generation",
@@ -45,6 +45,8 @@
     "Android shares only exact edited text and correlated ids; locks duplicates without AI loading, never claims delivery, and unknown native results ask the user to confirm in WeChat",
     "late native share results cannot overwrite a newer handoff or an edited draft, even when the edited text returns to its original value",
     "native errors, cancellation, thrown bridge calls and accelerated 10s timeout preserve drafts and restore copy; blank and >10240 UTF-8 bytes never post",
+    "Android plugin mode removes secondary controls and one explicit confirmation closes clipboard import → analysis → editable reply in a short viewport",
+    "Android one-confirmation flow waits for slow startup config, generates exactly once when unchanged, and cancels auto-submit after an edit",
     "inbound text waits for explicit acceptance without analysis or draft loss; dismiss and both return paths send correlated native acknowledgements",
     "a newer inbound share supersedes a slow attachment import without draft loss, stale acknowledgement or silent loss",
     "same-origin token images are read locally into an attachment; MIME and byte-count mismatches preserve the existing draft and attachment without acknowledgement or AI calls",
@@ -53,7 +55,7 @@
     "ready native WeChat and copy actions fit 320/390px with 44px targets; native SDK and callbacks are simulated, with no real message sent",
     "no uncaught JavaScript or Content Security Policy errors across exercised flows"
   ],
-  "passed": 49,
+  "passed": 51,
   "errors": [],
   "assets": {
     "/assets/LXGWWenKai-Regular.woff2": 200
@@ -76,6 +78,7 @@
     "screenshots/core/media-video-320.png",
     "screenshots/core/share-reply-390.png",
     "screenshots/core/share-reply-320.png",
+    "screenshots/core/plugin-inbound-390.png",
     "screenshots/core/inbound-share-390.png",
     "screenshots/core/native-ready-390.png",
     "screenshots/core/native-ready-320.png"

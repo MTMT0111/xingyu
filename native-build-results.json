@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-10T14:48:42+00:00",
+  "checkedAt": "2026-10-14T21:20:00+08:00",
   "version": "6.0.0",
   "android": {
     "status": "debug_apk_built_and_signature_verified",
@@ -24,9 +24,9 @@
       "lintRelease"
     ],
     "unitTests": {
-      "tests": 24,
-      "debug": 12,
-      "release": 12,
+      "tests": 26,
+      "debug": 13,
+      "release": 13,
       "failures": 0,
       "errors": 0,
       "skipped": 0
@@ -41,26 +41,36 @@
       "review": "Android 13 back callback attribute is ignored on older Android; JavaScript is required for the trusted same-origin H5."
     },
     "artifact": "downloads/xingyu-android-debug.apk",
-    "bytes": 1319223,
-    "sha256": "46731c64d74d08782c28938f2f187fbd09c351936e16fa839655f3b4566299f9",
+    "bytes": 1378243,
+    "sha256": "1da7bf765e91e283b3d244ff400d709e2d3d04a09c2f2e40c685ad31153f0d9a",
+    "releaseUnsignedArtifact": "clients/android/app/build/outputs/apk/release/app-release-unsigned.apk",
+    "releaseUnsignedBytes": 1011391,
+    "releaseUnsignedSha256": "b68cd39e92cccb205866c5cafc0cddbfc8a3dbc4e8a1ad3e2aadc79c849db268",
     "signatureVerified": true,
     "signatureType": "development_debug",
     "certificateMD5": "47695d55708a06168886218f9e8ba954",
     "certificateSHA256": "15008f681fbceaaf959bec6a9df4b1730c904a2d79e78e32cf41b1299794ebba",
     "latestJavaSourceCompiled": true,
     "gradleDistributionSHA256": "31c55713e40233a8303827ceb42ca48a47267a0ad4bab9177123121e71524c26",
-    "connectedAdbDevices": 0,
-    "installedOnDevice": false,
+    "connectedAdbDevicesDuringRuntimeTest": 1,
+    "installedOnDevice": true,
     "realWechatShareTested": false,
-    "inboundActionsImplemented": ["ACTION_SEND", "ACTION_PROCESS_TEXT"],
-    "inboundSingleItemTypes": ["text/plain", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"],
-    "inboundShareDeviceTested": false,
-    "processTextDeviceTested": false,
-    "returnToSourceDeviceTested": false,
+    "inboundActionsImplemented": ["ACTION_SEND", "ACTION_PROCESS_TEXT", "ACTION_QUICK_REPLY"],
+    "pluginEntrypointsImplemented": ["explicit paste", "launcher static shortcut", "Quick Settings tile"],
+    "inboundSingleItemTypes": ["text/plain", "image/jpeg", "image/jpg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"],
+    "inboundShareDeviceTested": true,
+    "processTextDeviceTested": true,
+    "quickSettingsTileDeviceTested": true,
+    "quickReplyOneTimeTokenConsumed": true,
+    "quickReplyNoTokenRejected": true,
+    "staticShortcutRequiresExplicitPaste": true,
+    "nativeCopyReturnDeviceTested": true,
+    "nativeSendChooserDeviceTested": true,
+    "returnToSourceDeviceTested": true,
     "renderProcessRecoveryDeviceTested": false,
     "buildWarnings": [
       "SDK metadata parser warns about XML v4; build succeeded.",
-      "Initial D8 build warned about stack-map tables in the official WeChat SDK; no runtime/device validation performed."
+      "D8 warned about stack-map tables in the official WeChat SDK; the current plugin flow was runtime-tested without a WeChat AppID."
     ],
     "usbLocalDemoReport": "clients/android/usb-demo-test-results.json",
     "debugLoopbackOrigin": "http://127.0.0.1:4173"
@@ -79,7 +89,7 @@
     "report": "clients/ios/source-validation-results.json"
   },
   "web": {
-    "browserGroupsPassed": 49,
+    "browserGroupsPassed": 51,
     "javascriptErrors": 0,
     "cspErrors": 0,
     "nativeBridgeMocked": true,
@@ -88,9 +98,9 @@
     "realLlmAcceptanceReport": "live-test-results.json"
   },
   "outstanding": [
-    "Android USB device installation, clipboard and WeChat manual paste acceptance",
-    "Real-device ACTION_SEND text/single-image/single-video and ACTION_PROCESS_TEXT validation",
-    "WeChat version and OEM ROM share-menu availability, content URI grants, draft conflicts and return-to-source behavior",
+    "Physical Android device installation, clipboard and WeChat manual paste acceptance",
+    "Physical-device ACTION_SEND text/single-image/single-video and ACTION_PROCESS_TEXT validation",
+    "Real WeChat and OEM ROM share-menu availability, content URI grants, draft conflicts and return-to-source behavior",
     "Optional Jev credentials and real Jev validation",
     "Controlled HTTPS service for use without USB",
     "Registered mobile WeChat AppID if legally eligible; currently blocked for personal subject",

@@ -54,6 +54,10 @@ public final class InputRules {
         return value != null && value.matches("[A-Za-z0-9._:-]{1,128}");
     }
 
+    public static boolean quickReplyTokenMatches(String provided, String expected) {
+        return provided != null && expected != null && expected.equals(provided);
+    }
+
     public static boolean validText(String text) {
         if (text == null || text.isEmpty() || text.getBytes(StandardCharsets.UTF_8).length > 10240) return false;
         return validUnicodeContent(text);

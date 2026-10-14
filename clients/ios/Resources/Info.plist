@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleDisplayName</key><string>星语</string>
+  <key>CFBundleDisplayName</key><string>好好回</string>
   <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
   <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
@@ -19,7 +19,7 @@
   <key>XingyuUniversalLink</key><string>$(XINGYU_UNIVERSAL_LINK)</string>
   <key>XingyuAssociatedDomain</key><string>$(XINGYU_ASSOCIATED_DOMAIN)</string>
   <key>XingyuAllowRuntimeConfiguration</key><string>$(XINGYU_ALLOW_RUNTIME_CONFIG)</string>
-  <key>NSPhotoLibraryUsageDescription</key><string>仅在你选择图片或小视频时读取所选内容；点击网页生成按钮后才上传到你配置的星语服务。</string>
+  <key>NSPhotoLibraryUsageDescription</key><string>仅在你选择图片或小视频时读取所选内容；点击网页生成按钮后才上传到你配置的好好回服务。</string>
   <key>NSCameraUsageDescription</key><string>仅在你选择拍照或录制小视频时使用相机，作为本次消息分析的附件。</string>
   <key>NSMicrophoneUsageDescription</key><string>仅在你主动录制带声音的小视频时使用麦克风，不在后台录音。</string>
 </dict></plist>

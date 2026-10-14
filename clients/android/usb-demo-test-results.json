@@ -1,17 +1,20 @@
 {
-  "date": "2026-10-11",
+  "date": "2026-10-14",
   "build": {
     "mode": "offline, no persistent daemon, one worker, 1024 MiB JVM heap limit",
     "debugApkBuilt": true,
     "releaseUnsignedApkBuilt": true,
     "debugSignatureVerified": true,
     "debugApk": "app/build/outputs/apk/debug/app-debug.apk",
-    "debugApkBytes": 1319223,
-    "debugApkSha256": "46731c64d74d08782c28938f2f187fbd09c351936e16fa839655f3b4566299f9"
+    "debugApkBytes": 1378243,
+    "debugApkSha256": "1da7bf765e91e283b3d244ff400d709e2d3d04a09c2f2e40c685ad31153f0d9a",
+    "releaseUnsignedApk": "app/build/outputs/apk/release/app-release-unsigned.apk",
+    "releaseUnsignedApkBytes": 1011391,
+    "releaseUnsignedApkSha256": "b68cd39e92cccb205866c5cafc0cddbfc8a3dbc4e8a1ad3e2aadc79c849db268"
   },
   "unitTests": {
-    "debug": { "tests": 12, "failures": 0, "errors": 0 },
-    "release": { "tests": 12, "failures": 0, "errors": 0 }
+    "debug": { "tests": 13, "failures": 0, "errors": 0 },
+    "release": { "tests": 13, "failures": 0, "errors": 0 }
   },
   "lint": {
     "debug": { "errors": 0, "warnings": 2 },
@@ -44,6 +47,13 @@
     "actionSendImagePassed": true,
     "actionSendVideoPassed": true,
     "actionProcessTextPassed": true,
+    "actionQuickReplyPassed": true,
+    "quickSettingsTileAddedAndOpened": true,
+    "quickReplyOneTimeTokenConsumed": true,
+    "quickReplyNoTokenRejected": true,
+    "quickReplyClipboardReadRequiresForegroundUserAction": true,
+    "staticShortcutRegistered": true,
+    "staticShortcutId": "clipboard_reply",
     "deepSeekTextPassed": true,
     "deepSeekImagePassed": true,
     "deepSeekVideoPassed": true,
@@ -51,6 +61,14 @@
     "videoFramesExtracted": 6,
     "videoSpeechTranscribed": true,
     "videoReplyGenerated": true,
+    "videoSharedThroughFileManagerWithTemporaryGrant": true,
+    "videoAnalysisElapsedSecondsApprox": 30,
+    "externalEntryOneConfirmationAutoGeneratePassed": true,
+    "nativeCopyReturnWroteExactReply": true,
+    "nativeCopyReturnFinishedActivity": true,
+    "quickReplyReadBackExactClipboardText": true,
+    "nativeSendOpenedChooserActivity": true,
+    "nativeSendReceivingAppAvailable": false,
     "clipboardFallbackSelectedFullReply": true,
     "systemBackReturnedToSourceGallery": true
   },

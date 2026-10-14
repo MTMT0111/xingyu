@@ -278,5 +278,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const runtimeConfig = settings();
   const server = createServer({ config: runtimeConfig });
   server.on('error', error => { console.error(error.code === 'EADDRINUSE' ? `端口 ${port} 已占用，请修改 PORT。` : '服务启动失败。'); process.exitCode = 1; });
-  server.listen(port, bindHost, () => console.log(`星语 · 长辈消息回复助手已启动：http://${bindHost}:${port}\n${process.env.PUBLIC_ORIGIN ? `邀请试用来源：${new URL(process.env.PUBLIC_ORIGIN).origin}（请经 HTTPS 反向代理访问）` : '服务仅监听本机。'}\n${liveAvailable(runtimeConfig) ? `真实 AI 已配置：${runtimeConfig.typesafeKey ? 'Jev + LLM' : 'LLM 直接分析与回复'}，点击生成后才调用。` : '当前为本地示例，未配置真实 AI。'}\n按 Ctrl+C 停止。`));
+  server.listen(port, bindHost, () => console.log(`好好回 · 长辈消息回复助手已启动：http://${bindHost}:${port}\n${process.env.PUBLIC_ORIGIN ? `邀请试用来源：${new URL(process.env.PUBLIC_ORIGIN).origin}（请经 HTTPS 反向代理访问）` : '服务仅监听本机。'}\n${liveAvailable(runtimeConfig) ? `真实 AI 已配置：${runtimeConfig.typesafeKey ? 'Jev + LLM' : 'LLM 直接分析与回复'}，点击生成后才调用。` : '当前为本地示例，未配置真实 AI。'}\n按 Ctrl+C 停止。`));
 }

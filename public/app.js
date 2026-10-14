@@ -1,6 +1,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
+if (new URLSearchParams(location.search).get('host') === 'android') document.body.dataset.host = 'android';
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const settle = promises => Promise.all(promises.map(promise => Promise.resolve(promise).then(
   value => ({ status: 'fulfilled', value }),
@@ -10,6 +11,7 @@ const requestId = () => typeof crypto.randomUUID === 'function' ? crypto.randomU
   Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('-');
 const state = { busy: false, sharing: false, initializing: false, mode: 'demo', modeSettled: false, liveAvailable: false, mediaAvailable: false, videoAvailable: false, attachment: null, controller: null, result: null, submitted: null, exampleIndex: -1 };
 let pendingConfig = null;
+let pendingAndroidAutoGenerate = null;
 const draftKey = 'xingyu-draft-v1';
 let attachmentNeedsReselect = false;
 const nativeWechat = { post: null, available: false, reason: 'checking', pending: new Map(), refreshing: false, lastShare: null };
@@ -51,6 +53,13 @@ function showError(message) {
 }
 
 function clearError() { $('form-error').hidden = true; }
+
+function scrollIntoViewNow(element, block = 'center') {
+  const previous = document.documentElement.style.scrollBehavior;
+  document.documentElement.style.scrollBehavior = 'auto';
+  element.scrollIntoView({ block });
+  document.documentElement.style.scrollBehavior = previous;
+}
 
 function saveDraft() {
   try {
@@ -104,6 +113,7 @@ function restoreDraft() {
 }
 
 function clearDraft() {
+  pendingAndroidAutoGenerate = null;
   if (state.busy || state.sharing) return;
   attachmentNeedsReselect = false;
   $('source-text').value = '';
@@ -119,6 +129,7 @@ function countInput() {
   $('source-counter').textContent = count + ' / 6000';
   $('source-counter').classList.toggle('over-limit', count > 6000);
   $('source-text').setAttribute('aria-invalid', String(count > 6000));
+  document.querySelector('.source-wrap').classList.toggle('invalid', count > 6000);
 }
 
 function canShareReply() {
@@ -214,7 +225,8 @@ function normalizeInboundShare(value) {
     if (url.origin !== location.origin || url.search || url.hash || !/^\/\.xingyu-share\/[\w-]{8,128}$/.test(url.pathname)) return null;
     attachment = { kind: item.kind, mime: item.mime, size: item.size, name: item.name, url: url.href };
   }
-  return text || attachment ? { id: data.id, text, attachment, entry: data.entry === 'process_text' ? 'process_text' : 'share' } : null;
+  const entry = data.entry === 'process_text' ? 'process_text' : data.entry === 'clipboard' ? 'clipboard' : 'share';
+  return text || attachment ? { id: data.id, text, attachment, entry } : null;
 }
 
 function hasDraftContent() {
@@ -239,6 +251,7 @@ function hideInboundShare() {
 function receiveInboundShare(value) {
   const inbound = normalizeInboundShare(value);
   if (!inbound) return;
+  pendingAndroidAutoGenerate = null;
   pendingInboundShare = inbound;
   activeInboundId = null;
   $('return-source').hidden = true;
@@ -251,14 +264,15 @@ function receiveInboundShare(value) {
 }
 
 function presentInboundShare(inbound) {
+  const androidHost = document.body.dataset.host === 'android';
   document.body.dataset.entry = 'share';
   const conflict = hasDraftContent();
-  $('inbound-share-title').textContent = conflict ? '这里还有一份未完成的草稿' : inbound.entry === 'process_text' ? '已选中一段文字' : inbound.attachment && inbound.attachment.kind === 'image' ? '收到一张图片' : inbound.attachment && inbound.attachment.kind === 'video' ? '收到一段视频' : '收到一段文字';
+  $('inbound-share-title').textContent = conflict ? '这里还有一份未完成的草稿' : inbound.entry === 'process_text' ? '已选中一段文字' : inbound.entry === 'clipboard' ? '剪贴板里的一段文字' : inbound.attachment && inbound.attachment.kind === 'image' ? '收到一张图片' : inbound.attachment && inbound.attachment.kind === 'video' ? '收到一段视频' : '收到一段文字';
   const preview = inbound.text || inbound.attachment.name;
   $('inbound-share-preview').textContent = conflict ? `使用新内容会替换当前输入、附件和分析结果。新内容：${preview}` : preview;
   $('inbound-share-note').textContent = nativeWechat.post ? '尚未上传，也不会自动分析。' : '尚未上传，也不会自动分析；返回原应用请使用系统返回键。';
   $('inbound-dismiss').textContent = conflict ? '继续原草稿' : '暂不使用';
-  $('inbound-accept').textContent = conflict ? '改用新内容' : '放入编辑区';
+  $('inbound-accept').textContent = androidHost ? conflict ? '改用并开始识别' : '识别并准备回复' : conflict ? '改用新内容' : '放入编辑区';
   $('inbound-return').hidden = !nativeWechat.post;
   $('inbound-share').hidden = false;
   $('inbound-share').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -269,6 +283,8 @@ async function acceptInboundShare() {
   if (!inbound || state.busy || state.sharing || acceptingInboundShare) return;
   acceptingInboundShare = true;
   let nextAttachment = null;
+  let accepted = false;
+  const autoGenerate = document.body.dataset.host === 'android';
   updateControls();
   $('inbound-share-note').textContent = inbound.attachment ? '正在安全读取附件，尚未发送给 AI。' : '正在放入编辑区。';
   try {
@@ -283,7 +299,7 @@ async function acceptInboundShare() {
       if (nextAttachment.kind === 'video') {
         const controller = new AbortController();
         nextAttachment.duration = await videoDuration(nextAttachment.url, controller.signal);
-        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给星语。');
+        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给好好回。');
       }
     }
     if (pendingInboundShare !== inbound) {
@@ -297,14 +313,27 @@ async function acceptInboundShare() {
     activeInboundId = inbound.id;
     acknowledgeInbound(inbound.id, 'accepted');
     hideInboundShare();
+    document.body.dataset.entry = 'share';
     $('draft-status').textContent = '分享内容已放入；确认后再点“帮我回一句”';
-    $('source-text').focus();
+    accepted = true;
   } catch (error) {
     if (nextAttachment && nextAttachment.url) URL.revokeObjectURL(nextAttachment.url);
     if (pendingInboundShare === inbound) $('inbound-share-note').textContent = error.message;
   } finally {
     acceptingInboundShare = false;
     updateControls();
+    if (accepted) {
+      if (autoGenerate && state.initializing) pendingAndroidAutoGenerate = {
+        text: $('source-text').value,
+        recipient: $('recipient-select').value,
+        attachment: state.attachment
+      };
+      else if (autoGenerate) generateReply();
+      else {
+        scrollIntoViewNow($('translate-button'));
+        $('translate-button').focus({ preventScroll: true });
+      }
+    }
   }
 }
 
@@ -374,6 +403,7 @@ function clearResult() {
 }
 
 function inputChanged() {
+  pendingAndroidAutoGenerate = null;
   countInput();
   clearError();
   if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient)) {
@@ -433,6 +463,7 @@ function updateMediaNotice() {
 }
 
 function updateAttachment(attachment) {
+  pendingAndroidAutoGenerate = null;
   const previousUrl = state.attachment && state.attachment.url;
   $('attachment-video').pause();
   $('attachment-video').removeAttribute('src');
@@ -589,6 +620,7 @@ async function generateReply() {
   if ((!text && !state.attachment) || Array.from(text).length > 6000) {
     showError(!text ? '先粘贴一段消息，或添加一张图片、小视频。' : '文字请控制在 6000 字以内。');
     $('source-text').setAttribute('aria-invalid', 'true');
+    document.querySelector('.source-wrap').classList.add('invalid');
     $('source-text').focus();
     return;
   }
@@ -611,7 +643,11 @@ async function generateReply() {
     saveDraft();
     $('result-announcement').textContent = '分析和回复已准备好，可以编辑并复制。';
     $('result-title').focus({ preventScroll: true });
-    if (matchMedia('(max-width: 650px)').matches) $('result-card').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    if (document.body.dataset.host === 'android') {
+      requestAnimationFrame(() => scrollIntoViewNow($('reply-text'), 'start'));
+    } else if (matchMedia('(max-width: 650px)').matches) {
+      $('result-card').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    }
   } catch (error) {
     const cancelled = controller.signal.aborted;
     showError(cancelled ? '已取消，输入、附件和已有回复已保留。' : error.message);
@@ -639,6 +675,13 @@ async function copyReply() {
   } catch {
     $('reply-text').focus();
     $('reply-text').select();
+    try {
+      if (typeof document.execCommand === 'function' && document.execCommand('copy')) {
+        $('copy-status').textContent = activeInboundId ? nativeWechat.post ? '已复制，返回后在原应用输入框粘贴发送。' : '已复制，请用系统返回键回原应用粘贴发送。' : '已复制，回微信粘贴即可。';
+        $('return-source').hidden = !(activeInboundId && nativeWechat.post);
+        return;
+      }
+    } catch { /* Keep the text selected for manual copy. */ }
     $('copy-status').textContent = '已选中文字，请长按或按 Ctrl / ⌘ + C 复制。';
   }
 }
@@ -708,6 +751,11 @@ async function initialize() {
   $('init-error').hidden = connected && sample.status === 'fulfilled';
   state.initializing = false;
   $('retry-init').disabled = state.busy || state.sharing;
+  if (pendingAndroidAutoGenerate) {
+    const pending = pendingAndroidAutoGenerate;
+    pendingAndroidAutoGenerate = null;
+    if (!pendingInboundShare && $('source-text').value === pending.text && $('recipient-select').value === pending.recipient && state.attachment === pending.attachment) generateReply();
+  }
 }
 
 $('translate-form').addEventListener('submit', event => { event.preventDefault(); generateReply(); });
