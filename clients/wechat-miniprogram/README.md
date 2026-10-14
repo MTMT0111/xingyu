@@ -18,17 +18,17 @@
 
 1. 在仓库根目录运行 `npm start`，确认 `http://127.0.0.1:4173/api/config` 可访问。
 2. 安装并登录[微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)。当前电脑已安装腾讯签名的稳定版 `2.02.2609231`，位置为 `D:\CodexTools\WeixinDevTools`。
-3. 先在 `project.config.json` 中把 `touristappid` 换成自己的小程序 AppID，再导入目录 `clients/wechat-miniprogram`。当前稳定版已经不接受 `touristappid`，会返回错误码 `10`（“不存在此 AppID”）。
+3. 导入目录 `clients/wechat-miniprogram`。仓库已配置本项目的小程序 AppID `wx44641c021b958fdd`；若复制为其他小程序，再替换 `project.config.json` 中的 AppID。
 4. 当前 `project.config.json` 为本机联调关闭了合法域名检查，因此模拟器可连接 `http://127.0.0.1:4173`。发布前必须恢复合法域名检查，并使用已登记的 HTTPS 域名。
 5. 文字流程可直接测试；“聊天文件”、相册、拍摄、隐私授权和复制需要在真实微信环境复核，开发者工具不能替代真机。
 
-2026-10-15 本机实测：微信开发者工具安装、登录和 CLI 服务均正常，`open-other` 可打开源码；正式 `open` 和 `preview` 都在校验 `touristappid` 时被微信拒绝，因此尚未把模拟器或真机结果写成已通过。仓库 52 项自动测试全部通过。
+2026-10-15 本机实测：微信开发者工具 `open` 和 `preview` 均使用真实 AppID 成功，预览包 35.4 KB；仓库 52 项自动测试全部通过。真机连接本地服务仍需 HTTPS 地址和后台合法域名。
 
 ## 真机和发布前配置
 
 移动应用 AppID 与小程序 AppID 是两套登记。个人主体不能创建移动应用，不等于不能注册小程序；实际可用类目和审核要求以小程序后台为准。
 
-1. 在[微信公众平台](https://mp.weixin.qq.com/)注册或登录小程序，进入“开发管理 / 开发设置”取得 AppID，并在项目设置中替换 `touristappid`。
+1. 在[微信公众平台](https://mp.weixin.qq.com/)登录当前小程序，确认“开发管理 / 开发设置”中的 AppID 与 `project.config.json` 一致。
 2. 把现有 Node 服务部署到固定 HTTPS 根域名。服务器 `.env` 设置 `PUBLIC_ORIGIN`、`TRIAL_PASSWORD` 和 LLM 配置；不要把模型密钥或 AppSecret 写入小程序。
 3. 在小程序后台“开发设置 / 服务器域名”把该 HTTPS 根域名加入 `request` 合法域名。真机不能使用 IP、`localhost` 或电脑的 `127.0.0.1`。
 4. 在小程序后台填写《用户隐私保护指引》，如实声明剪贴板、会话文件、相册/相机以及把用户主动提交的文字/图片/视频发送到自有服务和模型提供商。项目已启用 `__usePrivacyCheck__`，未完成后台声明时相关接口会被微信拦截。
@@ -42,10 +42,10 @@
 | --- | --- |
 | 小程序源码 | 已完成，纯原生组件和 API |
 | DeepSeek 后端 | 原开发电脑已配置；密钥不在仓库 |
-| 小程序 AppID | 未提供；`touristappid` 已被当前稳定版拒绝，错误码 `10` |
+| 小程序 AppID | 已配置 `wx44641c021b958fdd`，开发者工具已验证 |
 | 微信开发者工具 | 已安装 `2.02.2609231` 至 `D:\CodexTools\WeixinDevTools`；登录和 CLI 正常 |
 | 公网 HTTPS 与合法域名 | 未部署、未登记 |
 | 隐私保护指引 | 尚未在小程序后台填写 |
-| 开发者工具 / 真机 / 提审 | 已执行工具导入与预览命令；因缺少真实 AppID，模拟器、真机和上传尚未执行 |
+| 开发者工具 / 真机 / 提审 | 开发者工具导入与预览已通过；实体 Android/iPhone、上传和提审尚未执行 |
 
 从聊天选择文件使用微信的 `wx.chooseMessageFile`；小程序网络请求需要后台登记的 HTTPS 合法域名。相关入口见[微信小程序 API 文档](https://developers.weixin.qq.com/miniprogram/dev/api/media/image/wx.chooseMessageFile.html)与[网络能力说明](https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html)。

@@ -8,7 +8,7 @@
 
 `clients/wechat-miniprogram` 是不依赖 `web-view` 的原生小程序。它通过 `wx.chooseMessageFile` 从微信会话选择媒体，通过 `wx.chooseMedia` 访问相册/拍摄，通过用户点击读取剪贴板；随后调用现有 `/api/config` 和 `/api/reply`。结果只能由用户编辑并复制回聊天，不读取联系人、不自动收消息、不代发。详细导入、AppID、HTTPS 合法域名和隐私指引步骤见 [小程序 README](clients/wechat-miniprogram/README.md)。
 
-个人主体无法创建移动应用不阻止另行注册小程序，但小程序可用类目和审核结果必须以微信公众平台实际账号为准。当前项目暂用 `touristappid`，本机没有微信开发者工具，尚未完成模拟器、体验版或真机测试。
+个人主体无法创建移动应用不阻止注册小程序，但小程序可用类目和审核结果仍以微信公众平台实际账号为准。当前项目已配置小程序 AppID `wx44641c021b958fdd`，并在微信开发者工具完成正式导入与预览；体验版和真机仍待 HTTPS 服务就绪后验证。
 
 ## Android 轻量插件入口
 
@@ -39,7 +39,7 @@
 
 | 平台 | 工程 | 构建方式 | 配置 |
 | --- | --- | --- | --- |
-| 微信小程序 | clients/wechat-miniprogram | 微信原生 WXML/WXSS/JavaScript，无第三方插件 | 小程序 AppID、HTTPS `request` 合法域名、隐私指引；开发时可用 `touristappid` |
+| 微信小程序 | clients/wechat-miniprogram | 微信原生 WXML/WXSS/JavaScript，无第三方插件 | 已配置小程序 AppID；发布还需 HTTPS `request` 合法域名和隐私指引 |
 | Android | clients/android | Gradle，官方微信 SDK 6.8.40 | HTTPS 地址；Debug 另支持固定 USB 本地地址；AppID 仅 SDK 选人需要；包名 com.xingyu.reply |
 | iOS | clients/ios | XcodeGen + CocoaPods，官方微信 SDK 2.0.9 | xcconfig、URL Scheme、Universal Links、Associated Domains 与 Apple 签名 |
 
