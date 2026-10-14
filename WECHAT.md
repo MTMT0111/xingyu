@@ -85,12 +85,12 @@ Android 客户端已实现进入好好回的 `ACTION_SEND`（单段文字、单�
 
 6.0 已为“按钮 → 微信选人 → 纯文本回复”增加 Android 与 iOS 客户端工程，复用当前 H5：Android 使用 `WXTextObject` 与 `SendMessageToWX.Req`，场景为 `WXSceneSession`；iOS 使用 `SendMessageToWXReq.text`、`bText=YES`。原生 SDK 可用时显示“去微信选人”。Android 已实际编译开发 APK；iOS 当前仅源码和静态检查。用户尚无移动应用 AppID，平台登记、HTTPS 服务、iOS 签名和两端真机测试仍待完成。步骤见 CLIENTS.md；普通微信浏览器仍走上述系统分享或复制。参考 [Android 官方文字分享](https://developers.weixin.qq.com/doc/oplatform/Mobile_App/Share_and_Favorites/Android.html)、[iOS 官方文档](https://developers.weixin.qq.com/doc/oplatform/Mobile_App/Share_and_Favorites/iOS.html)。
 
-小程序可改善从聊天选择媒体的入口，但 `onShareAppMessage` 的 `title/path/imageUrl` 用于转发小程序卡片，不能把它称为发送任意纯文本回复。依据为[腾讯官方类型定义](https://github.com/wechat-miniprogram/api-typings/blob/master/types/wx/lib.wx.page.d.ts#L193)。个人微信 H5 与企业微信的通讯录、会话 API 也不能混用。
+仓库现已实现原生微信小程序 `clients/wechat-miniprogram`，可由用户从会话选择图片/视频、读取剪贴板或使用相册/拍摄，再调用同一后端分析。它仍不能自动读取聊天；`onShareAppMessage` 的 `title/path/imageUrl` 只转发小程序卡片，不能把它称为发送任意纯文本回复。回复仍由用户复制回聊天。依据为[腾讯官方类型定义](https://github.com/wechat-miniprogram/api-typings/blob/master/types/wx/lib.wx.page.d.ts#L193)。
 
 ## 什么时候需要微信官方接口
 
 - 用户身份、账号同步：再评估[微信网页授权](https://developers.weixin.qq.com/doc/service/guide/h5/auth.html)。官方说明 `snsapi_base` 用于获取 OpenID，用户信息授权另有 scope；当前无需添加。
 - 图片选择、扫码、定制分享：再评估[微信 JS-SDK](https://developers.weixin.qq.com/doc/service/guide/h5/jssdk.html)。需要符合接口权限、JS 接口安全域名、服务端签名及 `wx.config` / `ready` / `error` 流程。当前普通文本工作流没有加载 SDK。
-- 小程序入口：以后可评估 [web-view](https://developers.weixin.qq.com/miniprogram/dev/component/web-view.html) 的账号与业务域名限制。它不是当前 H5 的前置条件。
+- 小程序入口：已使用原生 WXML/WXSS/JavaScript 实现，不依赖 `web-view`；仍需小程序 AppID、HTTPS `request` 合法域名、隐私保护指引和真机提审，见 `clients/wechat-miniprogram/README.md`。
 
 以上官方页面于 2026-10-09 查阅。当前没有注册账号、申请域名、购买服务或对外发布。

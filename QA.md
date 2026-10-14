@@ -32,7 +32,8 @@
 
 | 检查 | 当前结果 | 边界 |
 | --- | --- | --- |
-| npm test | 46 项通过 | 模型服务使用测试替身，覆盖 LLM 独立与可选 Jev 分支 |
+| npm test | 52 项通过 | 新增 6 项小程序地址、认证、媒体、数据契约、页面请求流程和连接竞态测试；模型服务使用测试替身，覆盖 LLM 独立与可选 Jev 分支 |
+| 微信小程序源码 | JSON / JavaScript 语法检查与 6 项单元测试通过 | 当前电脑未安装微信开发者工具；无小程序 AppID、HTTPS 合法域名、隐私指引、体验版或真机记录 |
 | 浏览器回归 | 51/51 通过，JS 与 CSP 错误均为 0 | 含系统分享接收确认、Android 紧凑插件页、慢启动自动提交保护、草稿保护、连续分享竞态、无桥接降级与返回；原生桥接、模型和微信 SDK 为测试替身 |
 | Android 构建与测试（2026-10-14） | Debug / Release 均构建成功，各 13/13 项测试通过 | lint 0 错误、2 条既有警告，开发包签名有效；另有 MEmu 插件运行验收，不代表微信真机运行 |
 | 7 个合成案例的真实 LLM 闭环 | 7/7 通过，均 HTTP 200 | `llm_only`、`jevTested: false`，真实浏览器、服务端、本地 ASR 和云模型；未发送微信消息 |
@@ -40,6 +41,8 @@
 | Android 9 / MEmu 运行（更新至 2026-10-14） | 最终插件版安装运行；文字一次确认后真实生成；复制返回、一次性令牌磁贴、无令牌拒绝和快捷方式注册通过；此前图片、视频及 Chooser 结果保留 | WebView 68；Chooser 无接收 App；静态快捷方式仅验证注册；不代表实体手机或微信 |
 | 实体安卓、真实微信与 Studio AVD | 未验证 | MEmu 不代替实体机、微信版本/ROM 或 Android Studio AVD；常见路径未发现 Studio |
 | 本地 Node 内存快照 | 空闲 Working Set 51.4 MiB / Private Memory 26.8 MiB | 单次快照，非峰值，不含浏览器、IDE、Gradle、云模型或本地 ASR |
+
+2026-10-15 另用与小程序页面相同的 JSON 字段向本地 `/api/reply` 发起一次真实请求：`recipient=mother`、`tone=brief`、`mode=live`、`variant=0`，1570 ms 返回完整摘要、2 条可能理解和回复，`generation_source=llm`、模型 `deepseek-flash`。请求由 PowerShell 发出，只证明小程序复用的服务端契约和模型链路可用；没有经过 `wx.request`、开发者工具、合法域名或微信真机。
 
 复现步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。Android Debug 允许的 HTTP 例外仅是 ADB 转发所用的 `127.0.0.1:4173`，Release 仍要求 HTTPS。页面新增 sessionStorage 草稿：仅当前标签页暂存文字与回复，不存附件文件，刷新后的附件需重选；本轮浏览器回归覆盖恢复、清空、过期数据及存储不可用。WebView 68 兼容修复不增加新依赖。
 

@@ -1,0 +1,13 @@
+{
+  "appid": "touristappid",
+  "compileType": "miniprogram",
+  "libVersion": "3.17.2",
+  "miniprogramRoot": "./",
+  "projectname": "haohaohui-wechat",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": false
+  }
+}

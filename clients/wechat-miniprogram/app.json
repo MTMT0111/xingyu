@@ -1,0 +1,17 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "好好回",
+    "navigationBarBackgroundColor": "#fffdf7",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f3ec",
+    "backgroundTextStyle": "dark"
+  },
+  "networkTimeout": {
+    "request": 60000
+  },
+  "sitemapLocation": "sitemap.json",
+  "__usePrivacyCheck__": true
+}

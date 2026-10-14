@@ -1,10 +1,10 @@
 # 好好回 · 爸妈分享接话器
 
-给父母长辈回复分享的轻量网页和 Android 工具。当前优先路径：**从系统分享、处理所选文字、显式粘贴、启动器快捷方式或快捷设置磁贴召唤 → 查看内容摘要、可能的心意和回复 → 编辑后用系统分享或复制回聊天**。通用系统分享不需要微信 AppID，但是否展示微信、能进入哪些微信场景由微信版本和手机 ROM 决定。用户已确认当前个人主体不能创建微信移动应用，因此官方 SDK 选人路径受主体资格阻碍，暂不继续申请。产品范围见 `PRODUCT.md`，比赛要求见 `COMPETITION-REVIEW.md`。
+给父母长辈回复分享的轻量微信小程序、网页和 Android 工具。当前优先路径：**在小程序粘贴文字/链接或从微信聊天选择媒体，或通过 Android 系统分享召唤 → 查看摘要、可能的心意和回复 → 编辑后复制回聊天**。用户已确认当前个人主体不能创建微信移动应用；小程序是独立登记路径，源码已完成，仍需小程序 AppID、HTTPS 合法域名、隐私指引和真机验收。产品范围见 `PRODUCT.md`，比赛要求见 `COMPETITION-REVIEW.md`。
 
 <p align="center"><img src="screenshots/core/mobile-390.png" width="390" alt="好好回手机插件的输入、理解与可编辑回复界面"></p>
 
-快速入口：[安卓开发版 APK](downloads/xingyu-android-debug.apk) · [验证记录](QA.md) · [比赛提交清单](SUBMISSION.md)
+快速入口：[微信小程序工程](clients/wechat-miniprogram) · [安卓开发版 APK](downloads/xingyu-android-debug.apk) · [验证记录](QA.md) · [比赛提交清单](SUBMISSION.md)
 
 ## 克隆后运行
 
@@ -28,10 +28,11 @@ npm start
 - 本地 `127.0.0.1:4173` 已启动，配置接口确认真实文字、图片和视频入口均启用，当前为 LLM 独立模式。
 - 仅配置 LLM 即可分析并生成回复；配置 `TYPESAFE_API_KEY` 后才增加 Jev 分类。仓库不含真实密钥。
 - 默认入口已改为 430px 内的插件工作台，不再展示网站首页、导览或页脚；打开即完成“放入内容 → 读懂重点 → 编辑发送”。可选择认真聊聊、简短自然或温和有边界。当前标签页会暂存原文、对象、回复方式与编辑稿，附件不保存，恢复后需重新选择。
+- 新增原生微信小程序工程 `clients/wechat-miniprogram`：支持点击读取剪贴板、从微信会话选择图片/视频、相册/拍摄、真实分析、编辑和复制；不使用 `web-view` 或第三方插件。当前没有小程序 AppID、微信开发者工具、HTTPS 合法域名和真机记录，不能称为已经发布。
 - Android Debug 增加“USB 本地调试”，通过 `adb reverse` 访问固定 `http://127.0.0.1:4173`；Release 仍只接受 HTTPS。无需额外 Studio 插件。
 - Android 已实现系统分享与选中文字入口；本轮又增加原生工具栏显式“粘贴”、启动器静态快捷方式“分析剪贴板”、快捷设置磁贴“好好回”和原生“发送”。应用不监听剪贴板，无应用自启或常驻后台任务；磁贴服务仅由系统按需绑定。客户端只申请联网权限，不申请存储、联系人、悬浮窗或无障碍权限。
 - Android WebView 固定使用 `?host=android` 插件模式，与默认入口共用紧凑工作台，并隐藏草稿、示例等次要操作。原生“发送”使用 Android `ACTION_SEND` 打开系统分享面板，没有微信 AppID 时仍可使用；不会自动选择联系人或确认送达。
-- 浏览器 51/51 通过，JS / CSP 错误为 0；Android Debug / Release 各 13/13 项测试通过，lint 0 错误、2 条既有警告，真实 LLM 闭环 7/7、工程测试 46 项通过。2026-10-14 又在 MEmu 对当前轻量插件版做了运行验收；详情见 [QA.md](QA.md)。
+- 浏览器 51/51 通过，JS / CSP 错误为 0；Android Debug / Release 各 13/13 项测试通过，lint 0 错误、2 条既有警告，真实 LLM 闭环 7/7、工程测试 52 项通过（含 6 项小程序边界、页面流程和连接竞态测试）。2026-10-14 又在 MEmu 对 Android 轻量插件版做了运行验收；详情见 [QA.md](QA.md)。
 - Lenovo/MEmu Android 9（API 28，Chrome/WebView 68.0.3440.70）已验证当前版 `ACTION_SEND` 文字一次确认后自动调用真实 DeepSeek 并生成回复；原生“复制返回”写入剪贴板并结束页面，随后 `QUICK_REPLY` 读回了同一句话。快捷设置磁贴成功添加并点击，能打开剪贴板确认；静态快捷方式 `clipboard_reply` 已在系统注册。
 - 原生“发送”成功打开 Android `ChooserActivity`，但模拟器没有可接收的 App，因此未验证实际交付。文件管理器真实分享 `parent-message.mp4`（11.4 秒、约 0.16 MB）成功进入好好回，一次确认后约 30 秒完成真实视频画面、语音分析并生成回复；系统分享、`ACTION_PROCESS_TEXT` 及图片/视频入口仍正常。
 - WebView 68 兼容修复和 `?host=android` 紧凑页随当前版运行。实体安卓手机、真实微信、微信 AppID、Android Studio AVD、iOS 及 Jev 仍未验收；MEmu Chooser 打开不能等同于微信实际收到回复。
@@ -96,6 +97,8 @@ Android `ACTION_SEND` 和 `ACTION_PROCESS_TEXT` 是进入好好回的入口；�
 - [ ] 在实体安卓手机验证上述插件入口、系统分享、草稿冲突与临时 URI 授权失效，并记录微信版本与 ROM 是否展示入口；模拟器通过不代表实体微信验收。
 - [ ] 当前个人主体无法创建移动应用，SDK 的 AppID 路线受资格阻碍。本阶段不继续申请；只有后续具备合法资格再评估平台登记与签名。
 - [ ] Android 手机上完成「真实生成 → 编辑 → 复制 → 微信粘贴发送」，覆盖相册/视频选择、复制失败及返回保稿。直接 SDK 选人验收须等待主体/AppID 条件成立。
+- [x] 原生微信小程序源码、连接设置、会话文件/相册/剪贴板入口、结果编辑复制和 4 项单元测试已完成。
+- [ ] 申请并配置小程序 AppID、HTTPS `request` 合法域名与隐私保护指引；在开发者工具和 Android/iPhone 微信完成真实 LLM 闭环后再提交审核。
 - [ ] iPhone 微信网页验证口令登录、中文键盘、字体、媒体选择、复制与系统分享；桌面浏览器模拟不代替真机。
 - [ ] iOS 在 Mac 上生成工程、安装 Pods、编译并执行 XCTest，完成签名及 Universal Links / AASA 回调。基础个人设备测试可先评估 Apple 免费 Personal Team，但本项目的 Associated Domains 能力、签名和微信回调仍需核实，不能据此保证完整接入免费。发行/TestFlight 后续再讨论。[Apple 账号说明](https://developer.apple.com/help/account/basics/about-your-developer-account)
 - [x] 合成图片与有声视频已通过真实网页 → 本地处理 → 云视觉 → LLM 回复 → 编辑复制；本地 ASR 与云调用均未模拟。MEmu 的系统入站分享也已通过；真实用户媒体、实体微信及 Jev 分支仍不在本次通过范围。
@@ -142,7 +145,7 @@ npm start
 
 已有固定来源、私有试用口令、每小时额度与并发限制，配置方式见 `WECHAT.md`。这些开关不代表已上线，微信内口令登录、字体、键盘和复制兼容性仍需真机检查。
 
-安卓和 iPhone 客户端工程位于 `clients/`，包含官方微信 SDK 纯文本分享桥接。但当前个人主体无法创建所需移动应用，未具备 AppID 和真机验收条件；因此“去微信选人”不是当前可用能力。Android 的通用系统分享收发、显式剪贴板入口和复制路径均不依赖 AppID。构建和限制见 `CLIENTS.md`。
+小程序、Android 和 iPhone 客户端工程位于 `clients/`。小程序使用原生组件直接调用现有后端；Android/iPhone 工程包含官方微信 SDK 纯文本分享桥接。当前个人主体无法创建所需移动应用，但可另行注册小程序；两条 AppID 路径不能混用。配置和限制见 `CLIENTS.md`。
 
 ## 需要哪些接口
 

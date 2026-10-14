@@ -1,8 +1,14 @@
 # 好好回 · 微信客户端接入
 
-安卓与 iPhone 客户端复用这套网页和后端。Android 还支持系统分享、处理所选文字、显式粘贴、启动器静态快捷方式和快捷设置磁贴；AI 密钥留在服务器。网页的“妈妈/爸爸/其他长辈”只是回复称呼，真实收件人仍由用户在系统分享面板或微信中选择。
+微信小程序、安卓与 iPhone 客户端复用同一后端。小程序使用原生组件；Android 还支持系统分享、处理所选文字、显式粘贴、启动器静态快捷方式和快捷设置磁贴；AI 密钥留在服务器。“妈妈/爸爸/其他长辈”只是回复称呼，不是微信联系人选择器。
 
 **当前账号限制：**用户于 2026-10-10 在开放平台确认个人主体不能创建移动应用，本阶段暂停 AppID 申请。直接在页面调微信选联系人仍需合格主体的移动应用 AppID，以及匹配包名/签名；下面 SDK 流程不是当前可用状态。Android 通用系统分享收发、分析、复制和返回来源应用均不需要微信 AppID。
+
+## 微信小程序入口
+
+`clients/wechat-miniprogram` 是不依赖 `web-view` 的原生小程序。它通过 `wx.chooseMessageFile` 从微信会话选择媒体，通过 `wx.chooseMedia` 访问相册/拍摄，通过用户点击读取剪贴板；随后调用现有 `/api/config` 和 `/api/reply`。结果只能由用户编辑并复制回聊天，不读取联系人、不自动收消息、不代发。详细导入、AppID、HTTPS 合法域名和隐私指引步骤见 [小程序 README](clients/wechat-miniprogram/README.md)。
+
+个人主体无法创建移动应用不阻止另行注册小程序，但小程序可用类目和审核结果必须以微信公众平台实际账号为准。当前项目暂用 `touristappid`，本机没有微信开发者工具，尚未完成模拟器、体验版或真机测试。
 
 ## Android 轻量插件入口
 
@@ -33,6 +39,7 @@
 
 | 平台 | 工程 | 构建方式 | 配置 |
 | --- | --- | --- | --- |
+| 微信小程序 | clients/wechat-miniprogram | 微信原生 WXML/WXSS/JavaScript，无第三方插件 | 小程序 AppID、HTTPS `request` 合法域名、隐私指引；开发时可用 `touristappid` |
 | Android | clients/android | Gradle，官方微信 SDK 6.8.40 | HTTPS 地址；Debug 另支持固定 USB 本地地址；AppID 仅 SDK 选人需要；包名 com.xingyu.reply |
 | iOS | clients/ios | XcodeGen + CocoaPods，官方微信 SDK 2.0.9 | xcconfig、URL Scheme、Universal Links、Associated Domains 与 Apple 签名 |
 

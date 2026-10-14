@@ -1,10 +1,10 @@
 # Kiro 接续与实际使用记录
 
-核验日期：2026-10-14。
+核验日期：2026-10-15。
 
 ## 当前事实
 
-2026-10-14 最新实际调用：对当前单列插件版发起受限只读审阅，Kiro CLI 2.28.0 启动 KAS 0.66.26、加载当前 Steering 后仍返回 `403 / TEMPORARILY_SUSPENDED`。当前账号限制已重新验证，未产生模型输出、工具调用或文件编辑；不能将本轮 Codex 实现计为 Kiro 开发。
+2026-10-15 最新实际调用：对新增原生微信小程序发起受限只读审阅，Kiro CLI 2.28.0 启动 KAS 0.66.26 后仍返回 `403 / TEMPORARILY_SUSPENDED`。当前账号限制已重新验证，未产生模型输出、工具调用或文件编辑；不能将本轮 Codex 实现计为 Kiro 开发。
 
 本轮 `.kiro/` 是 Codex 根据 Kiro 官方文档准备的项目配置。已下载、验证并实际启动 Kiro CLI，用户也已完成登录；实际项目审阅会话加载了 Steering，但被 Kiro 服务端的账号临时锁定错误阻断，**尚无 Kiro 模型审阅或生成结果**。环境启动和配置加载证据不能替代比赛中“Kiro 已实际开发”的证明。
 
@@ -96,3 +96,9 @@ Kiro Agent Server 0.66.26 启动成功，会话 `sess_a6d39a47-5525-4e82-8728-32
 前端重做、真实 LLM 与浏览器回归完成后，使用 Windows 原生 Kiro CLI 2.28.0 再次发起受限只读审阅，仅授权 `read,grep`。提示要求读取当前 Steering、Android 插件规格、产品说明、前端、回复逻辑和浏览器测试，明确禁止读取 `.env`、密钥和用户文件，禁止执行命令或修改文件。
 
 Kiro Agent Server 0.66.26 启动，会话 `sess_f0760dff-712e-445c-9962-7018e85f92f9` 的 `steering_inclusion` 确认当前 `.kiro/steering/project.md` 已加载。提示阶段仍返回 HTTP 403、`TEMPORARILY_SUSPENDED`；显示请求 ID `64884fc8-3395-49b2-995b-8ef23359cdf4`，KRS 请求 ID `7a09d5c4-650a-4085-89fa-1d5c54bbf305`，退出码 1。结果仍为 **0 个模型输出、0 个工具调用、0 个文件编辑**，因此本轮页面与功能不能记为 Kiro 产出。
+
+## 2026-10-15 微信小程序审阅重试
+
+新增原生微信小程序、规格和单元测试后，再次运行 Windows 原生 Kiro CLI 2.28.0，仅授权 `read,grep`。提示范围限定为当前 Steering、`.kiro/specs/wechat-miniprogram/`、`clients/wechat-miniprogram/`、小程序测试和服务端 API 契约；明确禁止读取 `.env`、密钥或用户数据，禁止执行命令和修改文件。
+
+Kiro Agent Server 0.66.26 启动，但提示阶段返回 HTTP 403、`TEMPORARILY_SUSPENDED`。显示请求 ID `38ab0d7b-27d5-42d2-8e3c-a7850cf6f9a3`，KRS 请求 ID `336a3309-b875-41da-8b68-951a3207431d`。结果为 **0 个模型输出、0 个工具调用、0 个文件修改**；小程序规格、实现和测试均由 Codex 完成，比赛要求的 Kiro 实际参与仍未满足。
