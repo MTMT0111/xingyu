@@ -17,12 +17,12 @@
 ## 开发者工具本机运行
 
 1. 在仓库根目录运行 `npm start`，确认 `http://127.0.0.1:4173/api/config` 可访问。
-2. 安装并登录[微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)。
-3. 导入目录 `clients/wechat-miniprogram`。仓库使用 `touristappid` 供界面调试；正式上传前换成自己的小程序 AppID。
+2. 安装并登录[微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)。当前电脑已安装腾讯签名的稳定版 `2.02.2609231`，位置为 `D:\CodexTools\WeixinDevTools`。
+3. 先在 `project.config.json` 中把 `touristappid` 换成自己的小程序 AppID，再导入目录 `clients/wechat-miniprogram`。当前稳定版已经不接受 `touristappid`，会返回错误码 `10`（“不存在此 AppID”）。
 4. 当前 `project.config.json` 为本机联调关闭了合法域名检查，因此模拟器可连接 `http://127.0.0.1:4173`。发布前必须恢复合法域名检查，并使用已登记的 HTTPS 域名。
 5. 文字流程可直接测试；“聊天文件”、相册、拍摄、隐私授权和复制需要在真实微信环境复核，开发者工具不能替代真机。
 
-本机没有安装微信开发者工具，因此本轮只完成源码、JSON/JavaScript 语法检查和 Node 单元测试，没有把模拟器截图或真机结果写成已通过。
+2026-10-15 本机实测：微信开发者工具安装、登录和 CLI 服务均正常，`open-other` 可打开源码；正式 `open` 和 `preview` 都在校验 `touristappid` 时被微信拒绝，因此尚未把模拟器或真机结果写成已通过。仓库 52 项自动测试全部通过。
 
 ## 真机和发布前配置
 
@@ -42,10 +42,10 @@
 | --- | --- |
 | 小程序源码 | 已完成，纯原生组件和 API |
 | DeepSeek 后端 | 原开发电脑已配置；密钥不在仓库 |
-| 小程序 AppID | 未提供，项目暂用 `touristappid` |
-| 微信开发者工具 | 当前电脑未安装 |
+| 小程序 AppID | 未提供；`touristappid` 已被当前稳定版拒绝，错误码 `10` |
+| 微信开发者工具 | 已安装 `2.02.2609231` 至 `D:\CodexTools\WeixinDevTools`；登录和 CLI 正常 |
 | 公网 HTTPS 与合法域名 | 未部署、未登记 |
 | 隐私保护指引 | 尚未在小程序后台填写 |
-| 开发者工具 / 真机 / 提审 | 尚未执行 |
+| 开发者工具 / 真机 / 提审 | 已执行工具导入与预览命令；因缺少真实 AppID，模拟器、真机和上传尚未执行 |
 
 从聊天选择文件使用微信的 `wx.chooseMessageFile`；小程序网络请求需要后台登记的 HTTPS 合法域名。相关入口见[微信小程序 API 文档](https://developers.weixin.qq.com/miniprogram/dev/api/media/image/wx.chooseMessageFile.html)与[网络能力说明](https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html)。
