@@ -115,9 +115,9 @@
 
     <view class="reply-label-row"><text>建议回复</text><text>改成你的语气再发送</text></view>
     <textarea class="reply-text" value="{{replyText}}" disabled="{{busy}}" bindinput="onReplyInput" maxlength="1000" />
-    <button class="button copy" disabled="{{!replyText || busy}}" bindtap="copyReply">复制回复</button>
+    <button class="button copy" disabled="{{!replyText || busy}}" bindtap="copyReply">复制并回微信</button>
     <view class="result-note">{{result.note}}</view>
   </view>
 
-  <view class="boundary-note">不会读取好友或聊天记录，也不会替你发送。</view>
+  <view class="boundary-note">回到聊天后粘贴，发送前由你确认。</view>
 </view>

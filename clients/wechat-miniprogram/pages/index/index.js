@@ -275,7 +275,15 @@ Page({
     if (!text) return this.setData({ error: '回复是空的，请先编辑。' });
     wx.setClipboardData({
       data: text,
-      success: () => wx.showToast({ title: '已复制，回聊天粘贴', icon: 'success' }),
+      success: () => {
+        if (typeof wx.exitMiniProgram === 'function') {
+          wx.exitMiniProgram({
+            fail: () => wx.showToast({ title: '已复制，可返回聊天粘贴', icon: 'none' })
+          });
+          return;
+        }
+        wx.showToast({ title: '已复制，可返回聊天粘贴', icon: 'none' });
+      },
       fail: () => this.setData({ error: '复制失败，请长按回复文字复制。' })
     });
   }
