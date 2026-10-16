@@ -60,8 +60,8 @@
       <button class="remove-attachment" disabled="{{busy}}" bindtap="removeAttachment">移除</button>
     </view>
 
-    <view wx:if="{{error}}" class="error-message">{{error}}</view>
-    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在读懂内容…' : '生成回复'}}</button>
+    <view wx:if="{{error && !result}}" class="error-message">{{error}}</view>
+    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在准备回复…' : '生成回复'}}</button>
     <view class="privacy-note">只在点击生成后提交；回复由你确认发送。</view>
   </view>
 
@@ -75,6 +75,7 @@
       <button class="button copy" disabled="{{!replyText || busy}}" bindtap="copyReply">复制并回微信</button>
       <button class="button regenerate" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">换一句</button>
     </view>
+    <view wx:if="{{error}}" class="error-message">{{error}}</view>
 
     <view class="analysis-block">
       <view class="block-label">内容摘要</view>

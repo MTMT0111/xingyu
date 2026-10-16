@@ -24,7 +24,7 @@
 
 .brand-block { display: flex; flex-direction: column; gap: 6rpx; }
 .brand-name { color: #14364c; font-size: 34rpx; font-weight: 700; line-height: 1.2; }
-.brand-caption { color: #768a96; font-size: 22rpx; line-height: 1.3; }
+.brand-caption { color: #768a96; font-size: 24rpx; line-height: 1.3; }
 
 .connection {
   min-height: 82rpx;
@@ -34,7 +34,7 @@
   border-radius: 30rpx;
   background: #ffffff;
   color: #526b7b;
-  font-size: 22rpx;
+  font-size: 23rpx;
   line-height: 1.2;
 }
 
@@ -52,7 +52,7 @@
 }
 
 .sheet-title { margin-bottom: 12rpx; color: #173b53; font-size: 27rpx; font-weight: 700; }
-.field-label { display: block; margin: 12rpx 0 8rpx; color: #687f8e; font-size: 20rpx; line-height: 1.4; }
+.field-label { display: block; margin: 12rpx 0 8rpx; color: #687f8e; font-size: 23rpx; line-height: 1.4; }
 
 .text-input {
   height: 72rpx;
@@ -61,14 +61,14 @@
   border-radius: 9rpx;
   background: #ffffff;
   color: #183c53;
-  font-size: 24rpx;
+  font-size: 25rpx;
 }
 
 .settings-note,
 .privacy-note,
 .result-note {
   color: #778a95;
-  font-size: 19rpx;
+  font-size: 22rpx;
   line-height: 1.55;
 }
 
@@ -79,7 +79,7 @@
 .composer { padding-top: 24rpx; }
 .input-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 18rpx; }
 .input-title { color: #17394e; font-size: 30rpx; font-weight: 700; }
-.input-caption { color: #81919a; font-size: 21rpx; text-align: right; }
+.input-caption { color: #738892; font-size: 23rpx; text-align: right; }
 
 .quick-actions { display: flex; gap: 12rpx; margin-top: 16rpx; }
 .quick-button {
@@ -99,7 +99,7 @@
 .quick-button.paste { border-bottom: 5rpx solid #f3cf4f; }
 .quick-title, .quick-caption { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .quick-title { color: #1f465e; font-size: 25rpx; font-weight: 700; }
-.quick-caption { margin-top: 6rpx; color: #738892; font-size: 20rpx; }
+.quick-caption { margin-top: 6rpx; color: #687f8a; font-size: 22rpx; }
 
 .source-box {
   position: relative;
@@ -120,8 +120,8 @@
 }
 
 .source-meta { position: absolute; right: 12rpx; bottom: 8rpx; left: 18rpx; justify-content: space-between; }
-.counter { color: #94a3ac; font-size: 18rpx; }
-.clear-source { min-height: 60rpx; margin: 0; padding: 0 8rpx; background: transparent; color: #648093; font-size: 20rpx; line-height: 60rpx; }
+.counter { color: #7d909a; font-size: 22rpx; }
+.clear-source { min-height: 60rpx; margin: 0; padding: 0 8rpx; background: transparent; color: #55798e; font-size: 22rpx; line-height: 60rpx; }
 
 .album-button {
   min-height: 76rpx;
@@ -129,7 +129,7 @@
   padding: 0;
   background: transparent;
   color: #4b7891;
-  font-size: 22rpx;
+  font-size: 23rpx;
   line-height: 76rpx;
   text-align: left;
 }
@@ -147,10 +147,10 @@
 .attachment-preview { flex: 0 0 auto; background: #edf3f6; }
 .attachment-preview.image { width: 112rpx; height: 112rpx; border-radius: 7rpx; }
 .attachment-preview.video { width: 190rpx; height: 112rpx; border-radius: 7rpx; }
-.attachment-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5rpx; color: #718692; font-size: 18rpx; }
-.attachment-name { max-width: 100%; overflow: hidden; color: #315368; font-size: 21rpx; text-overflow: ellipsis; white-space: nowrap; }
-.attachment-detail { color: #82929b; font-size: 18rpx; }
-.remove-attachment { flex: 0 0 auto; margin: 0; padding: 0 4rpx; background: transparent; color: #ae5548; font-size: 19rpx; }
+.attachment-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5rpx; color: #718692; font-size: 22rpx; }
+.attachment-name { max-width: 100%; overflow: hidden; color: #315368; font-size: 23rpx; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-detail { color: #738892; font-size: 21rpx; }
+.remove-attachment { flex: 0 0 auto; margin: 0; padding: 0 4rpx; background: transparent; color: #ae5548; font-size: 22rpx; }
 
 .error-message {
   margin: 14rpx 0;
@@ -158,7 +158,7 @@
   border-left: 5rpx solid #d87768;
   background: #fff5f2;
   color: #8d4036;
-  font-size: 21rpx;
+  font-size: 23rpx;
   line-height: 1.55;
 }
 
@@ -172,7 +172,7 @@
 .result-section { margin-top: 28rpx; padding-top: 24rpx; border-top: 1rpx solid #dfe7eb; }
 .result-heading { display: flex; flex-direction: column; gap: 5rpx; margin-bottom: 14rpx; }
 .result-title { color: #17394e; font-size: 28rpx; font-weight: 700; }
-.result-caption { color: #7a8b94; font-size: 19rpx; }
+.result-caption { color: #71848e; font-size: 22rpx; }
 
 .reply-text {
   width: 100%;
@@ -191,14 +191,14 @@
 .result-actions .copy { flex: 1.5; margin: 0; font-weight: 700; }
 .result-actions .regenerate { flex: 1; margin: 0; }
 
-.analysis-block { margin-top: 22rpx; color: #415d6e; font-size: 23rpx; line-height: 1.65; }
-.block-label { margin-bottom: 6rpx; color: #698495; font-size: 19rpx; font-weight: 700; }
+.analysis-block { margin-top: 22rpx; color: #415d6e; font-size: 25rpx; line-height: 1.65; }
+.block-label { margin-bottom: 6rpx; color: #597c90; font-size: 22rpx; font-weight: 700; }
 .meaning-item { display: flex; align-items: flex-start; margin-top: 7rpx; }
 .meaning-dot { flex: 0 0 auto; width: 8rpx; height: 8rpx; margin: 14rpx 11rpx 0 2rpx; border-radius: 50%; background: #d6806f; }
 .next-topic { padding: 14rpx 16rpx; border-left: 3rpx solid #e8c747; background: #fbfcfa; }
 .evidence { margin-top: 12rpx; }
-.evidence-toggle { min-height: 56rpx; margin: 0; padding: 0; background: transparent; color: #39789c; font-size: 20rpx; line-height: 56rpx; text-align: left; }
-.evidence-content { max-height: 300rpx; overflow: auto; padding: 14rpx; border-left: 3rpx solid #8abbd3; background: #f5f9fb; color: #607987; font-size: 19rpx; line-height: 1.6; white-space: pre-wrap; }
+.evidence-toggle { min-height: 56rpx; margin: 0; padding: 0; background: transparent; color: #39789c; font-size: 22rpx; line-height: 56rpx; text-align: left; }
+.evidence-content { max-height: 300rpx; overflow: auto; padding: 14rpx; border-left: 3rpx solid #8abbd3; background: #f5f9fb; color: #526f7e; font-size: 22rpx; line-height: 1.6; white-space: pre-wrap; }
 .result-note { margin-top: 14rpx; padding-top: 12rpx; border-top: 1rpx solid #e5ebee; }
 
 @media (max-width: 360px) {

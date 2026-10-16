@@ -100,6 +100,41 @@ test('mini program page connects and asks for one automatic natural reply', asyn
   assert.equal(page.data.busy, false);
 });
 
+test('a repeated tap during startup connection sends only one reply request', async (t) => {
+  let definition;
+  const requests = [];
+  globalThis.Page = value => { definition = value; };
+  globalThis.wx = {
+    getStorageSync: () => '',
+    request(options) {
+      requests.push(options);
+      if (!options.url.endsWith('/api/config')) {
+        queueMicrotask(() => options.success({ statusCode: 200, data: { content_summary: '一条关心。', possible_meanings: ['也许想问问近况。'], reply_tip: '先接住关心。', reply: '谢谢你惦记。', note: '测试结果。' } }));
+      }
+    },
+    pageScrollTo() {}
+  };
+  const pagePath = require.resolve('../clients/wechat-miniprogram/pages/index/index.js');
+  delete require.cache[pagePath];
+  require(pagePath);
+  t.after(() => {
+    delete require.cache[pagePath];
+    delete globalThis.Page;
+    delete globalThis.wx;
+  });
+  const page = { ...definition, data: structuredClone(definition.data), setData(update) { Object.assign(this.data, update); } };
+  page.setData({ sourceText: '最近降温，记得加衣服。' });
+  const first = page.generateReply();
+  await page.generateReply();
+  assert.equal(page.data.busy, true);
+  assert.equal(requests.length, 1);
+  requests[0].success({ statusCode: 200, data: { liveAvailable: true, mediaAvailable: true, videoAvailable: true } });
+  await first;
+  assert.equal(requests.length, 2);
+  assert.equal(page.data.replyText, '谢谢你惦记。');
+  assert.equal(page.data.busy, false);
+});
+
 test('mini program opens WeChat chat media and phone media directly, then clears stale content', (t) => {
   let definition;
   let chatOptions;

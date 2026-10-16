@@ -235,11 +235,11 @@ Page({
     const previous = this.data.result;
     try {
       const text = validateMessage(this.data.sourceText, Boolean(this.data.attachment));
+      this.setData({ busy: true, error: '', showSettings: false });
       if (!this.data.connected) await this.checkConnection(true);
       if (!this.data.connected) throw new Error('请先在设置中连接服务。');
       if (this.data.attachment && !this.data.mediaAvailable) throw new Error('当前服务还没有配置图片/视频分析。');
       if (this.data.attachment && this.data.attachment.kind === 'video' && !this.data.videoAvailable) throw new Error('当前服务还没有配置视频语音识别。');
-      this.setData({ busy: true, error: '' });
       const payload = {
         text,
         recipient: DEFAULT_RECIPIENT,
@@ -270,7 +270,7 @@ Page({
     }
   },
 
-  onReplyInput(event) { this.setData({ replyText: event.detail.value }); },
+  onReplyInput(event) { this.setData({ replyText: event.detail.value, error: '' }); },
   toggleEvidence() { this.setData({ showEvidence: !this.data.showEvidence }); },
 
   copyReply() {
