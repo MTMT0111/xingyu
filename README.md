@@ -46,7 +46,7 @@ npm start
 - DeepSeek 已配置官方服务 `https://api.deepseek.com` 的 `deepseek-flash`，两次真实请求通过：文字回复 1333 ms、合成图片识别 1401 ms，均为 HTTP 200 并通过现有结构校验。详见 `deepseek-test-results.json`；这只验证了 DeepSeek，不代表 Jev 或整个网页链路已通过。
 - TypeSafe/Jev 账户已由用户创建，但仍未配置 Jev 密钥。旧版曾因此禁用真实生成；现在 LLM 可独立运行，Jev 分支仍需单独验收，不能将 LLM 成功称为 Jev 已接通。
 - 用户已在微信开放平台确认当前个人主体不能创建移动应用。SDK 工程保留，但直接选微信联系人仍需要合格主体的移动应用 AppID 及匹配包名/签名。Android 系统分享接收另走系统标准入口，不受这个 AppID 前提限制。
-- 本地预览位于 `http://127.0.0.1:4173`。免费隧道工具已下载并校验，但自动审批拒绝启动公网隧道（`blocked by policy`，未提供具体原因），因此尚无可供手机访问的 HTTPS 地址；未购买服务器或域名。
+- 本地预览位于 `http://127.0.0.1:4173`。2026-10-16 已实际运行受保护的免费隧道启动器：官方客户端签名与哈希通过，但向 `api.trycloudflare.com/tunnel` 申请临时域名时超时；脚本自动清理进程且未留下公网服务。因此尚无可供手机调用模型的 HTTPS 地址；未购买服务器或域名。
 - 已完成 11 项本机访问保护检查：缺少口令返回 401、正确认证可访问、私有文件返回 404、错误 Host/Origin 返回 403。测试没有调用模型，测试端口已关闭；这不代表公网 TLS 或手机微信已验证。
 
 ### 免费手机试用启动入口
@@ -63,7 +63,7 @@ npm start
 & '.\scripts\start-free-trial.ps1' -Stop
 ```
 
-脚本已通过 PowerShell 5.1 语法检查，公网启动和完整外网流程尚未运行验证。它不购买任何服务；未配置 LLM 时仍是本地示例，开通隧道不会自动补齐模型能力。USB 安卓演示不需要公网隧道。
+脚本已通过 PowerShell 5.1 语法检查并实际运行到临时域名申请阶段；当前网络等待 Cloudflare API 响应超时，所以 HTTPS 保护检查与完整外网流程尚未执行。它不购买任何服务；未配置 LLM 时仍是本地示例，开通隧道不会自动补齐模型能力。USB 安卓演示不需要公网隧道。
 
 ## 现在如何登录与申请
 
@@ -89,7 +89,7 @@ Android `ACTION_SEND` 和 `ACTION_PROCESS_TEXT` 是进入好好回的入口；�
 - [x] 用 7 个非私人合成样例验证真实 LLM 网页闭环，包含健康说法与未知内容检查；报告为 `live-test-results.json`，`pipeline: llm_only`、`jevTested: false`。
 - [ ] 扩大中文语义、健康回复与真实用户媒体的人工复核，不把合成样例和规则检查推广为普遍准确率。
 - [ ] 取得 TypeSafe/Jev 有效密钥，验证话题判断和健康断言分支，再完成 `npm run test:live` 的完整真实调用；Jev 降级结果不能算 Jev 接入通过。
-- [ ] 启动免费临时隧道并核验 HTTPS 外网访问、口令保护与完整模型调用。此次自动审批拒绝启动，暂无公网地址；电脑和隧道需保持运行，重启后地址可能变化。后续稳定部署、固定域名、持久化额度与运维仍未完成。
+- [ ] 取得可访问的 HTTPS 地址并核验外网访问、口令保护与完整模型调用。2026-10-16 Cloudflare Quick Tunnel 申请域名超时，暂无公网地址；后续稳定部署、固定域名、持久化额度与运维仍未完成。
 - [x] 用户已创建 TypeSafe/Jev 账户；API Key 配置和真实调用仍是独立待办。
 - [ ] 解决用户设备上的网页分享失败：先确认方向、设备、错误；MEmu 入站分享通过和系统分享提示改正不能代替真实微信复现。
 - [x] 在 Lenovo/MEmu Android 9 验证 `ACTION_SEND` 文字/图片/视频、`ACTION_PROCESS_TEXT`、真实 DeepSeek 生成、旧 WebView 复制降级及返回来源图库；报告为 `clients/android/usb-demo-test-results.json`。
