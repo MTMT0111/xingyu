@@ -84,11 +84,22 @@ Page({
       accessCode = wx.getStorageSync('haohaohui_access_code') || '';
     } catch (_) {}
     this.setData({ apiBase, apiBaseDraft: apiBase, accessCode, accessCodeDraft: accessCode });
+    if (typeof wx.showShareMenu === 'function') {
+      wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] });
+    }
     this.checkConnection();
   },
 
   onShareAppMessage() {
     return { title: '好好回：读懂家人分享，再认真回一句', path: '/pages/index/index' };
+  },
+
+  onShareTimeline() {
+    return { title: '好好回：读懂家人分享，再认真回一句' };
+  },
+
+  onAddToFavorites() {
+    return { title: '好好回｜打开就能准备回复' };
   },
 
   request(path, options = {}) {

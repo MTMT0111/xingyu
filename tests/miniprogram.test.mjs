@@ -46,6 +46,26 @@ test('mini program preserves Unicode limits and the server result contract', () 
   assert.throws(() => validateResult({ ...mediaResult, evidence: { kind: 'video', audio_status: 'not_applicable' } }, 'video'));
 });
 
+test('mini program exposes one stable WeChat entry for sharing and favorites', (t) => {
+  let definition;
+  globalThis.Page = value => { definition = value; };
+  globalThis.wx = {};
+  const pagePath = require.resolve('../clients/wechat-miniprogram/pages/index/index.js');
+  delete require.cache[pagePath];
+  require(pagePath);
+  t.after(() => {
+    delete require.cache[pagePath];
+    delete globalThis.Page;
+    delete globalThis.wx;
+  });
+  assert.deepEqual(definition.onShareAppMessage(), {
+    title: '好好回：读懂家人分享，再认真回一句',
+    path: '/pages/index/index'
+  });
+  assert.deepEqual(definition.onShareTimeline(), { title: '好好回：读懂家人分享，再认真回一句' });
+  assert.deepEqual(definition.onAddToFavorites(), { title: '好好回｜打开就能准备回复' });
+});
+
 test('mini program page connects and sends the selected recipient and tone through the real client flow', async (t) => {
   let definition;
   const requests = [];
