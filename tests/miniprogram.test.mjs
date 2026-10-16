@@ -80,6 +80,39 @@ test('mini program page connects and sends the selected recipient and tone throu
   assert.equal(page.data.busy, false);
 });
 
+test('mini program attachment menu preserves both selection paths and clear removes stale content', (t) => {
+  let definition;
+  let actionSheet;
+  globalThis.Page = value => { definition = value; };
+  globalThis.wx = { showActionSheet(options) { actionSheet = options; } };
+  const pagePath = require.resolve('../clients/wechat-miniprogram/pages/index/index.js');
+  delete require.cache[pagePath];
+  require(pagePath);
+  t.after(() => {
+    delete require.cache[pagePath];
+    delete globalThis.Page;
+    delete globalThis.wx;
+  });
+  const page = { ...definition, data: structuredClone(definition.data), setData(update) { Object.assign(this.data, update); } };
+  const selected = [];
+  page.chooseFromChat = () => selected.push('chat');
+  page.chooseMedia = () => selected.push('media');
+  page.chooseAttachment();
+  assert.deepEqual(actionSheet.itemList, ['从微信聊天选择', '从相册或拍摄']);
+  actionSheet.success({ tapIndex: 0 });
+  page.chooseAttachment();
+  actionSheet.success({ tapIndex: 1 });
+  assert.deepEqual(selected, ['chat', 'media']);
+
+  page.setData({ sourceText: '旧内容', sourceCount: 3, attachment: { name: 'old.jpg' }, attachmentDetail: '1 MB', result: { reply: '旧回复' }, replyText: '旧回复' });
+  page.clearInput();
+  assert.equal(page.data.sourceText, '');
+  assert.equal(page.data.sourceCount, 0);
+  assert.equal(page.data.attachment, null);
+  assert.equal(page.data.result, null);
+  assert.equal(page.data.replyText, '');
+});
+
 test('a stale mini program connection cannot overwrite newly saved server settings', async (t) => {
   let definition;
   const pending = [];

@@ -159,6 +159,12 @@ Page({
     this.clearResult();
   },
 
+  clearInput() {
+    if (this.data.busy) return;
+    this.setData({ sourceText: '', sourceCount: 0, attachment: null, attachmentDetail: '', error: '' });
+    this.clearResult();
+  },
+
   onRecipientChange(event) {
     this.setData({ recipientIndex: Number(event.detail.value), error: '' });
     this.clearResult();
@@ -178,6 +184,14 @@ Page({
         this.clearResult();
       },
       fail: () => this.setData({ error: '没有读取剪贴板，请长按输入框粘贴。' })
+    });
+  },
+
+  chooseAttachment() {
+    wx.showActionSheet({
+      itemList: ['从微信聊天选择', '从相册或拍摄'],
+      success: result => result.tapIndex === 0 ? this.chooseFromChat() : this.chooseMedia(),
+      fail: error => { if (!/cancel/i.test(error.errMsg || '')) this.setData({ error: '暂时无法打开选择菜单，请重试。' }); }
     });
   },
 
