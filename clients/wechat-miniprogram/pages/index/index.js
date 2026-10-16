@@ -8,8 +8,8 @@ const {
 } = require('../../utils');
 
 const DEFAULT_API_BASE = 'http://127.0.0.1:4173';
-const RECIPIENT_VALUES = ['mother', 'father', 'elder'];
-const TONE_VALUES = ['warm', 'brief', 'boundary'];
+const DEFAULT_RECIPIENT = 'auto';
+const DEFAULT_TONE = 'warm';
 
 function wxRequest({ url, method = 'GET', data, header, timeout = 60000 }) {
   return new Promise((resolve, reject) => {
@@ -59,10 +59,6 @@ Page({
     mediaAvailable: false,
     videoAvailable: false,
     mode: 'demo',
-    recipientLabels: ['妈妈', '爸爸', '其他长辈'],
-    recipientIndex: 0,
-    toneLabels: ['认真聊聊', '简短自然', '温和有边界'],
-    toneIndex: 0,
     sourceText: '',
     sourceCount: 0,
     attachment: null,
@@ -176,16 +172,6 @@ Page({
     this.clearResult();
   },
 
-  onRecipientChange(event) {
-    this.setData({ recipientIndex: Number(event.detail.value), error: '' });
-    this.clearResult();
-  },
-
-  onToneChange(event) {
-    this.setData({ toneIndex: Number(event.detail.value), error: '' });
-    this.clearResult();
-  },
-
   pasteClipboard() {
     wx.getClipboardData({
       success: result => {
@@ -195,14 +181,6 @@ Page({
         this.clearResult();
       },
       fail: () => this.setData({ error: '没有读取剪贴板，请长按输入框粘贴。' })
-    });
-  },
-
-  chooseAttachment() {
-    wx.showActionSheet({
-      itemList: ['从微信聊天选择', '从相册或拍摄'],
-      success: result => result.tapIndex === 0 ? this.chooseFromChat() : this.chooseMedia(),
-      fail: error => { if (!/cancel/i.test(error.errMsg || '')) this.setData({ error: '暂时无法打开选择菜单，请重试。' }); }
     });
   },
 
@@ -264,8 +242,8 @@ Page({
       this.setData({ busy: true, error: '' });
       const payload = {
         text,
-        recipient: RECIPIENT_VALUES[this.data.recipientIndex],
-        tone: TONE_VALUES[this.data.toneIndex],
+        recipient: DEFAULT_RECIPIENT,
+        tone: DEFAULT_TONE,
         mode: this.data.mode,
         variant: this.data.result ? (this.data.variant + 1) % 3 : this.data.variant
       };

@@ -66,7 +66,7 @@ test('mini program exposes one stable WeChat entry for sharing and favorites', (
   assert.deepEqual(definition.onAddToFavorites(), { title: '好好回｜打开就能准备回复' });
 });
 
-test('mini program page connects and sends the selected recipient and tone through the real client flow', async (t) => {
+test('mini program page connects and asks for one automatic natural reply', async (t) => {
   let definition;
   const requests = [];
   globalThis.Page = value => { definition = value; };
@@ -91,20 +91,24 @@ test('mini program page connects and sends the selected recipient and tone throu
   });
   const page = { ...definition, data: structuredClone(definition.data), setData(update) { Object.assign(this.data, update); } };
   await page.checkConnection();
-  page.setData({ sourceText: '天凉了，记得加衣服。', recipientIndex: 1, toneIndex: 2 });
+  page.setData({ sourceText: '天凉了，记得加衣服。' });
   await page.generateReply();
   assert.equal(page.data.connectionLabel, '真实 AI · 在线生成');
   assert.equal(requests.length, 2);
-  assert.deepEqual(requests[1].data, { text: '天凉了，记得加衣服。', recipient: 'father', tone: 'boundary', mode: 'live', variant: 0 });
+  assert.deepEqual(requests[1].data, { text: '天凉了，记得加衣服。', recipient: 'auto', tone: 'warm', mode: 'live', variant: 0 });
   assert.equal(page.data.replyText, '爸，谢谢你惦记。');
   assert.equal(page.data.busy, false);
 });
 
-test('mini program attachment menu preserves both selection paths and clear removes stale content', (t) => {
+test('mini program opens WeChat chat media and phone media directly, then clears stale content', (t) => {
   let definition;
-  let actionSheet;
+  let chatOptions;
+  let mediaOptions;
   globalThis.Page = value => { definition = value; };
-  globalThis.wx = { showActionSheet(options) { actionSheet = options; } };
+  globalThis.wx = {
+    chooseMessageFile(options) { chatOptions = options; },
+    chooseMedia(options) { mediaOptions = options; }
+  };
   const pagePath = require.resolve('../clients/wechat-miniprogram/pages/index/index.js');
   delete require.cache[pagePath];
   require(pagePath);
@@ -115,14 +119,16 @@ test('mini program attachment menu preserves both selection paths and clear remo
   });
   const page = { ...definition, data: structuredClone(definition.data), setData(update) { Object.assign(this.data, update); } };
   const selected = [];
-  page.chooseFromChat = () => selected.push('chat');
-  page.chooseMedia = () => selected.push('media');
-  page.chooseAttachment();
-  assert.deepEqual(actionSheet.itemList, ['从微信聊天选择', '从相册或拍摄']);
-  actionSheet.success({ tapIndex: 0 });
-  page.chooseAttachment();
-  actionSheet.success({ tapIndex: 1 });
-  assert.deepEqual(selected, ['chat', 'media']);
+  page.acceptFile = file => selected.push(file);
+  page.chooseFromChat();
+  assert.equal(chatOptions.count, 1);
+  assert.equal(chatOptions.type, 'all');
+  chatOptions.success({ tempFiles: [{ path: 'wxfile://chat.mp4' }] });
+  page.chooseMedia();
+  assert.deepEqual(mediaOptions.mediaType, ['image', 'video']);
+  assert.deepEqual(mediaOptions.sourceType, ['album', 'camera']);
+  mediaOptions.success({ type: 'image', tempFiles: [{ tempFilePath: 'wxfile://album.jpg', size: 100 }] });
+  assert.deepEqual(selected, [{ path: 'wxfile://chat.mp4' }, { path: 'wxfile://album.jpg', size: 100, fileType: 'image' }]);
 
   page.setData({ sourceText: '旧内容', sourceCount: 3, attachment: { name: 'old.jpg' }, attachmentDetail: '1 MB', result: { reply: '旧回复' }, replyText: '旧回复' });
   page.clearInput();

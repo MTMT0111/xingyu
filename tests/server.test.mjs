@@ -113,16 +113,22 @@ test('input rejects invalid values rather than coercing them into valid requests
   }
 });
 
-test('new relationship and tone inputs have compatible defaults and explicit supported values', () => {
+test('relationship and tone inputs have compatible defaults and explicit supported values', () => {
   const defaults = validateInput({ text: '吃饭了吗？' });
   assert.equal(defaults.recipient, 'mother');
   assert.equal(defaults.tone, 'warm');
-  for (const recipient of ['mother', 'father', 'elder']) {
+  for (const recipient of ['auto', 'mother', 'father', 'elder']) {
     for (const tone of ['warm', 'brief', 'boundary']) {
       assert.equal(validateInput(input({ recipient, tone })).recipient, recipient);
       assert.equal(validateInput(input({ recipient, tone })).tone, tone);
     }
   }
+});
+
+test('automatic relationship avoids inventing a parent title', () => {
+  const result = generateLocal(input({ text: '最近降温，记得加衣服。', recipient: 'auto' }));
+  assert.doesNotMatch(result.reply, /^妈|^爸|长辈/);
+  assertResult(result);
 });
 
 test('Jev response is reduced only after its typed probability output is validated', () => {

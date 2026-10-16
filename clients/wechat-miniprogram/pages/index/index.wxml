@@ -24,33 +24,31 @@
   </view>
 
   <view class="composer">
-    <view class="choice-grid">
-      <view class="choice-field">
-        <text class="field-label">回复给</text>
-        <picker range="{{recipientLabels}}" value="{{recipientIndex}}" disabled="{{busy}}" bindchange="onRecipientChange">
-          <view class="picker-value"><text>{{recipientLabels[recipientIndex]}}</text><text class="chevron">⌄</text></view>
-        </picker>
-      </view>
-      <view class="choice-field">
-        <text class="field-label">回复方式</text>
-        <picker range="{{toneLabels}}" value="{{toneIndex}}" disabled="{{busy}}" bindchange="onToneChange">
-          <view class="picker-value"><text>{{toneLabels[toneIndex]}}</text><text class="chevron">⌄</text></view>
-        </picker>
-      </view>
+    <view class="input-heading">
+      <text class="input-title">回复这条消息</text>
+      <text class="input-caption">自动判断语境，生成自然礼貌的回复</text>
+    </view>
+
+    <view class="quick-actions">
+      <button class="quick-button wechat" disabled="{{busy}}" bindtap="chooseFromChat">
+        <text class="quick-title">从微信选内容</text>
+        <text class="quick-caption">聊天里的视频或图片</text>
+      </button>
+      <button class="quick-button paste" disabled="{{busy}}" bindtap="pasteClipboard">
+        <text class="quick-title">粘贴文字或文章</text>
+        <text class="quick-caption">消息、公众号链接</text>
+      </button>
     </view>
 
     <view class="source-box">
-      <textarea class="source-text" value="{{sourceText}}" disabled="{{busy}}" bindinput="onSourceInput" maxlength="6000" auto-height="false" placeholder="粘贴家人发来的文字或公众号链接" />
+      <textarea class="source-text" value="{{sourceText}}" disabled="{{busy}}" bindinput="onSourceInput" maxlength="6000" auto-height="false" placeholder="也可以在这里输入或粘贴聊天内容" />
       <view class="source-meta">
         <text class="counter">{{sourceCount}} / 6000</text>
         <button wx:if="{{sourceText || attachment}}" class="clear-source" disabled="{{busy}}" bindtap="clearInput">清空</button>
       </view>
     </view>
 
-    <view class="source-actions">
-      <button class="source-button paste" disabled="{{busy}}" bindtap="pasteClipboard">粘贴文字</button>
-      <button class="source-button attach" disabled="{{busy}}" bindtap="chooseAttachment">添加图片或视频</button>
-    </view>
+    <button class="album-button" disabled="{{busy}}" bindtap="chooseMedia">从相册或拍摄选择</button>
 
     <view wx:if="{{attachment}}" class="attachment-row">
       <image wx:if="{{attachment.kind === 'image'}}" class="attachment-preview image" src="{{attachment.path}}" mode="aspectFill" />
@@ -63,8 +61,8 @@
     </view>
 
     <view wx:if="{{error}}" class="error-message">{{error}}</view>
-    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在分析…' : '分析并写回复'}}</button>
-    <view class="privacy-note">只在点击分析后提交；回复由你确认发送。</view>
+    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在读懂内容…' : '生成回复'}}</button>
+    <view class="privacy-note">只在点击生成后提交；回复由你确认发送。</view>
   </view>
 
   <view wx:if="{{result}}" id="result" class="result-section">
