@@ -54,7 +54,9 @@ try {
     process.exitCode = 2;
   } else {
     stage = 'browser-runtime';
-    const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
+    let chromium;
+    try { chromium = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright').chromium; }
+    catch { block('BROWSER_AUTOMATION_UNAVAILABLE'); }
     // Override only public access controls; all model configuration and fetch stay real.
     server = createServer({ config: { publicOrigin: '', trialPassword: '' } });
     server.listen(0, '127.0.0.1');

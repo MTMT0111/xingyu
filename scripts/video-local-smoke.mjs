@@ -121,7 +121,7 @@ try {
     localASRReal: true, cloudModelsMocked: true, fullLiveModelPass: false,
     scope: 'Real local video decoding and Whisper ASR through HTTP business flow; visual LLM, Jev and reply LLM are explicit fixtures. This is not a complete real cloud-model test.',
     fixture: { filename: basename(fixturePath), bytes: videoBytes.length, sha256: createHash('sha256').update(videoBytes).digest('hex'), provenance: 'Local Windows SAPI Huihui Chinese synthetic speech with generated subtitle video; no private user media.' },
-    runtime: { python: config.mediaPython, pythonPath: config.mediaPythonPath, whisperModel: config.whisperModel, model: 'Systran/faster-whisper-base', device: 'cpu', computeType: 'int8' },
+    runtime: { python: basename(config.mediaPython), pythonPath: basename(config.mediaPythonPath) || 'configured', whisperModel: basename(config.whisperModel), model: 'Systran/faster-whisper-base', device: 'cpu', computeType: 'int8' },
     http: { status: response.status, seconds: httpSeconds, cloudFixtureCalls: calls.length, order: ['vision_fixture', 'jev_fixture', 'reply_fixture'], frameCount: result.evidence.frame_count, duration: result.evidence.duration, audioStatus: result.evidence.audio_status, realTranscript: result.evidence.transcript, contentSummary: result.content_summary, evidenceReachedJevAndReply: true },
     cancellation: { code: 'MEDIA_CANCELLED', seconds: cancellationSeconds, childProcessExited: true },
     cleanup: { ownedTemporaryDirectories: spawned.length, ownedDirectoriesRemaining: 0, unrelatedDirectoriesTouched: false, preexistingDirectories: beforeDirectories.size, afterDirectories: afterDirectories.size },
