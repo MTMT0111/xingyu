@@ -76,11 +76,11 @@ test('mini program exposes one stable WeChat entry for sharing and favorites', (
     delete globalThis.wx;
   });
   assert.deepEqual(definition.onShareAppMessage(), {
-    title: '好好回：读懂家人分享，再认真回一句',
+    title: '言外：看懂分享，再回一句',
     path: '/pages/index/index'
   });
-  assert.deepEqual(definition.onShareTimeline(), { title: '好好回：读懂家人分享，再认真回一句' });
-  assert.deepEqual(definition.onAddToFavorites(), { title: '好好回｜打开就能准备回复' });
+  assert.deepEqual(definition.onShareTimeline(), { title: '言外：看懂分享，再回一句' });
+  assert.deepEqual(definition.onAddToFavorites(), { title: '言外｜打开就能准备回复' });
 });
 
 test('mini program page connects and asks for one automatic natural reply', async (t) => {
@@ -176,6 +176,8 @@ test('mini program opens WeChat chat media and phone media directly, then clears
   page.chooseFromChat();
   assert.equal(chatOptions.count, 1);
   assert.equal(chatOptions.type, 'all');
+  chatOptions.fail({ errMsg: 'chooseMessageFile:fail unavailable' });
+  assert.match(page.data.error, /普通文字.*复制/);
   chatOptions.success({ tempFiles: [{ path: 'wxfile://chat.mp4' }] });
   page.chooseMedia();
   assert.deepEqual(mediaOptions.mediaType, ['image', 'video']);

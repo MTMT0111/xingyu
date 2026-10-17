@@ -3,10 +3,10 @@
     "pages/index/index"
   ],
   "window": {
-    "navigationBarTitleText": "好好回",
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "言外",
+    "navigationBarBackgroundColor": "#f8f8f4",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#ffffff",
+    "backgroundColor": "#f8f8f4",
     "backgroundTextStyle": "dark"
   },
   "networkTimeout": {

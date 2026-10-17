@@ -18,9 +18,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
 import android.webkit.HttpAuthHandler;
 import android.webkit.RenderProcessGoneDetail;
@@ -152,7 +154,7 @@ public final class MainActivity extends Activity {
     private void buildInterface() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.rgb(250, 251, 248));
+        root.setBackgroundColor(Color.rgb(248, 248, 244));
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
@@ -166,7 +168,7 @@ public final class MainActivity extends Activity {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(android.view.Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(16), 0, dp(8), 0);
-        TextView title = label("好好回", 20);
+        TextView title = label("言外", 20);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(54), 1));
         returnButton = toolbarButton("返回", this::navigateBack);
         copyReturnButton = toolbarButton("复制返回", this::copyReplyAndReturn);
@@ -191,7 +193,7 @@ public final class MainActivity extends Activity {
         errorView = new LinearLayout(this);
         errorView.setOrientation(LinearLayout.VERTICAL);
         errorView.setPadding(dp(28), dp(36), dp(28), dp(28));
-        errorView.setBackgroundColor(Color.rgb(250, 251, 248));
+        errorView.setBackgroundColor(Color.rgb(248, 248, 244));
         errorText = label("", 17);
         errorView.addView(errorText);
         errorView.addView(button("重新加载", this::loadService));
@@ -203,12 +205,14 @@ public final class MainActivity extends Activity {
 
     private ScrollView createSettings() {
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.rgb(250, 251, 248));
+        scroll.setBackgroundColor(Color.rgb(248, 248, 244));
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(24), dp(28), dp(24), dp(28));
-        form.addView(label("把好好回带到手机", 25));
-        form.addView(label("连接好好回服务；复制微信消息后，可从快捷磁贴或桌面快捷入口立即开始。", 15));
+        form.addView(label("把言外带到聊天框", 25));
+        form.addView(label("启用回复键盘后，可在微信输入框内分析剪贴板，并把确认过的回复直接插入当前对话。", 15));
+        form.addView(button("启用回复键盘", this::openInputMethodSettings));
+        form.addView(button("切换到回复键盘", this::showInputMethodPicker));
         if (BuildConfig.DEBUG) {
             form.addView(button("USB 本地调试", () -> {
                 addressInput.setText(InputRules.USB_SERVICE_URL);
@@ -216,7 +220,7 @@ public final class MainActivity extends Activity {
             }));
             form.addView(label("手机连上电脑并开启 USB 调试，在电脑运行本地服务和 adb reverse tcp:4173 tcp:4173 后点此连接。无需公网域名或微信 AppID。", 13));
         }
-        form.addView(label("好好回服务地址", 16));
+        form.addView(label("言外服务地址", 16));
         addressInput = input("HTTPS 根地址", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
         addressInput.setText(serviceUrl);
         form.addView(addressInput);
@@ -257,6 +261,17 @@ public final class MainActivity extends Activity {
         if (newService || newAppId) clearPending();
         configureWechat();
         if (newService || web == null || web.getUrl() == null) loadService(); else hideSettings();
+    }
+
+    private void openInputMethodSettings() {
+        try { startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)); }
+        catch (ActivityNotFoundException error) { Toast.makeText(this, "无法打开输入法设置。", Toast.LENGTH_LONG).show(); }
+    }
+
+    private void showInputMethodPicker() {
+        InputMethodManager manager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (manager != null) manager.showInputMethodPicker();
+        else Toast.makeText(this, "请先在系统设置中启用回复键盘。", Toast.LENGTH_LONG).show();
     }
 
     private void showSettings() {
@@ -347,7 +362,7 @@ public final class MainActivity extends Activity {
                 updateToolbar();
                 if (!InputRules.sameOrigin(serviceUrl, url, BuildConfig.DEBUG)) {
                     view.stopLoading();
-                    showError("已阻止跳转到其他网站。请返回好好回服务。");
+                    showError("已阻止跳转到其他网站。请返回言外服务。");
                 }
             }
             @Override public void onPageFinished(WebView view, String url) {
@@ -362,7 +377,7 @@ public final class MainActivity extends Activity {
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (view == web && request.isForMainFrame()) showError(BuildConfig.DEBUG && serviceUrl.equals(InputRules.USB_SERVICE_URL)
-                    ? "未连上电脑的好好回服务。请启动本地服务、确认 USB 已授权，再运行 adb reverse tcp:4173 tcp:4173 后重新加载。"
+                    ? "未连上电脑的言外服务。请启动本地服务、确认 USB 已授权，再运行 adb reverse tcp:4173 tcp:4173 后重新加载。"
                     : "暂时连接不上服务。请检查网络和服务地址后重试。");
             }
             @Override public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
@@ -443,7 +458,7 @@ public final class MainActivity extends Activity {
         updateToolbar();
         if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
             clearLaunchIntent();
-            showInboundError("好好回一次只能接收一段文字、一个图片或一个视频。");
+            showInboundError("言外一次只能接收一段文字、一个图片或一个视频。");
             return;
         }
         try {
@@ -560,7 +575,7 @@ public final class MainActivity extends Activity {
         inboundDispatched = false;
         if (serviceUrl.isEmpty()) {
             showSettings();
-            Toast.makeText(this, "分享内容已暂存，请先连接好好回服务。", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "分享内容已暂存，请先连接言外服务。", Toast.LENGTH_LONG).show();
         } else {
             hideSettings();
             dispatchInboundShare();
@@ -675,7 +690,7 @@ public final class MainActivity extends Activity {
     private static String inboundErrorMessage(String code) {
         if ("MISSING_TEXT".equals(code) || "INVALID_TEXT".equals(code) || "INVALID_TEXT_SHARE".equals(code))
             return "这段分享文字为空、过长或格式异常，请缩短后重试。";
-        if ("MULTIPLE_ITEMS".equals(code)) return "好好回一次只能接收一个图片或视频。";
+        if ("MULTIPLE_ITEMS".equals(code)) return "言外一次只能接收一个图片或视频。";
         if ("EMPTY_MEDIA".equals(code)) return "这个分享文件是空的，请重新选择。";
         if ("MEDIA_TOO_LARGE".equals(code)) return "图片不能超过 4 MB，视频不能超过 20 MB，请压缩后重试。";
         if ("UNSUPPORTED_MEDIA".equals(code)) return "目前只支持 JPG、PNG、WebP 图片和 MP4、WebM、MOV 视频。";
@@ -710,7 +725,7 @@ public final class MainActivity extends Activity {
             clearLaunchIntent();
         } catch (RuntimeException error) {
             new AlertDialog.Builder(this).setTitle("剪贴板里没有可用文字")
-                .setMessage("请先在微信复制一段消息，再点“粘贴”或快捷磁贴。好好回不会在后台监听剪贴板。")
+                .setMessage("请先在微信复制一段消息，再点“粘贴”或快捷磁贴。言外不会在后台监听剪贴板。")
                 .setPositiveButton("知道了", null).show();
         }
     }
@@ -730,7 +745,7 @@ public final class MainActivity extends Activity {
             try {
                 ClipboardManager clipboard = getSystemService(ClipboardManager.class);
                 if (clipboard == null) throw new IllegalStateException("clipboard unavailable");
-                clipboard.setPrimaryClip(ClipData.newPlainText("好好回回复", text));
+                clipboard.setPrimaryClip(ClipData.newPlainText("言外回复", text));
                 externalEntryId = null;
                 finish();
             } catch (RuntimeException error) {
@@ -780,7 +795,7 @@ public final class MainActivity extends Activity {
         EditText password = input("服务访问口令", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         if (Build.VERSION.SDK_INT >= 26) password.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
         password.setSaveEnabled(false);
-        authDialog = new AlertDialog.Builder(this).setTitle("连接好好回服务")
+        authDialog = new AlertDialog.Builder(this).setTitle("连接言外服务")
             .setMessage("此服务需要访问口令。用户名为 trial；口令只用于本次连接。")
             .setView(password)
             .setPositiveButton("连接", (dialog, which) -> {
@@ -972,7 +987,7 @@ public final class MainActivity extends Activity {
         TextView label = new TextView(this);
         label.setText(text);
         label.setTextSize(size);
-        label.setTextColor(Color.rgb(32, 66, 92));
+        label.setTextColor(Color.rgb(29, 41, 36));
         label.setGravity(android.view.Gravity.CENTER_VERTICAL);
         label.setPadding(0, dp(8), 0, dp(8));
         return label;
@@ -1004,7 +1019,7 @@ public final class MainActivity extends Activity {
         button.setMinimumWidth(0);
         button.setPadding(dp(10), 0, dp(10), 0);
         button.setTextSize(13);
-        button.setTextColor(Color.rgb(54, 85, 156));
+        button.setTextColor(Color.rgb(40, 107, 84));
         button.setBackgroundColor(Color.TRANSPARENT);
         return button;
     }

@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#fffdf7">
+  <meta name="theme-color" content="#f8f8f4">
   <meta name="description" content="从微信分享文字、文章、图片或短视频，读懂内容，再写一段自然、有分寸的回复。">
-  <title>好好回 · 微信回复助手</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%233d67a7'/%3E%3Cpath d='M8 9h24v17H19l-8 6v-6H8Z' fill='%23ffe29a'/%3E%3Cpath d='M13 14h14v2H13Zm0 6h9v2H13Z' fill='%233d67a7'/%3E%3C/svg%3E">
+  <title>言外 · 微信回复助手</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23286b54'/%3E%3Cpath d='M8 9h24v17H19l-8 6v-6H8Z' fill='white'/%3E%3Cpath d='M13 14h14v2H13Zm0 6h9v2H13Z' fill='%23286b54'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <script src="./demo.js"></script>
   <script src="./app.js" defer></script>
@@ -16,12 +16,11 @@
   <main class="container">
     <section class="plugin-header" aria-labelledby="hero-title">
       <div class="brand">
-        <span class="brand-seal" aria-hidden="true">回</span>
-        <div><h1 id="hero-title">好好回</h1><p>微信内容回复</p></div>
+        <div><h1 id="hero-title">言外</h1><p>看懂分享，再回一句</p></div>
       </div>
       <span id="mode-label"><i aria-hidden="true"></i>本地示例 · 非实时 AI</span>
     </section>
-    <p class="plugin-lead">从微信分享进来，或直接粘贴文字、文章、截图和短视频。</p>
+    <p class="plugin-lead">放入对方发来的文字、文章、图片或视频。</p>
 
     <ol class="workflow sr-only" aria-label="回复的三个步骤">
       <li id="step-input" aria-current="step"><span>1</span>放入内容</li>
@@ -46,13 +45,14 @@
     <section class="workbench" aria-label="微信内容回复助手">
       <form id="translate-form" class="input-panel" novalidate>
         <div class="panel-heading">
-          <div><span class="section-number">01</span><h2>收到什么内容？</h2></div>
+          <div><span class="section-number">01</span><h2>带入一条内容</h2></div>
           <span class="tiny-label">不会自动发送</span>
         </div>
 
         <div class="preference-row">
           <label>回复对象
             <select id="recipient-select">
+              <option value="auto">自动判断</option>
               <option value="mother">妈妈</option>
               <option value="father">爸爸</option>
               <option value="elder">其他长辈</option>
@@ -101,12 +101,12 @@
 
       <section id="result-card" class="output-panel" aria-labelledby="result-title" aria-busy="false">
         <div class="panel-heading">
-          <div><span class="section-number">02</span><h2 id="result-title" tabindex="-1">读懂并回复</h2></div>
+          <div><span class="section-number">02</span><h2 id="result-title" tabindex="-1">回复建议</h2></div>
           <span id="result-status" class="tiny-label">等待内容</span>
         </div>
         <div id="empty-state" class="empty-state">
           <span class="empty-line" aria-hidden="true"></span>
-          <p>摘要、值得继续聊的方向和可编辑回复会出现在这里。</p>
+          <p>生成后先确认内容，再放回当前聊天。</p>
         </div>
         <div id="loading-state" class="loading-state" role="status" hidden><span class="loading-dot" aria-hidden="true"></span><span id="loading-text">正在想一句合适的回应…</span></div>
         <div id="result-content" hidden>

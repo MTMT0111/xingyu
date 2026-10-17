@@ -3,7 +3,7 @@
   "compileType": "miniprogram",
   "libVersion": "3.17.2",
   "miniprogramRoot": "./",
-  "projectname": "haohaohui-wechat",
+  "projectname": "yanwai-wechat",
   "setting": {
     "es6": true,
     "postcss": true,

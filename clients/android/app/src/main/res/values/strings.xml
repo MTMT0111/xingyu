@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tile_label">好好回</string>
+    <string name="app_name">言外</string>
+    <string name="ime_label">言外 · 回复键盘</string>
+    <string name="tile_label">言外</string>
     <string name="shortcut_short_label">分析剪贴板</string>
-    <string name="shortcut_long_label">打开好好回粘贴消息</string>
+    <string name="shortcut_long_label">打开言外分析消息</string>
 </resources>

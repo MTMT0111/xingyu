@@ -70,6 +70,7 @@ Page({
     result: null,
     replyText: '',
     variant: 0,
+    showAnalysis: false,
     showEvidence: false,
     evidenceText: ''
   },
@@ -93,15 +94,15 @@ Page({
   },
 
   onShareAppMessage() {
-    return { title: '好好回：读懂家人分享，再认真回一句', path: '/pages/index/index' };
+    return { title: '言外：看懂分享，再回一句', path: '/pages/index/index' };
   },
 
   onShareTimeline() {
-    return { title: '好好回：读懂家人分享，再认真回一句' };
+    return { title: '言外：看懂分享，再回一句' };
   },
 
   onAddToFavorites() {
-    return { title: '好好回｜打开就能准备回复' };
+    return { title: '言外｜打开就能准备回复' };
   },
 
   request(path, options = {}) {
@@ -176,7 +177,7 @@ Page({
   },
 
   clearResult() {
-    this.setData({ result: null, replyText: '', variant: 0, showEvidence: false, evidenceText: '' });
+    this.setData({ result: null, replyText: '', variant: 0, showAnalysis: false, showEvidence: false, evidenceText: '' });
   },
 
   onSourceInput(event) {
@@ -204,12 +205,12 @@ Page({
   },
 
   chooseFromChat() {
-    if (!wx.chooseMessageFile) return this.setData({ error: '当前微信版本不支持从聊天选择文件。' });
+    if (!wx.chooseMessageFile) return this.setData({ error: '当前微信版本不支持选择聊天文件；普通文字请先复制，再点“粘贴文字”。' });
     wx.chooseMessageFile({
       count: 1,
       type: 'all',
       success: result => this.acceptFile(result.tempFiles[0]),
-      fail: error => { if (!/cancel/i.test(error.errMsg || '')) this.setData({ error: '没有选中文件，请重试。' }); }
+      fail: error => { if (!/cancel/i.test(error.errMsg || '')) this.setData({ error: '没有选中聊天文件；普通文字请先复制，再点“粘贴文字”。' }); }
     });
   },
 
@@ -297,6 +298,7 @@ Page({
   },
 
   onReplyInput(event) { this.setData({ replyText: event.detail.value, error: '' }); },
+  toggleAnalysis() { this.setData({ showAnalysis: !this.data.showAnalysis }); },
   toggleEvidence() { this.setData({ showEvidence: !this.data.showEvidence }); },
 
   copyReply() {

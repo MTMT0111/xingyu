@@ -1,59 +1,50 @@
 <view class="page-shell">
   <view class="topbar">
-    <view class="brand-block">
-      <text class="brand-name">好好回</text>
-      <text class="brand-caption">把关心，回得自然</text>
-    </view>
-    <button class="connection {{connected ? 'online' : (connecting ? 'connecting' : 'offline')}}" disabled="{{busy}}" bindtap="toggleSettings" aria-label="连接设置">
-      <view class="status-dot"></view>
-      <text>{{connected ? (liveAvailable ? 'AI 在线' : '示例模式') : (connecting ? '连接中' : '离线体验')}}</text>
+    <text class="brand-caption">看懂分享，再回一句</text>
+    <button class="settings-trigger" disabled="{{busy}}" bindtap="toggleSettings" aria-label="服务设置">
+      <view class="status-dot {{connected ? 'online' : (connecting ? 'connecting' : 'offline')}}"></view>
+      <text>设置</text>
     </button>
   </view>
 
-  <view class="entry-tip">
-    <text>添加到“我的小程序”，微信下拉即可再次打开</text>
-    <button open-type="share">转发入口</button>
-  </view>
-
   <view wx:if="{{showSettings}}" class="settings-sheet">
-    <view class="sheet-title">服务连接</view>
-    <label class="field-label">服务地址</label>
+    <view class="sheet-heading">
+      <view>
+        <view class="sheet-title">服务连接</view>
+        <view class="sheet-status">{{connectionLabel}}</view>
+      </view>
+      <button class="close-settings" bindtap="toggleSettings" aria-label="关闭设置">完成</button>
+    </view>
+    <label class="field-label">HTTPS 服务地址</label>
     <input class="text-input" value="{{apiBaseDraft}}" bindinput="onApiBaseInput" placeholder="https://reply.example.com" />
     <label class="field-label">访问口令</label>
     <input class="text-input" password value="{{accessCodeDraft}}" bindinput="onAccessCodeInput" placeholder="本机开发可留空" />
-    <view class="settings-note">不填地址也能体验文字回复；真实 AI 和媒体分析需要已登记的 HTTPS 服务。</view>
+    <view class="settings-note">留空可体验离线文字回复；图片、视频与真实 AI 需要服务连接。</view>
     <view class="settings-actions">
-      <button class="button quiet" bindtap="resetSettings">使用离线体验</button>
-      <button class="button blue" bindtap="saveSettings">保存连接</button>
+      <button class="button secondary" bindtap="resetSettings">离线体验</button>
+      <button class="button solid" bindtap="saveSettings">保存</button>
     </view>
   </view>
 
   <view class="composer">
-    <view class="input-heading">
-      <text class="input-title">回复这条消息</text>
-      <text class="input-caption">自动判断语境，生成自然礼貌的回复</text>
-    </view>
-
-    <view class="quick-actions">
-      <button class="quick-button wechat" disabled="{{busy}}" bindtap="chooseFromChat">
-        <text class="quick-title">从微信选内容</text>
-        <text class="quick-caption">聊天里的视频或图片</text>
-      </button>
-      <button class="quick-button paste" disabled="{{busy}}" bindtap="pasteClipboard">
-        <text class="quick-title">粘贴文字或文章</text>
-        <text class="quick-caption">消息、公众号链接</text>
-      </button>
+    <view class="section-heading">
+      <text class="section-title">带入一条内容</text>
+      <text class="section-caption">文字、文章、图片或视频</text>
     </view>
 
     <view class="source-box">
-      <textarea class="source-text" value="{{sourceText}}" disabled="{{busy}}" bindinput="onSourceInput" maxlength="6000" auto-height="false" placeholder="也可以在这里输入或粘贴聊天内容" />
+      <textarea class="source-text" value="{{sourceText}}" disabled="{{busy}}" bindinput="onSourceInput" maxlength="6000" auto-height="false" placeholder="粘贴对方发来的消息或公众号链接" />
       <view class="source-meta">
         <text class="counter">{{sourceCount}} / 6000</text>
-        <button wx:if="{{sourceText || attachment}}" class="clear-source" disabled="{{busy}}" bindtap="clearInput">清空</button>
+        <button wx:if="{{sourceText || attachment}}" class="text-button" disabled="{{busy}}" bindtap="clearInput">清空</button>
       </view>
     </view>
 
-    <button class="album-button" disabled="{{busy}}" bindtap="chooseMedia">从相册或拍摄选择</button>
+    <view class="source-actions">
+      <button class="source-action" disabled="{{busy}}" bindtap="pasteClipboard">粘贴文字</button>
+      <button class="source-action" disabled="{{busy}}" bindtap="chooseFromChat">选聊天文件</button>
+      <button class="source-action" disabled="{{busy}}" bindtap="chooseMedia">相册或拍摄</button>
+    </view>
 
     <view wx:if="{{attachment}}" class="attachment-row">
       <image wx:if="{{attachment.kind === 'image'}}" class="attachment-preview image" src="{{attachment.path}}" mode="aspectFill" />
@@ -66,39 +57,41 @@
     </view>
 
     <view wx:if="{{error && !result}}" class="error-message">{{error}}</view>
-    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在准备回复…' : '生成回复'}}</button>
-    <view class="privacy-note">只在点击生成后提交；回复由你确认发送。</view>
+    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在理解内容' : '理解并生成回复'}}</button>
+    <view wx:if="{{!result}}" class="privacy-note">内容只在你点击后提交，发送前仍由你确认。</view>
   </view>
 
   <view wx:if="{{result}}" id="result" class="result-section">
-    <view class="result-heading">
-      <text class="result-title">建议这样回复</text>
-      <text class="result-caption">可编辑，发送前请核对事实</text>
+    <view class="section-heading">
+      <text class="section-title">回复建议</text>
+      <text class="section-caption">改成自己的语气再发送</text>
     </view>
     <textarea class="reply-text" value="{{replyText}}" disabled="{{busy}}" bindinput="onReplyInput" maxlength="1000" />
     <view class="result-actions">
-      <button class="button copy" disabled="{{!replyText || busy}}" bindtap="copyReply">复制并回微信</button>
-      <button class="button regenerate" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">换一句</button>
+      <button class="button primary" disabled="{{!replyText || busy}}" bindtap="copyReply">复制，返回微信</button>
+      <button class="button secondary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">换一句</button>
     </view>
     <view wx:if="{{error}}" class="error-message">{{error}}</view>
 
-    <view class="analysis-block">
-      <view class="block-label">内容摘要</view>
-      <text selectable>{{result.content_summary}}</text>
+    <button class="analysis-toggle" bindtap="toggleAnalysis">{{showAnalysis ? '收起理解过程' : '查看理解过程'}}</button>
+    <view wx:if="{{showAnalysis}}" class="analysis">
+      <view class="analysis-block">
+        <view class="block-label">内容摘要</view>
+        <text selectable>{{result.content_summary}}</text>
+      </view>
+      <view class="analysis-block">
+        <view class="block-label">可能想表达</view>
+        <view wx:for="{{result.possible_meanings}}" wx:key="*this" class="meaning-item"><view class="meaning-dot"></view><text selectable>{{item}}</text></view>
+      </view>
+      <view class="analysis-block next-topic">
+        <view class="block-label">可以继续聊</view>
+        <text selectable>{{result.reply_tip}}</text>
+      </view>
+      <view wx:if="{{result.evidence}}" class="evidence">
+        <button class="evidence-toggle" bindtap="toggleEvidence">{{showEvidence ? '收起识别内容' : '查看识别内容'}}</button>
+        <view wx:if="{{showEvidence}}" class="evidence-content"><text selectable>{{evidenceText}}</text></view>
+      </view>
+      <view class="result-note">{{result.note}}</view>
     </view>
-    <view class="analysis-block">
-      <view class="block-label">对方可能想表达</view>
-      <view wx:for="{{result.possible_meanings}}" wx:key="*this" class="meaning-item"><view class="meaning-dot"></view><text selectable>{{item}}</text></view>
-    </view>
-    <view class="analysis-block next-topic">
-      <view class="block-label">可以继续聊</view>
-      <text selectable>{{result.reply_tip}}</text>
-    </view>
-
-    <view wx:if="{{result.evidence}}" class="evidence">
-      <button class="evidence-toggle" bindtap="toggleEvidence">{{showEvidence ? '收起识别内容' : '查看识别内容'}}</button>
-      <view wx:if="{{showEvidence}}" class="evidence-content"><text selectable>{{evidenceText}}</text></view>
-    </view>
-    <view class="result-note">{{result.note}}</view>
   </view>
 </view>

@@ -16,7 +16,7 @@ final class ConfigurationViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "连接好好回"
+        title = "连接言外"
         view.backgroundColor = UIColor(red: 0.98, green: 0.98, blue: 0.95, alpha: 1)
         let scroll = UIScrollView()
         let stack = UIStackView()
@@ -35,9 +35,9 @@ final class ConfigurationViewController: UIViewController {
             stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -32),
             stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor, constant: -48)
         ])
-        let introduction = label("把关心，好好回给他们。", style: .title2)
+        let introduction = label("看懂分享，再回一句。", style: .title2)
         stack.addArrangedSubview(introduction)
-        stack.addArrangedSubview(label("填写你信任的好好回 HTTPS 服务。没有微信 AppID 时，仍可分析、编辑和复制回复。", style: .body))
+        stack.addArrangedSubview(label("填写你信任的言外 HTTPS 服务。没有微信 AppID 时，仍可分析、编辑和复制回复。", style: .body))
         field(server, title: "服务根地址", value: configuration.applicationURL, into: stack)
         field(appID, title: "微信移动应用 AppID（选填）", value: configuration.appID, into: stack)
         field(universalLink, title: "微信 Universal Link（选填）", value: configuration.universalLink, into: stack)

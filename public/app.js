@@ -94,7 +94,7 @@ function restoreDraft() {
     if (raw.length > 70000) throw new Error('Draft too large');
     const draft = JSON.parse(raw);
     const tone = draft && draft.tone === undefined ? 'warm' : draft?.tone;
-    if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['mother', 'father', 'elder'].includes(draft.recipient) || !['warm', 'brief', 'boundary'].includes(tone) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
+    if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['auto', 'mother', 'father', 'elder'].includes(draft.recipient) || !['warm', 'brief', 'boundary'].includes(tone) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
     if (draft.result) {
       validateResult(draft.result);
       if (!draft.submitted || draft.submitted.text !== draft.text.trim() || draft.submitted.recipient !== draft.recipient || (draft.submitted.tone ?? 'warm') !== tone) throw new Error('Stale draft');
@@ -308,7 +308,7 @@ async function acceptInboundShare() {
       if (nextAttachment.kind === 'video') {
         const controller = new AbortController();
         nextAttachment.duration = await videoDuration(nextAttachment.url, controller.signal);
-        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给好好回。');
+        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给言外。');
       }
     }
     if (pendingInboundShare !== inbound) {

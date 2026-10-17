@@ -1,8 +1,8 @@
-# 好好回 iOS 客户端源码
+# 言外 iOS 客户端源码
 
 当前用户已确认个人主体不能创建微信移动应用，AppID 申请路线暂缓。以下 SDK 配置步骤仅供后续具备资格时使用；当前先使用网页复制回微信。此工程未实现接收外部分享的 iOS Share Extension。
 
-最低 iOS 14。Swift UIKit + WKWebView 承载现有好好回页面，Objective-C 适配层只调用微信官方 OpenSDK 的纯文本会话分享。**当前交付是源码：在 Windows 完成静态检查，尚未用 Xcode 编译、签名或真机运行，没有可安装 IPA。没有微信 AppID 时不会冒充接入成功。**
+最低 iOS 14。Swift UIKit + WKWebView 承载现有言外页面，Objective-C 适配层只调用微信官方 OpenSDK 的纯文本会话分享。**当前交付是源码：在 Windows 完成静态检查，尚未用 Xcode 编译、签名或真机运行，没有可安装 IPA。没有微信 AppID 时不会冒充接入成功。**
 
 ## 已实现
 
@@ -32,7 +32,7 @@ open Xingyu.xcworkspace
 
 | 配置 | 真实值要求 |
 | --- | --- |
-| `XINGYU_APP_URL` | 已部署的好好回 HTTPS 根地址，与后端 PUBLIC_ORIGIN 对应 |
+| `XINGYU_APP_URL` | 已部署的言外 HTTPS 根地址，与后端 PUBLIC_ORIGIN 对应 |
 | `XINGYU_WECHAT_APP_ID` | 微信开放平台审核通过的 iOS 移动应用 AppID；留空时不分享 |
 | `XINGYU_UNIVERSAL_LINK` | 平台登记完全相同的 HTTPS Universal Link，以 `/` 结尾 |
 | `XINGYU_ASSOCIATED_DOMAIN` | `applinks:` 加 Universal Link 的真实域名，不含协议、路径、端口 |
@@ -44,7 +44,7 @@ xcconfig 中 `//` 会开始注释，URL 应写成 `https:/$()/你的域名/`；�
 
 ## Universal Links 与回调
 
-在自己的 HTTPS 域名通过 `/.well-known/apple-app-site-association`（无扩展名、无重定向）提供 JSON。`Resources/apple-app-site-association.example` 中 `appID` 必须填真实 `AppleTeamID.BundleID`，`paths` 改成 Universal Link 对应前缀，如 `/wechat/*`。该文件应可公开读取，不能被好好回 HTTP Basic 口令保护；仅此静态关联文件公开，不要开放分析 API。
+在自己的 HTTPS 域名通过 `/.well-known/apple-app-site-association`（无扩展名、无重定向）提供 JSON。`Resources/apple-app-site-association.example` 中 `appID` 必须填真实 `AppleTeamID.BundleID`，`paths` 改成 Universal Link 对应前缀，如 `/wechat/*`。该文件应可公开读取，不能被言外 HTTP Basic 口令保护；仅此静态关联文件公开，不要开放分析 API。
 
 微信开放平台填写完全相同的 Universal Link，并确认 Apple 开发者签名启用了 Associated Domains。`Resources/Xingyu.entitlements` 从构建变量填入真实域名。AppDelegate 同时处理 URL Scheme 与 Universal Link 回调；项目没有 Scene manifest，保持 AppDelegate 生命周期。不要只改代码而漏掉签名、域名文件或平台登记。
 

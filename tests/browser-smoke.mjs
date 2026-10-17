@@ -98,7 +98,7 @@ try {
   await page.goto(base, { waitUntil: 'networkidle' });
   assert.match(await page.locator('#mode-label').innerText(), /本地|演示/);
   assert.equal(await page.locator('#mode-controls').isVisible(), false);
-  assert.equal(await page.locator('#recipient-select').inputValue(), 'mother');
+  assert.equal(await page.locator('#recipient-select').inputValue(), 'auto');
   assert.equal(await page.locator('#empty-state').isVisible(), true);
   assert.equal(await page.locator('#result-content').isVisible(), false);
   assert.equal(await page.locator('.plugin-header').isVisible(), true);
@@ -116,12 +116,13 @@ try {
   });
   assert.ok(typography.inputSize >= 16, 'mobile input text must be at least 16px');
   assert.equal(await page.locator('.planet-art').count(), 0, 'the old planet decoration is removed');
-  assert.equal(await page.locator('.brand-seal').isVisible(), true, 'the compact brand mark is present');
+  assert.equal(await page.locator('.brand-seal').count(), 0, 'the decorative brand seal is removed');
+  assert.equal(await page.locator('#hero-title').innerText(), '言外');
   assert.ok(typography.loadedFonts.length > 0, 'the local title font must load');
   assert.ok([...assets.values()].every(status => status === 200), 'all used local design assets must load');
   const brokenImages = await page.locator('img[src]').evaluateAll(images => images.filter(image => !image.complete || image.naturalWidth === 0).map(image => image.src));
   assert.deepEqual(brokenImages, []);
-  check('compact plugin brand, local typography and image assets render without browser-page decoration');
+  check('compact text brand, local typography and image assets render without browser-page decoration');
 
   let submitted = 0;
   const countRequests = request => { if (new URL(request.url()).pathname === '/api/reply') submitted++; };
@@ -153,13 +154,13 @@ try {
   await page.locator('#source-text').fill('天凉了，多穿点。记得吃饭，别太累。');
   const firstRequest = page.waitForRequest('**/api/reply');
   await generate(page);
-  assert.deepEqual((await firstRequest).postDataJSON(), { text: '天凉了，多穿点。记得吃饭，别太累。', recipient: 'mother', tone: 'warm', mode: 'demo' });
+  assert.deepEqual((await firstRequest).postDataJSON(), { text: '天凉了，多穿点。记得吃饭，别太累。', recipient: 'auto', tone: 'warm', mode: 'demo' });
   assert.ok(await page.locator('#possible-meanings li').count() >= 1);
   assert.ok((await page.locator('#content-summary').innerText()).length > 0);
   assert.ok((await page.locator('#reply-tip-text').innerText()).length > 0);
   assert.equal(await page.locator('#source-text').isVisible(), true);
   assert.equal(await page.locator('#reply-text').isVisible(), true);
-  assert.match(await page.locator('#reply-text').inputValue(), /^妈/);
+  assert.doesNotMatch(await page.locator('#reply-text').inputValue(), /^(妈|爸)/);
   assert.match(await page.locator('#result-note').innerText(), /模板|未调用|本地/);
   assert.equal(await page.locator('#share-reply').isVisible(), false);
   assert.equal(await page.locator('#share-note').innerText(), '当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。');
@@ -505,7 +506,7 @@ try {
   const articleText = '妈妈分享的文章：https://mp.weixin.qq.com/s/test-public-article';
   await articlePage.locator('#source-text').fill(articleText);
   await generate(articlePage);
-  assert.deepEqual(articleRequests[0], { text: articleText, recipient: 'mother', tone: 'warm', mode: 'live' });
+  assert.deepEqual(articleRequests[0], { text: articleText, recipient: 'auto', tone: 'warm', mode: 'live' });
   assert.equal(await articlePage.evaluate(() => window.__requestTimers.at(-1)), 60000);
   await articlePage.locator('#content-evidence summary').click();
   assert.match(await articlePage.locator('#visual-evidence-title').innerText(), /文章标题与正文/);
@@ -629,7 +630,7 @@ try {
   assert.equal(mediaRequests.length, 0);
   assert.equal(await mediaPage.locator('#source-text').inputValue(), '');
   await generate(mediaPage);
-  assert.deepEqual(mediaRequests[0], { text: '', recipient: 'mother', tone: 'warm', mode: 'live', attachment: { kind: 'image', name: imageFile.name, mime: 'image/png', data: pngBytes.toString('base64') } });
+  assert.deepEqual(mediaRequests[0], { text: '', recipient: 'auto', tone: 'warm', mode: 'live', attachment: { kind: 'image', name: imageFile.name, mime: 'image/png', data: pngBytes.toString('base64') } });
   assert.match(await mediaPage.locator('#content-summary').innerText(), /图片.*养生/);
   assert.equal(await mediaPage.locator('#content-evidence').isVisible(), true);
   await mediaPage.locator('#content-evidence summary').click();
@@ -924,7 +925,7 @@ try {
     for (const id of ['share-reply', 'copy-reply']) assert.ok((await sharePage.locator(`#${id}`).boundingBox()).height >= 44);
     await capture(sharePage, `share-reply-${width}`);
   }
-  assert.deepEqual(await sharePage.locator('#recipient-select option').evaluateAll(options => options.map(option => [option.value, option.textContent])), [['mother', '妈妈'], ['father', '爸爸'], ['elder', '其他长辈']]);
+  assert.deepEqual(await sharePage.locator('#recipient-select option').evaluateAll(options => options.map(option => [option.value, option.textContent])), [['auto', '自动判断'], ['mother', '妈妈'], ['father', '爸爸'], ['elder', '其他长辈']]);
   check('share and copy stay usable at 320/390px with 44px buttons; relationship options never become fake WeChat contacts');
   await shareContext.close();
 
@@ -1054,7 +1055,7 @@ try {
   await pluginPage.goto(`${base}/?host=android`, { waitUntil: 'networkidle' });
   const dispatchPluginInbound = detail => pluginPage.evaluate(value => window.dispatchEvent(new CustomEvent('xingyu-inbound-share', { detail: value })), detail);
   assert.equal(await pluginPage.locator('body').getAttribute('data-host'), 'android');
-  for (const selector of ['.workflow', '.draft-row', '.example-row', '.mode-controls', '.empty-state']) assert.equal(await pluginPage.locator(selector).isHidden(), true);
+  for (const selector of ['.workflow', '.draft-row', '.example-row', '.preference-row', '.mode-controls', '.empty-state']) assert.equal(await pluginPage.locator(selector).isHidden(), true);
   assert.equal(await pluginPage.locator('.plugin-header').isVisible(), true);
   await dispatchPluginInbound({ schemaVersion: 1, type: 'inboundShare', id: 'clipboard-entry', entry: 'clipboard', text: '妈妈问我今天有没有按时吃饭。' });
   assert.equal(await pluginPage.locator('#inbound-share-title').innerText(), '剪贴板里的一段文字');
@@ -1327,7 +1328,7 @@ try {
 
   assert.deepEqual(errors, []);
   check('no uncaught JavaScript or Content Security Policy errors across exercised flows');
-  const report = { date: '2026-10-15', scope: 'text, media, article, live-mode recovery, compact plugin UI, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'plugin-inbound-390.png', 'inbound-share-390.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
+  const report = { date: '2026-10-17', scope: 'text, media, article, live-mode recovery, compact plugin UI, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'plugin-inbound-390.png', 'inbound-share-390.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
   await writeFile(new URL('../browser-test-results.json', import.meta.url), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ passed: checks.length, screenshots: screenshotDir }));
 } finally {
