@@ -1,6 +1,6 @@
 {
-  "startedAt": "2026-10-17T06:01:11.385Z",
-  "completedAt": "2026-10-17T06:01:13.648Z",
+  "startedAt": "2026-10-17T08:43:54.120Z",
+  "completedAt": "2026-10-17T08:43:58.224Z",
   "status": "passed",
   "localASRReal": true,
   "cloudModelsMocked": true,
@@ -22,7 +22,7 @@
   },
   "http": {
     "status": 200,
-    "seconds": 2.19,
+    "seconds": 4,
     "cloudFixtureCalls": 3,
     "order": [
       "vision_fixture",
@@ -38,7 +38,7 @@
   },
   "cancellation": {
     "code": "MEDIA_CANCELLED",
-    "seconds": 0.071,
+    "seconds": 0.102,
     "childProcessExited": true
   },
   "cleanup": {

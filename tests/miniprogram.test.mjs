@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
-const { authorizationHeaders, classifyFile, codepointLength, generateLocalReply, initialBaseUrl, normalizeBaseUrl, validateMessage, validateResult } = require('../clients/wechat-miniprogram/utils.js');
+const { authorizationHeaders, classifyFile, codepointLength, generateLocalReply, initialBaseUrl, normalizeBaseUrl, validateMessage, validateResult, videoMaterialFromLaunch } = require('../clients/wechat-miniprogram/utils.js');
 
 test('mini program accepts HTTPS roots and localhost development only', () => {
   assert.equal(normalizeBaseUrl('https://reply.example.com/'), 'https://reply.example.com');
@@ -36,6 +37,60 @@ test('mini program validates chat media before reading it into memory', () => {
   assert.throws(() => classifyFile({ path: 'wxfile://note.pdf', size: 1024, type: 'file' }));
   assert.throws(() => classifyFile({ path: 'wxfile://clip.mp4', size: 21 * 1024 * 1024, type: 'video' }));
   assert.throws(() => classifyFile({ path: 'wxfile://photo.jpg', size: 1024, type: 'video' }));
+});
+
+test('mini program accepts only a selected video from WeChat material scene 1173', () => {
+  const launch = { scene: 1173, forwardMaterials: [{ type: 'video/mp4', name: 'chat-video', path: 'wxfile://chat.mp4', size: 2048 }] };
+  const material = videoMaterialFromLaunch(launch);
+  assert.deepEqual(material, {
+    path: 'wxfile://chat.mp4', name: 'chat-video', size: 2048, mimeType: 'video/mp4', fileType: 'video'
+  });
+  assert.equal(classifyFile(material).kind, 'video');
+  assert.equal(videoMaterialFromLaunch({ ...launch, scene: 1007 }), null);
+  assert.equal(videoMaterialFromLaunch({ ...launch, forwardMaterials: [{ ...launch.forwardMaterials[0], type: 'text/html' }] }), null);
+  assert.equal(videoMaterialFromLaunch({ ...launch, forwardMaterials: [{ ...launch.forwardMaterials[0], path: '' }] }), null);
+});
+
+test('mini program exposes the video material entry and consumes the incoming file once', (t) => {
+  const appConfig = JSON.parse(readFileSync(new URL('../clients/wechat-miniprogram/app.json', import.meta.url), 'utf8'));
+  assert.deepEqual(appConfig.supportedMaterials, [{
+    materialType: 'video/*', name: '用${nickname}分析', desc: '总结聊天视频并生成回复', path: 'pages/index/index'
+  }]);
+
+  let appDefinition;
+  let pageDefinition;
+  globalThis.App = value => { appDefinition = value; };
+  globalThis.Page = value => { pageDefinition = value; };
+  globalThis.wx = {};
+  const appPath = require.resolve('../clients/wechat-miniprogram/app.js');
+  const pagePath = require.resolve('../clients/wechat-miniprogram/pages/index/index.js');
+  delete require.cache[appPath];
+  delete require.cache[pagePath];
+  require(appPath);
+  require(pagePath);
+  t.after(() => {
+    delete require.cache[appPath];
+    delete require.cache[pagePath];
+    delete globalThis.App;
+    delete globalThis.Page;
+    delete globalThis.wx;
+    delete globalThis.getApp;
+  });
+
+  const app = { ...appDefinition, globalData: { pendingVideo: null } };
+  app.onShow({ scene: 1173, forwardMaterials: [{ type: 'video/mp4', name: 'chat.mp4', path: 'wxfile://chat.mp4', size: 2048 }] });
+  globalThis.getApp = () => app;
+  const page = { ...pageDefinition, data: structuredClone(pageDefinition.data), setData(update) { Object.assign(this.data, update); } };
+  const accepted = [];
+  page.acceptFile = file => accepted.push(file);
+  page.setData({ sourceText: 'stale', attachment: { name: 'old.mp4' } });
+  page.onShow();
+  page.onShow();
+  assert.equal(accepted.length, 1);
+  assert.deepEqual(accepted[0], { path: 'wxfile://chat.mp4', name: 'chat.mp4', size: 2048, mimeType: 'video/mp4', fileType: 'video' });
+  assert.equal(page.data.sourceText, '');
+  assert.equal(page.data.attachment, null);
+  assert.equal(app.globalData.pendingVideo, null);
 });
 
 test('mini program preserves Unicode limits and the server result contract', () => {

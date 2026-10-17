@@ -20,6 +20,7 @@ import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
@@ -36,6 +37,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -72,6 +74,7 @@ public final class MainActivity extends Activity {
     static final String EXTRA_QUICK_REPLY_TOKEN = "com.xingyu.reply.extra.QUICK_REPLY_TOKEN";
     static final String PREFS_NAME = "xingyu";
     static final String PREF_QUICK_REPLY_TOKEN = "quickReplyToken";
+    static final String PREF_WECHAT_BUBBLE_CONSENT = "wechatBubbleDisclosureAccepted";
     private static final int FILE_REQUEST = 701;
     private static final String INBOUND_PATH = "/.xingyu-share/";
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -83,7 +86,8 @@ public final class MainActivity extends Activity {
     private LinearLayout errorView;
     private TextView errorText;
     private EditText addressInput, appIdInput;
-    private Button pasteButton, copyReturnButton, shareButton, settingsButton, returnButton;
+    private Button pasteButton, copyReturnButton, shareButton, settingsButton, returnButton, bubbleSettingsButton;
+    private TextView bubbleStatus;
     private ProgressBar progress;
     private volatile String serviceUrl = "";
     private String appId = "", loadingUrl = "";
@@ -213,6 +217,11 @@ public final class MainActivity extends Activity {
         form.addView(label("启用回复键盘后，可在微信输入框内分析剪贴板，并把确认过的回复直接插入当前对话。", 15));
         form.addView(button("启用回复键盘", this::openInputMethodSettings));
         form.addView(button("切换到回复键盘", this::showInputMethodPicker));
+        form.addView(label("微信悬浮球", 18));
+        bubbleStatus = label("只在微信前台显示；读取需要你点球确认。", 13);
+        form.addView(bubbleStatus);
+        bubbleSettingsButton = button("开启微信悬浮球", this::prepareWechatBubble);
+        form.addView(bubbleSettingsButton);
         if (BuildConfig.DEBUG) {
             form.addView(button("USB 本地调试", () -> {
                 addressInput.setText(InputRules.USB_SERVICE_URL);
@@ -272,6 +281,60 @@ public final class MainActivity extends Activity {
         InputMethodManager manager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (manager != null) manager.showInputMethodPicker();
         else Toast.makeText(this, "请先在系统设置中启用回复键盘。", Toast.LENGTH_LONG).show();
+    }
+
+    private void prepareWechatBubble() {
+        if (isWechatBubbleEnabled()) { openAccessibilitySettings(); return; }
+        LinearLayout disclosure = new LinearLayout(this);
+        disclosure.setOrientation(LinearLayout.VERTICAL);
+        disclosure.setPadding(dp(24), dp(8), dp(24), 0);
+        TextView details = label("启用后，悬浮球只在微信前台显示。只有你点“读取可见文字”时，言外才读取微信当前页面向 Android 暴露的可见文字；不会持续监听或读取隐藏聊天。进入言外后，你还要确认一次，文字才会发到已配置的分析服务。视频画面、声音和微信内部搜索数据无法读取。", 15);
+        details.setGravity(android.view.Gravity.TOP);
+        disclosure.addView(details);
+        CheckBox consent = new CheckBox(this);
+        consent.setText("我已了解并同意上述读取方式");
+        disclosure.addView(consent);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("开启微信悬浮球")
+            .setView(disclosure)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("前往系统设置", (window, which) -> {
+                if (!consent.isChecked()) return;
+                preferences.edit().putBoolean(PREF_WECHAT_BUBBLE_CONSENT, true).apply();
+                openAccessibilitySettings();
+            })
+            .create();
+        dialog.setOnShowListener(ignored -> {
+            Button next = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            next.setEnabled(false);
+            consent.setOnCheckedChangeListener((button, checked) -> next.setEnabled(checked));
+        });
+        dialog.show();
+    }
+
+    private boolean isWechatBubbleEnabled() {
+        String enabled = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (enabled == null) return false;
+        String target = new ComponentName(this, WechatReplyBubbleService.class).flattenToString();
+        TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
+        splitter.setString(enabled);
+        for (String item : splitter) if (target.equalsIgnoreCase(item)) return true;
+        return false;
+    }
+
+    private void openAccessibilitySettings() {
+        try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); }
+        catch (ActivityNotFoundException error) { Toast.makeText(this, "无法打开系统无障碍设置。", Toast.LENGTH_LONG).show(); }
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (bubbleSettingsButton == null || bubbleStatus == null) return;
+        boolean enabled = isWechatBubbleEnabled();
+        bubbleSettingsButton.setText(enabled ? "管理或关闭微信悬浮球" : "开启微信悬浮球");
+        bubbleStatus.setText(enabled
+            ? "已开启；读取只在微信前台且你点击悬浮球后发生。"
+            : "只在微信前台显示；读取需要你点球确认。");
     }
 
     private void showSettings() {

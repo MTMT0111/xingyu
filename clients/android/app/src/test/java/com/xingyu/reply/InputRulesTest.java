@@ -90,6 +90,22 @@ public final class InputRulesTest {
         assertFalse(InputRules.quickReplyTokenMatches("token-1", null));
     }
 
+    @Test public void floatingReaderTargetsOnlyWechat() {
+        assertTrue(WechatReplyBubbleService.isWechatPackage("com.tencent.mm"));
+        assertFalse(WechatReplyBubbleService.isWechatPackage("com.tencent.mobileqq"));
+        assertFalse(WechatReplyBubbleService.isWechatPackage(null));
+    }
+
+    @Test public void floatingReaderKeepsRepeatedTextAndBoundsUnicodeText() {
+        StringBuilder text = new StringBuilder();
+        WechatReplyBubbleService.appendVisibleText("好", text);
+        WechatReplyBubbleService.appendVisibleText("好", text);
+        WechatReplyBubbleService.appendVisibleText("🌹".repeat(5997), text);
+        assertTrue(text.toString().startsWith("好\n好\n"));
+        assertEquals(6000, text.codePointCount(0, text.length()));
+        assertTrue(Character.isSurrogatePair(text.charAt(text.length() - 2), text.charAt(text.length() - 1)));
+    }
+
     @Test public void sharesExactTextWithinUtf8Limit() {
         assertTrue(InputRules.validText("妈，放心，我晚点给你打电话。"));
         assertTrue(InputRules.validText("a".repeat(10240)));

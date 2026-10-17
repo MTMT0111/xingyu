@@ -56,6 +56,15 @@
             </intent-filter>
             <meta-data android:name="android.view.im" android:resource="@xml/input_method" />
         </service>
+        <service android:name=".WechatReplyBubbleService" android:exported="true"
+            android:label="@string/bubble_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice"
+                android:resource="@xml/wechat_bubble_accessibility" />
+        </service>
         <activity android:name=".wxapi.WXEntryActivity" android:exported="true"
             android:launchMode="singleTask" android:taskAffinity="${applicationId}"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />

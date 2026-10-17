@@ -91,6 +91,21 @@ Page({
       wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] });
     }
     this.checkConnection();
+    this.consumeIncomingVideo();
+  },
+
+  onShow() {
+    this.consumeIncomingVideo();
+  },
+
+  consumeIncomingVideo() {
+    const app = getApp();
+    const material = app.globalData && app.globalData.pendingVideo;
+    if (!material) return;
+    app.globalData.pendingVideo = null;
+    this.setData({ sourceText: '', sourceCount: 0, attachment: null, attachmentDetail: '' });
+    this.clearResult();
+    this.acceptFile(material);
   },
 
   onShareAppMessage() {

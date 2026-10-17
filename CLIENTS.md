@@ -18,14 +18,15 @@
 - 启动器静态快捷方式“分析剪贴板”：长按应用图标调用；支持的启动器可将它拖到桌面。
 - 快捷设置磁贴“言外”：用户先在系统快捷设置编辑页手动添加；点击时生成并消费应用内部的一次性令牌，启动前台后只读取一次剪贴板。启动器静态快捷方式不带令牌，只打开 App，用户仍需点“粘贴”。
 - Android 回复键盘：用户在系统输入法设置中启用后，可在微信当前输入框主动分析剪贴板，并用 `InputConnection.commitText` 插入确认后的回复。它不读取聊天记录、好友列表或输入框原文，不申请悬浮窗和无障碍权限。
+- Android 微信悬浮球：用户在 App 内阅读数据说明并手动启用系统无障碍服务后，球只在微信前台显示。只有点“读取可见文字”才读取当前微信窗口里 Android 暴露的可见文字；密码字段跳过，最多 6000 字。文字进入言外后仍需确认才上传分析。服务不监听聊天内容变化、不读取隐藏记录、不代发。
 - 原生“发送”：从受信页面读取当前回复，用 `ACTION_SEND text/plain` 打开系统分享面板；没有微信 AppID 时仍可使用。
 - Android 页面加载 `?host=android` 紧凑模式，隐藏装饰区，集中展示输入、分析和回复。
 - 页面先显示确认条和文字/文件信息；从系统分享或快捷入口进入时，确认一次后自动上传并生成。普通页面输入仍由用户主动点生成。已有输入、附件或回复时，必须选择保留原草稿或改用新内容。
 - 原生“复制返回”会把当前回复写入剪贴板并结束当前页面，使用系统返回栈恢复来源；不自动定位联系人、替换来源文字或发送消息。桥接不可用时使用系统返回键。
 
-系统入口不安装额外插件，只申请联网权限，不申请存储、联系人、悬浮窗或无障碍权限，也不监听剪贴板。应用无自启或常驻后台任务；快捷设置的 `TileService` 由系统按需绑定，点击时只负责启动前台。媒体只读取本次授权的 `content://`，图片 4 MiB、视频 20 MiB/60 秒，文字 6000 个 Unicode 字符；来源撤回授权或进程被回收后可能需要重新分享。iOS 分享接收扩展仍未实现。
+普通系统分享、选中文字和回复键盘入口不申请存储、联系人或传统悬浮窗权限，也不监听剪贴板。微信悬浮球是明确选择的例外：它使用系统 AccessibilityService overlay；启用后会收到前台窗口切换事件以控制悬浮球显隐，绝不在事件回调中读取页面节点。读取节点只在微信前台点击“读取可见文字”后发生。可读性由微信当前页面决定；视频画面/声音、不可访问区域及微信内部搜索数据不会被读取。AccessibilityService 属高敏感系统权限；本构建用于本地/比赛演示，不应直接视为 Google Play 可发布版本。应用无自启，悬浮球服务由 Android 在用户启用期间托管；快捷设置的 `TileService` 由系统按需绑定，点击时只负责启动前台。媒体只读取本次授权的 `content://`，图片 4 MiB、视频 20 MiB/60 秒，文字 6000 个 Unicode 字符；来源撤回授权或进程被系统回收后可能需要重新分享。iOS 分享接收扩展仍未实现。
 
-这套交互直接采用 Android 的成熟系统模式：[接收其他应用分享的数据](https://developer.android.com/develop/ui/compose/sharing/receive) 与 [`ACTION_PROCESS_TEXT`](https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT)。用户从原应用主动召唤、确认后才导入，完成后回到原任务栈；因此安装包更小，也不会要求敏感的悬浮窗或无障碍权限。
+普通导入交互直接采用 Android 的成熟系统模式：[接收其他应用分享的数据](https://developer.android.com/develop/ui/compose/sharing/receive) 与 [`ACTION_PROCESS_TEXT`](https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT)。用户从原应用主动召唤、确认后才导入；微信悬浮球则是可单独关闭的高敏感实验入口。
 
 ## 已实现的流程
 
@@ -46,9 +47,9 @@
 
 完整步骤分别见 clients/android/README.md 和 clients/ios/README.md。安卓开发签名只供开发测试；正式版需使用自己持有的签名，并与微信开放平台登记的应用一致。iOS 必须在 Mac 上编译和签名，源码静态检查不是 iOS 编译通过。
 
-仓库的 [Android 开发版 APK](downloads/xingyu-android-debug.apk) 已更新为当前插件版：1,378,243 字节，SHA-256 `1da7bf765e91e283b3d244ff400d709e2d3d04a09c2f2e40c685ad31153f0d9a`，Debug v2 签名校验通过。相同记录已写入 `native-build-results.json`；该包已安装到 MEmu 完成运行验收。
+仓库的 [Android 开发版 APK](downloads/xingyu-android-debug.apk) 已更新为带微信悬浮球的 Debug 版：1,353,367 字节，SHA-256 `02eae60f813877995a21427678dfaf3d8558a995944588964ea6f7dd55327302`，v2 签名校验通过。构建、15 个单元测试和 lint 通过；悬浮球尚未在实体设备/真实微信上运行验收。
 
-安装开发包后先填 HTTPS 根地址，或在 Android Debug 设置中选择“USB 本地调试”。USB 转发命令、Studio 内置设备镜像与演示步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。当前插件版已经在 MEmu 验收；下载链接是否对应最终提交 APK，仍需在打包时用新哈希核对。当前没有可安装的 iPhone IPA，需在 Mac 上编译签名。
+安装开发包后先填 HTTPS 根地址，或在 Android Debug 设置中选择“USB 本地调试”。USB 转发命令、Studio 内置设备镜像与演示步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。MEmu 的历史验收覆盖此前系统分享版；当前带悬浮球 APK 已构建并校验签名，但尚未在设备安装测试。当前没有可安装的 iPhone IPA，需在 Mac 上编译签名。
 
 ## 当前还需要的真实配置
 
@@ -66,7 +67,7 @@ Android 使用 SDK transaction 关联回调。iOS SDK 响应没有 transaction�
 
 2026-10-11 已在 MEmu Android 9 通过 ADB 安装并验收旧版“`ACTION_SEND` / `ACTION_PROCESS_TEXT` → 确认导入 → 真实生成 → 编辑 → 复制 → 返回来源”闭环，运行记录见 `clients/android/usb-demo-test-results.json`。`native-build-results.json` 中的设备数量只是更早的构建时快照，不能用来判断后续运行时的设备连接状态。
 
-2026-10-14 在 Android 9 / MEmu WebView 68 验证了最终插件版：`ACTION_SEND` 文字一次确认后真实 DeepSeek 自动生成；原生“复制返回”写入剪贴板并结束页面；快捷设置磁贴读回同一句、打开确认卡并消费一次性令牌；随后无令牌 `QUICK_REPLY` 重放没有读取剪贴板。静态快捷方式 `clipboard_reply` 已注册且不携带令牌，必须再点“粘贴”。此前同一环境已验证原生“发送”打开 `ChooserActivity` 以及 11.4 秒视频的真实画面、语音分析和回复生成；模拟器没有可接收分享的 App。
+2026-10-14 在 Android 9 / MEmu WebView 68 验证了此前系统分享版（SHA-256 `1da7bf765e91e283b3d244ff400d709e2d3d04a09c2f2e40c685ad31153f0d9a`）：`ACTION_SEND` 文字一次确认后真实 DeepSeek 自动生成；原生“复制返回”写入剪贴板并结束页面；快捷设置磁贴读回同一句、打开确认卡并消费一次性令牌；随后无令牌 `QUICK_REPLY` 重放没有读取剪贴板。静态快捷方式 `clipboard_reply` 已注册且不携带令牌，必须再点“粘贴”。此前同一环境已验证原生“发送”打开 `ChooserActivity` 以及 11.4 秒视频的真实画面、语音分析和回复生成；模拟器没有可接收分享的 App。新加入的微信悬浮球尚未做设备运行验收。
 
 实体 Android 手机、真实微信、Android Studio AVD 与微信 AppID 仍未验收；Chooser 打开不能证明回复已交给微信。SDK 选人验收等待合法主体及 AppID 条件满足。页面用 sessionStorage 暂存当前标签页文字草稿，刷新可恢复；附件文件不保存，操作系统清理、关闭 WebView 或更换服务地址后的恢复不作保证。
 

@@ -108,3 +108,5 @@ Kiro Agent Server 0.66.26 启动，但提示阶段返回 HTTP 403、`TEMPORARILY
 公开 Demo、真机回环地址迁移、离线文字闭环和微信开发版本上传完成后，再次使用 Windows 原生 Kiro CLI 2.28.0 发起受限只读审阅，仅授权 `read,grep`。提示范围限定为当前 Steering、比赛与提交说明、公开 Demo、小程序源码和对应测试；明确禁止读取 `.env`、密钥和用户数据，禁止执行 shell 或修改文件。
 
 Kiro Agent Server 0.66.26 启动，会话 `sess_fe94c8a9-dd17-4246-9e0c-cb5a80beacb6` 的 `steering_inclusion` 再次确认 `.kiro/steering/project.md` 已加载。提示阶段仍返回 HTTP 403、`TEMPORARILY_SUSPENDED`；显示请求 ID `07fcc331-716d-49df-8a54-51dc13ed307d`，KRS 请求 ID `38ba5c16-a20b-4e24-88e8-6960f46200cf`。结果仍为 **0 个模型输出、0 个工具调用、0 个文件修改**。因此本轮实现不能计为 Kiro 开发，比赛中 Kiro 使用深度的 35% 仍未满足，需由账号本人通过 [Kiro 官方支持](https://support.aws.amazon.com/#/contacts/kiro) 完成身份验证后再执行一次真实任务。
+
+聊天视频素材入口、Android 实验悬浮球与临时 HTTPS 回归完成后，又发起一次只读审阅，仅授权 `read,grep`，禁止读取 `.env`、试用口令、密钥和用户数据，也禁止执行 shell 或修改文件。Windows 原生 Kiro CLI 仍为 2.28.0，KAS 仍为 0.66.26；会话 `sess_e4f65373-5d71-4a8d-9c74-5310814c5ee5` 已加载 `.kiro/steering/project.md`，随后再次收到 HTTP 403、`TEMPORARILY_SUSPENDED`。显示请求 ID `04ecd8d1-ff81-4249-af40-8e90fcf4bbbd`，KRS 请求 ID `bd08d54b-1dfd-413c-8eb2-76ae4b9ea701`。结果仍为 **0 个模型输出、0 个工具调用、0 个文件修改**；本次不能计为 Kiro 审阅。

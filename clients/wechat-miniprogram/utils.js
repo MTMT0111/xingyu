@@ -55,16 +55,32 @@ function classifyFile(file) {
   const fallbackName = path.split(/[\\/]/).pop() || '';
   const name = String(file.name || fallbackName || '微信文件').slice(0, 120);
   const extension = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
-  const definition = MIME_BY_EXTENSION[extension];
+  const mimeType = String(file.mimeType || (String(file.type || '').includes('/') ? file.type : '')).toLowerCase();
+  const mimeDefinition = Object.values(MIME_BY_EXTENSION).find(([, mime]) => mime === mimeType);
+  const definition = mimeDefinition || MIME_BY_EXTENSION[extension];
   if (!definition) throw new Error('请选择 JPG、PNG、WebP、MP4、WebM 或 MOV 文件。');
   const size = Number(file.size);
   if (!Number.isFinite(size) || size <= 0) throw new Error('没有读取到有效文件。');
   const [kind, mime] = definition;
-  const expectedKind = file.fileType || file.type;
+  const expectedKind = file.fileType || (['image', 'video'].includes(file.type) ? file.type : '');
   if (['image', 'video'].includes(expectedKind) && expectedKind !== kind) throw new Error('文件类型与扩展名不一致。');
+  if (mimeType && mimeType.split('/')[0] !== kind) throw new Error('文件类型与扩展名不一致。');
   const maxBytes = (kind === 'image' ? 4 : 20) * 1024 * 1024;
   if (size > maxBytes) throw new Error(kind === 'image' ? '图片不能超过 4 MB。' : '视频不能超过 20 MB。');
   return { path, name, size, kind, mime };
+}
+
+function videoMaterialFromLaunch(options) {
+  if (!options || Number(options.scene) !== 1173 || !Array.isArray(options.forwardMaterials)) return null;
+  const material = options.forwardMaterials.find(item => item && /^video\//i.test(String(item.type || '')));
+  if (!material || !material.path || !Number.isFinite(Number(material.size)) || Number(material.size) <= 0) return null;
+  return {
+    path: String(material.path),
+    name: String(material.name || '微信视频').slice(0, 120),
+    size: Number(material.size),
+    mimeType: String(material.type).toLowerCase(),
+    fileType: 'video'
+  };
 }
 
 function validateMessage(text, hasAttachment) {
@@ -141,4 +157,4 @@ function generateLocalReply(text, variant = 0) {
   };
 }
 
-module.exports = { authorizationHeaders, classifyFile, codepointLength, generateLocalReply, initialBaseUrl, normalizeBaseUrl, validateMessage, validateResult };
+module.exports = { authorizationHeaders, classifyFile, codepointLength, generateLocalReply, initialBaseUrl, normalizeBaseUrl, validateMessage, validateResult, videoMaterialFromLaunch };

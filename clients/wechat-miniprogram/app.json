@@ -12,6 +12,14 @@
   "networkTimeout": {
     "request": 60000
   },
+  "supportedMaterials": [
+    {
+      "materialType": "video/*",
+      "name": "用${nickname}分析",
+      "desc": "总结聊天视频并生成回复",
+      "path": "pages/index/index"
+    }
+  ],
   "sitemapLocation": "sitemap.json",
   "__usePrivacyCheck__": true
 }
