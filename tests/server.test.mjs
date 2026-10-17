@@ -483,7 +483,7 @@ test('public deployment refuses insecure origins or an absent, weak trial passwo
 
 test('a public HTTPS trial authenticates the whole page and never reveals its password', async (t) => {
   const app = await serve(t, { config: trialConfig });
-  for (const path of ['/', '/app.js', '/api/config', '/api/examples']) {
+  for (const path of ['/', '/demo.js', '/app.js', '/api/config', '/api/examples']) {
     const rejected = await app.get(path, { headers: { host: trialHeaders.host } });
     assert.equal(rejected.status, 401);
     assert.match(rejected.headers.get('www-authenticate'), /^Basic /);

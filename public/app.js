@@ -2,6 +2,7 @@
 
 const $ = id => document.getElementById(id);
 if (new URLSearchParams(location.search).get('host') === 'android') document.body.dataset.host = 'android';
+const staticDemo = location.hostname.endsWith('.github.io') || new URLSearchParams(location.search).get('demo') === '1';
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const settle = promises => Promise.all(promises.map(promise => Promise.resolve(promise).then(
   value => ({ status: 'fulfilled', value }),
@@ -25,6 +26,12 @@ let examples = [
 ];
 
 async function requestJSON(url, options, { timeout = 32000, signal } = {}) {
+  if (staticDemo) {
+    if (!window.HaoHaoHuiDemo) throw new Error('公开体验资源未完整加载，请刷新页面。');
+    if (url === '/api/config') return window.HaoHaoHuiDemo.config;
+    if (url === '/api/examples') return window.HaoHaoHuiDemo.examples;
+    if (url === '/api/reply') return window.HaoHaoHuiDemo.reply(JSON.parse(options && options.body || '{}'));
+  }
   const controller = new AbortController();
   const cancel = () => controller.abort();
   if (signal && signal.aborted) cancel();

@@ -1,11 +1,11 @@
 @font-face {
   font-family: WenKai;
-  src: url('/assets/LXGWWenKai-Regular.woff2') format('woff2');
+  src: url('./assets/LXGWWenKai-Regular.woff2') format('woff2');
   font-display: swap;
 }
 @font-face {
   font-family: MaShan;
-  src: url('/assets/MaShanZheng-Regular.woff2') format('woff2');
+  src: url('./assets/MaShanZheng-Regular.woff2') format('woff2');
   font-display: swap;
 }
 
@@ -43,7 +43,7 @@ a { color: inherit; }
 p, h1, h2, h3, h4 { margin: 0; }
 textarea { border: 0; }
 
-.container { width: min(430px, calc(100% - 24px)); margin: 0 auto; padding: 18px 0 32px; }
+.container { width: calc(100% - 24px); max-width: 430px; margin: 0 auto; padding: 18px 0 32px; }
 .plugin-header {
   min-height: 58px;
   display: flex;
@@ -255,10 +255,13 @@ body[data-host="android"] .privacy-note { margin-top: 7px; }
   body[data-host="android"] .copy-row { background: #fbfcfe; }
 }
 
-@media (max-width: 360px) {
-  .container { width: calc(100% - 18px); }
+@media (max-width: 420px) {
   .preference-row { grid-template-columns: 1fr; }
   .preference-row label + label { margin: 8px 0 0; }
+}
+
+@media (max-width: 360px) {
+  .container { width: calc(100% - 18px); }
   .input-panel, .output-panel { padding: 18px 14px; }
   .tiny-label { display: none; }
   .attachment-tools span { max-width: 185px; }

@@ -6,8 +6,13 @@
     </view>
     <button class="connection {{connected ? 'online' : (connecting ? 'connecting' : 'offline')}}" disabled="{{busy}}" bindtap="toggleSettings" aria-label="连接设置">
       <view class="status-dot"></view>
-      <text>{{connected ? (liveAvailable ? 'AI 在线' : '示例模式') : (connecting ? '连接中' : '未连接')}}</text>
+      <text>{{connected ? (liveAvailable ? 'AI 在线' : '示例模式') : (connecting ? '连接中' : '离线体验')}}</text>
     </button>
+  </view>
+
+  <view class="entry-tip">
+    <text>添加到“我的小程序”，微信下拉即可再次打开</text>
+    <button open-type="share">转发入口</button>
   </view>
 
   <view wx:if="{{showSettings}}" class="settings-sheet">
@@ -16,9 +21,9 @@
     <input class="text-input" value="{{apiBaseDraft}}" bindinput="onApiBaseInput" placeholder="https://reply.example.com" />
     <label class="field-label">访问口令</label>
     <input class="text-input" password value="{{accessCodeDraft}}" bindinput="onAccessCodeInput" placeholder="本机开发可留空" />
-    <view class="settings-note">模型密钥只保存在服务端；真机不能连接 127.0.0.1。</view>
+    <view class="settings-note">不填地址也能体验文字回复；真实 AI 和媒体分析需要已登记的 HTTPS 服务。</view>
     <view class="settings-actions">
-      <button class="button quiet" bindtap="resetSettings">恢复本机</button>
+      <button class="button quiet" bindtap="resetSettings">使用离线体验</button>
       <button class="button blue" bindtap="saveSettings">保存连接</button>
     </view>
   </view>

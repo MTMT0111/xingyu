@@ -2,12 +2,14 @@ const {
   authorizationHeaders,
   classifyFile,
   codepointLength,
+  generateLocalReply,
+  initialBaseUrl,
   normalizeBaseUrl,
   validateMessage,
   validateResult
 } = require('../../utils');
 
-const DEFAULT_API_BASE = 'http://127.0.0.1:4173';
+const DEFAULT_API_BASE = '';
 const DEFAULT_RECIPIENT = 'auto';
 const DEFAULT_TONE = 'warm';
 
@@ -54,7 +56,7 @@ Page({
     showSettings: false,
     connected: false,
     connecting: false,
-    connectionLabel: '正在连接服务…',
+    connectionLabel: '离线文字体验',
     liveAvailable: false,
     mediaAvailable: false,
     videoAvailable: false,
@@ -76,7 +78,11 @@ Page({
     let apiBase = DEFAULT_API_BASE;
     let accessCode = '';
     try {
-      apiBase = wx.getStorageSync('haohaohui_api_base') || DEFAULT_API_BASE;
+      const savedBase = wx.getStorageSync('haohaohui_api_base') || '';
+      const device = typeof wx.getDeviceInfo === 'function' ? wx.getDeviceInfo()
+        : typeof wx.getSystemInfoSync === 'function' ? wx.getSystemInfoSync() : {};
+      apiBase = initialBaseUrl(savedBase, device.platform);
+      if (savedBase && !apiBase) wx.removeStorageSync('haohaohui_api_base');
       accessCode = wx.getStorageSync('haohaohui_access_code') || '';
     } catch (_) {}
     this.setData({ apiBase, apiBaseDraft: apiBase, accessCode, accessCodeDraft: accessCode });
@@ -106,6 +112,19 @@ Page({
   async checkConnection(showError = false) {
     const sequence = (this.connectionSequence || 0) + 1;
     this.connectionSequence = sequence;
+    if (!this.data.apiBase) {
+      this.setData({
+        connecting: false,
+        connected: false,
+        liveAvailable: false,
+        mediaAvailable: false,
+        videoAvailable: false,
+        mode: 'demo',
+        connectionLabel: '离线文字体验',
+        ...(showError ? { error: '' } : {})
+      });
+      return;
+    }
     this.setData({ connecting: true, connectionLabel: '正在连接服务…', ...(showError ? { error: '' } : {}) });
     try {
       const config = await this.request('/api/config');
@@ -122,7 +141,7 @@ Page({
       });
     } catch (error) {
       if (this.connectionSequence !== sequence) return;
-      this.setData({ connected: false, connectionLabel: '服务未连接', ...(showError ? { error: error.message } : {}) });
+      this.setData({ connected: false, connectionLabel: '离线文字体验', ...(showError ? { error: `${error.message} 已切换到离线文字体验。` } : {}) });
     } finally {
       if (this.connectionSequence === sequence) this.setData({ connecting: false });
     }
@@ -237,7 +256,14 @@ Page({
       const text = validateMessage(this.data.sourceText, Boolean(this.data.attachment));
       this.setData({ busy: true, error: '', showSettings: false });
       if (!this.data.connected) await this.checkConnection(true);
-      if (!this.data.connected) throw new Error('请先在设置中连接服务。');
+      if (!this.data.connected) {
+        if (this.data.attachment) throw new Error('图片和视频分析需要先在设置中连接 HTTPS 服务。');
+        const variant = this.data.result ? (this.data.variant + 1) % 2 : this.data.variant;
+        const result = validateResult(generateLocalReply(text, variant));
+        this.setData({ result, replyText: result.reply, variant, evidenceText: '', showEvidence: false, error: '' });
+        wx.pageScrollTo({ selector: '#result', duration: 220 });
+        return;
+      }
       if (this.data.attachment && !this.data.mediaAvailable) throw new Error('当前服务还没有配置图片/视频分析。');
       if (this.data.attachment && this.data.attachment.kind === 'video' && !this.data.videoAvailable) throw new Error('当前服务还没有配置视频语音识别。');
       const payload = {
