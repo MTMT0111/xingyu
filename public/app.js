@@ -93,11 +93,11 @@ function restoreDraft() {
     if (!raw) return;
     if (raw.length > 70000) throw new Error('Draft too large');
     const draft = JSON.parse(raw);
-    const tone = draft && draft.tone === undefined ? 'warm' : draft?.tone;
+    const tone = draft && draft.tone === undefined ? 'warm' : draft ? draft.tone : undefined;
     if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['auto', 'mother', 'father', 'elder'].includes(draft.recipient) || !['warm', 'brief', 'boundary'].includes(tone) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
     if (draft.result) {
       validateResult(draft.result);
-      if (!draft.submitted || draft.submitted.text !== draft.text.trim() || draft.submitted.recipient !== draft.recipient || (draft.submitted.tone ?? 'warm') !== tone) throw new Error('Stale draft');
+      if (!draft.submitted || draft.submitted.text !== draft.text.trim() || draft.submitted.recipient !== draft.recipient || (draft.submitted.tone == null ? 'warm' : draft.submitted.tone) !== tone) throw new Error('Stale draft');
     }
     $('source-text').value = draft.text;
     $('recipient-select').value = draft.recipient;
@@ -415,7 +415,7 @@ function inputChanged() {
   pendingAndroidAutoGenerate = null;
   countInput();
   clearError();
-  if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient || $('tone-select').value !== (state.submitted.tone ?? 'warm'))) {
+  if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient || $('tone-select').value !== (state.submitted.tone == null ? 'warm' : state.submitted.tone))) {
     clearResult();
     $('result-announcement').textContent = '消息或回复对象已修改，请重新生成。';
   }

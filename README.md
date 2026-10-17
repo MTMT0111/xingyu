@@ -34,10 +34,10 @@ npm start
 - Android Debug 增加“USB 本地调试”，通过 `adb reverse` 访问固定 `http://127.0.0.1:4173`；Release 仍只接受 HTTPS。无需额外 Studio 插件。
 - Android 已实现系统分享、选中文字与“言外 · 回复键盘”。在微信输入框切换到该键盘后，可主动分析已复制的消息；生成并确认后返回微信，再点“插入回复”写入当前输入框。另有明确征得同意后才能启用的实验悬浮球：它使用系统无障碍服务，只在微信前台显示，且仅在用户点击后读取当前窗口可见文字。普通入口不监听聊天或后台剪贴板，也不申请存储、联系人或传统悬浮窗权限。
 - Android WebView 固定使用 `?host=android` 插件模式，与默认入口共用紧凑工作台，并隐藏草稿、示例等次要操作。原生“发送”使用 Android `ACTION_SEND` 打开系统分享面板，没有微信 AppID 时仍可使用；不会自动选择联系人或确认送达。
-- 2026-10-17 浏览器回归 51/51、工程测试 63/63 通过，JS / CSP 错误为 0；Android Debug / Release 构建与两套单元测试通过，lint 0 错误、2 条既有警告，Debug APK v2 签名有效。2026-10-14 曾在 MEmu 对不含新悬浮球的前一版做运行验收；详情见 [QA.md](QA.md)。
+- 2026-10-17 工程测试 63/63 通过；Android Debug 构建、15 个单元测试和 lint 通过，Debug APK v2 签名有效。同日在 MEmu Android 9 / WebView 68 安装当前包，并用官方微信 8.0.79 登录页完成悬浮球运行验收；详情见 [运行记录](clients/android/wechat-bubble-test-results.json)。
 - Lenovo/MEmu Android 9（API 28，Chrome/WebView 68.0.3440.70）已验证当前版 `ACTION_SEND` 文字一次确认后自动调用真实 DeepSeek 并生成回复；原生“复制返回”写入剪贴板并结束页面，随后 `QUICK_REPLY` 读回了同一句话。快捷设置磁贴成功添加并点击，能打开剪贴板确认；静态快捷方式 `clipboard_reply` 已在系统注册。
 - 原生“发送”成功打开 Android `ChooserActivity`，但模拟器没有可接收的 App，因此未验证实际交付。文件管理器真实分享 `parent-message.mp4`（11.4 秒、约 0.16 MB）成功进入言外，一次确认后约 30 秒完成真实视频画面、语音分析并生成回复；系统分享、`ACTION_PROCESS_TEXT` 及图片/视频入口仍正常。
-- WebView 68 兼容修复和 `?host=android` 紧凑页随当前版运行。实体安卓手机、真实微信、Android Studio AVD、iOS 及 Jev 仍未验收；小程序 AppID 和开发者工具预览已通过，但不能等同于微信真机完成回复闭环。
+- WebView 68 兼容修复和 `?host=android` 紧凑页随当前版运行。当前悬浮球实测覆盖官方微信登录页的可见文字，没有登录微信账号；实体安卓手机、已登录聊天、视频号素材、Android Studio AVD、iOS 及 Jev 仍未验收。小程序 AppID 和开发者工具预览已通过，但不能等同于微信真机完成回复闭环。
 
 ## 历史验证与未完成边界
 
@@ -45,11 +45,11 @@ npm start
 
 - 网页、分析接口、编辑复制与双端微信桥接已实现。2026-10-17 `npm test` 为 63/63 通过，其中小程序专项 14 项。
 - 公开可玩 Demo 已部署到 [GitHub Pages](https://mtmt0111.github.io/haohaohui-demo/)；它只运行本地规则和人工文案，不上传内容、不调用 DeepSeek，也不开放图片/视频。完整真实 AI 仍由本机服务验证，不能把静态 Demo 写成公网 AI 服务。
-- 2026-10-17 含回复键盘和实验悬浮球的 Android Debug / Release 构建、两套单元测试、lint 与 APK 签名校验通过。最新下载包为 1,353,367 字节，SHA-256 `02eae60f813877995a21427678dfaf3d8558a995944588964ea6f7dd55327302`。前一版 MEmu 运行记录不等于悬浮球已通过实体微信；iOS 仍为源码，尚未在 Mac 编译。
+- 2026-10-17 含回复键盘和实验悬浮球的 Android Debug 构建、15 个单元测试、lint 与 APK 签名校验通过。最新下载包为 1,354,015 字节，SHA-256 `4b1baa1e453c7590e1ecefcf1861f333ae56c08ba979db0ed7125a35e2e97824`。当前包已完成 MEmu 官方微信登录页闭环；iOS 仍为源码，尚未在 Mac 编译。
 - DeepSeek 已配置官方服务 `https://api.deepseek.com` 的 `deepseek-flash`。2026-10-17 两次真实合成样本调用（文字、图片）均 HTTP 200 并通过结构校验；本机 `/api/reply` 也实际生成了一条长辈关心回复。详见 `deepseek-test-results.json`；这只验证了 DeepSeek，不代表 Jev 或完整手机链路已通过。
 - TypeSafe/Jev 账户已由用户创建，但仍未配置 Jev 密钥。旧版曾因此禁用真实生成；现在 LLM 可独立运行，Jev 分支仍需单独验收，不能将 LLM 成功称为 Jev 已接通。
 - 用户已在微信开放平台确认当前个人主体不能创建移动应用。SDK 工程保留，但直接选微信联系人仍需要合格主体的移动应用 AppID 及匹配包名/签名。Android 系统分享接收另走系统标准入口，不受这个 AppID 前提限制。
-- 本地 AI 服务当前运行于 `http://127.0.0.1:4173`。2026-10-16 Quick Tunnel 申请曾超时；本轮自动化审查阻止了启动隧道所需的 `Start-Process`，未通过替代启动方式绕过。因此尚无可供真机小程序调用模型的 HTTPS 后端；公开 Pages Demo 是纯前端离线体验，不能作为小程序的 AI 接口。
+- 本地 AI 服务当前运行于 `http://127.0.0.1:4173`。2026-10-17 已启动带 Basic 访问保护的临时 Quick Tunnel，并从公网完成一次真实 LLM 请求；地址随进程变化，不写入仓库，也不能替代小程序需要登记的固定 HTTPS 合法域名。公开 Pages Demo 仍是纯前端离线体验。
 - 已完成 11 项本机访问保护检查：缺少口令返回 401、正确认证可访问、私有文件返回 404、错误 Host/Origin 返回 403。测试没有调用模型，测试端口已关闭；这不代表公网 TLS 或手机微信已验证。
 
 ### 免费手机试用启动入口
@@ -99,6 +99,7 @@ Android `ACTION_SEND` 和 `ACTION_PROCESS_TEXT` 是进入言外的入口；网�
 - [ ] 解决用户设备上的网页分享失败：先确认方向、设备、错误；MEmu 入站分享通过和系统分享提示改正不能代替真实微信复现。
 - [x] 在 Lenovo/MEmu Android 9 验证 `ACTION_SEND` 文字/图片/视频、`ACTION_PROCESS_TEXT`、真实 DeepSeek 生成、旧 WebView 复制降级及返回来源图库；报告为 `clients/android/usb-demo-test-results.json`。
 - [x] 2026-10-14 在 MEmu Android 9 验证当前插件版：`ACTION_SEND` 文字一次确认后真实 DeepSeek 生成，“复制返回”写入原文，快捷磁贴读回原文并消费一次性令牌，无令牌重放未读取剪贴板，静态快捷方式已注册；此前的 Chooser、图片和 11.4 秒视频结果保留在设备报告中。
+- [x] 2026-10-17 在 MEmu 安装官方微信 8.0.79，按真实系统流程开启无障碍服务；悬浮球仅在微信前台出现，点击后读取登录页可见文字，经确认调用 DeepSeek，生成并“复制返回”到微信。已登录聊天与微信视频仍待实体设备验证。
 - [ ] 在实体安卓手机验证上述插件入口、系统分享、草稿冲突与临时 URI 授权失效，并记录微信版本与 ROM 是否展示入口；模拟器通过不代表实体微信验收。
 - [ ] 当前个人主体无法创建移动应用，SDK 的 AppID 路线受资格阻碍。本阶段不继续申请；只有后续具备合法资格再评估平台登记与签名。
 - [ ] Android 手机上完成「真实生成 → 编辑 → 复制 → 微信粘贴发送」，覆盖相册/视频选择、复制失败及返回保稿。直接 SDK 选人验收须等待主体/AppID 条件成立。

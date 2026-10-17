@@ -6,11 +6,11 @@
 
 2026-10-11 验收的 Android 版本包含 `ACTION_SEND`（单段文字 / JPG、PNG、WebP / MP4、WebM、MOV）与 `ACTION_PROCESS_TEXT`。页面先确认导入，已有草稿可保留或主动替换；不会因收到分享而上传、调用模型或发送。复制完成后可主动返回来源 App。这条系统入口不需要微信 AppID、额外插件或存储权限。
 
-2026-10-17 的最新浏览器回归 51/51 通过，JS / CSP 错误均为 0。默认入口已撤掉网站首页、宣传区、可见步骤导览和页脚，桌面与手机统一为 430px 内的插件工作台；对象默认自动判断，回复优先展示，分析过程默认收起。其余覆盖 Android 慢启动、入站确认、草稿冲突、连续分享竞态、媒体导入、复制后返回及截图。含回复键盘的 Android Debug / Release、两套单元测试和 lint 同日通过，lint 0 错误、2 条既有警告，开发包签名有效。
+此前浏览器回归 51/51 通过，JS / CSP 错误均为 0。2026-10-17 当前工程测试 63/63 通过；Android Debug 构建、15 个单元测试和 lint 通过，开发包 v2 签名有效。默认入口已撤掉网站首页、宣传区、可见步骤导览和页脚，桌面与手机统一为 430px 内的插件工作台；对象默认自动判断，回复优先展示，分析过程默认收起。
 
 随后在 Lenovo/MEmu Android 9 上通过 ADB 安装 APK、反向转发 4173 并连接真实本地服务。`ACTION_SEND` 文字、图片、视频与 `ACTION_PROCESS_TEXT` 均进入确认流程并通过；文字、图片、视频实际调用 DeepSeek 成功。11.4 秒视频实际抽取 6 帧、完成语音转写并生成回复；旧 WebView 缺少可用剪贴板写入时，复制操作降级为选中完整回复文字；系统返回键已回到来源图库。结果见 `clients/android/usb-demo-test-results.json`。
 
-初次加载暴露 WebView 68 不支持部分现代 JavaScript API；修复移除了这些依赖，使用 `Referrer-Policy: same-origin` 并增加 CSS 回退后复测通过。这仍不是实体手机、真实微信、Android Studio AVD 或 iOS 验收。微信是否露出系统入口、实体设备的 URI 授权与 ROM 行为仍未知；正式 SDK 选联系人也仍缺合格主体 AppID 及匹配包名/签名。
+当前悬浮球复测又发现 WebView 68 不能解析可选链与空值合并语法；移除 3 处语法后，整份交互脚本在该 WebView 实际运行。官方微信 8.0.79 登录页的悬浮球、显式读取、未上传确认、真实 DeepSeek 生成及复制返回均通过，见 `clients/android/wechat-bubble-test-results.json`。这仍不是实体手机、已登录聊天、视频号、Android Studio AVD 或 iOS 验收；正式 SDK 选联系人也仍缺合格主体 AppID 及匹配包名/签名。
 
 ## 2026-10-14 轻量插件 MEmu 运行验收
 
@@ -20,9 +20,9 @@
 - 原生“发送”成功打开 Android `ChooserActivity`。模拟器没有可接收的 App，因此没有验证选择目标、微信接收或消息送达。
 - 从文件管理器真实分享 `parent-message.mp4`（11.4 秒、约 0.16 MB）成功进入 App；一次确认后约 30 秒完成真实视频画面、语音分析并生成回复。
 - 系统分享、`ACTION_PROCESS_TEXT` 及图片/视频入口回归仍工作；Android WebView 使用 `?host=android` 紧凑工具模式。
-- 应用不监听剪贴板，无自启或常驻后台任务；磁贴服务只由系统按需绑定。客户端只申请联网权限，不申请存储、联系人、悬浮窗或无障碍权限。
+- 普通入口不监听剪贴板，无自启或常驻后台任务；磁贴服务只由系统按需绑定。可选悬浮球经单独说明和系统确认后使用无障碍服务，不申请传统悬浮窗权限，只在用户点“读取可见文字”时访问当前微信窗口节点。
 
-本次环境为 Android 9 / MEmu / WebView 68。实体手机、真实微信、微信 AppID 与 Android Studio AVD 仍未验证；模拟器打开 Chooser 不能代替真实微信收发验收。浏览器 51/51 和 Android Debug / Release 各 13/13 均在当前代码上重跑；设备运行结果仅代表这台 MEmu。
+本次环境为 Android 9 / MEmu / WebView 68。实体手机、已登录微信聊天、视频号、微信 AppID 与 Android Studio AVD 仍未验证；登录页与 Chooser 通过不能代替真实微信收发验收。当前工程测试 63/63、Android Debug 15/15 和 lint 已重跑；设备运行结果仅代表这台 MEmu。
 
 实体机仍需覆盖：文字/单图/单视频、PROCESS_TEXT、已有草稿不覆盖、外部入口一次确认后自动生成、空/超限/多选/失效授权拒绝、复制返回、系统分享回复及进程回收后的重新分享。步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。
 
@@ -32,15 +32,15 @@
 
 | 检查 | 当前结果 | 边界 |
 | --- | --- | --- |
-| npm test | 61 项通过 | 含 12 项小程序地址、认证、媒体、数据契约、真机不继承回环地址、离线文字闭环、收藏分享、页面请求、附件菜单、清空旧结果和连接竞态测试，以及 2 项公开静态 Demo 检查；模型服务使用测试替身，覆盖 LLM 独立与可选 Jev 分支 |
-| 微信小程序源码 | JavaScript 语法、页面事件绑定和 12 项专项测试通过；开发者工具使用 AppID `wx44641c021b958fdd` 直接推送最新极简版手机预览，并上传 `0.7.0` 开发版本（40,224 字节） | 尚无 HTTPS AI 后端合法域名、隐私指引、平台提审或 Android/iPhone 实体真机记录 |
+| npm test | 63 项通过 | 含 14 项小程序地址、认证、媒体、数据契约、微信聊天视频素材入口、离线文字闭环、收藏分享、页面请求、附件菜单和连接竞态测试，以及旧 WebView 语法检查；模型服务使用测试替身，覆盖 LLM 独立与可选 Jev 分支 |
+| 微信小程序源码 | JavaScript 语法、页面事件绑定和 14 项专项测试通过；开发者工具使用 AppID `wx44641c021b958fdd`，已上传 `0.8.0` 开发版本（41,838 字节）并声明聊天视频素材入口 | 尚无固定 HTTPS AI 合法域名、隐私指引、平台提审或 Android/iPhone 实体真机记录 |
 | 公开 Demo | GitHub Pages 构建成功；首页、脚本、样式和字体均返回 HTTP 200；静态规则检查通过 | 仅文字、本地规则和人工文案，不调用 DeepSeek，不支持图片/视频，不能代替真实 AI 与微信真机验收 |
 | 浏览器回归 | 51/51 通过，JS 与 CSP 错误均为 0 | 含系统分享接收确认、Android 紧凑插件页、慢启动自动提交保护、草稿保护、连续分享竞态、无桥接降级与返回；原生桥接、模型和微信 SDK 为测试替身 |
-| Android 构建与测试（2026-10-17） | 含回复键盘的 Debug / Release 均构建成功，两套单元测试通过；APK manifest 已确认注册 `BIND_INPUT_METHOD` 服务 | lint 0 错误、2 条既有警告，开发包 v2 签名有效；新键盘尚未在实体微信或 MEmu 操作验收 |
+| Android 构建与测试（2026-10-17） | 当前 Debug 构建和 15 个单元测试通过；APK manifest 已确认注册输入法与可选无障碍服务 | lint 通过，开发包 v2 签名有效；实体手机仍未验收 |
 | 7 个合成案例的真实 LLM 闭环 | 7/7 通过，均 HTTP 200 | `llm_only`、`jevTested: false`，真实浏览器、服务端、本地 ASR 和云模型；未发送微信消息 |
 | Jev | 尚未配置密钥 | LLM 可独立运行，Jev 分支仍未实际验证 |
-| Android 9 / MEmu 运行（更新至 2026-10-14） | 最终插件版安装运行；文字一次确认后真实生成；复制返回、一次性令牌磁贴、无令牌拒绝和快捷方式注册通过；此前图片、视频及 Chooser 结果保留 | WebView 68；Chooser 无接收 App；静态快捷方式仅验证注册；不代表实体手机或微信 |
-| 实体安卓、真实微信与 Studio AVD | 未验证 | MEmu 不代替实体机、微信版本/ROM 或 Android Studio AVD；常见路径未发现 Studio |
+| Android 9 / MEmu 运行（更新至 2026-10-17） | 当前悬浮球版安装运行；官方微信登录页显式读取、确认、真实生成、复制返回和悬浮球恢复通过；此前文字、图片、视频、磁贴及 Chooser 结果保留 | WebView 68；没有登录微信账号；不代表聊天或视频号内容可读 |
+| 实体安卓、已登录微信与 Studio AVD | 未验证 | MEmu 登录页不代替实体机、聊天消息、微信版本/ROM 或 Android Studio AVD |
 | 本地 Node 内存快照 | 空闲 Working Set 51.4 MiB / Private Memory 26.8 MiB | 单次快照，非峰值，不含浏览器、IDE、Gradle、云模型或本地 ASR |
 
 2026-10-15 另用与小程序页面相同的 JSON 字段向本地 `/api/reply` 发起一次真实请求：`recipient=mother`、`tone=brief`、`mode=live`、`variant=0`，1570 ms 返回完整摘要、2 条可能理解和回复，`generation_source=llm`、模型 `deepseek-flash`。请求由 PowerShell 发出，只证明小程序复用的服务端契约和模型链路可用；没有经过 `wx.request`、开发者工具、合法域名或微信真机。
@@ -102,7 +102,7 @@
 
 Android 的 JSON 消息桥与 iOS 的对象消息桥均经过浏览器模拟：未配 AppID 禁用选人、回前台重新检测能力、仅分享完整编辑稿、防重复调用、10 KiB UTF-8 上限、取消/错误/超时保稿、旧请求与改稿后的回调失效。`result_unknown` 明确提示到微信确认，不把无回调当作发送失败。
 
-Android 使用实际 Android SDK 35、Gradle 8.10.2 和官方微信 SDK 6.8.40 构建，并在 ADB 连接的 MEmu Android 9 上完成上述系统 Intent 与本地服务验证。iOS 固定官方 SDK 2.0.9，具备 XcodeGen/CocoaPods 工程和测试源码，但本机没有 Mac/Xcode。当前无移动应用 AppID；两端都没有进行真实微信调用。
+Android 使用实际 Android SDK 35、Gradle 8.10.2 和官方微信 SDK 6.8.40 构建，并在 ADB 连接的 MEmu Android 9 上完成系统 Intent、本地服务及官方微信登录页悬浮球验证。iOS 固定官方 SDK 2.0.9，具备 XcodeGen/CocoaPods 工程和测试源码，但本机没有 Mac/Xcode。当前无移动应用 AppID；没有验证 SDK 选人、已登录聊天或消息送达。
 
 该轮浏览器完整运行 41/41 通过。此前一次旧媒体用例等待 `networkidle` 超时，原样重跑未复现，没有放宽断言或修改等待条件。
 

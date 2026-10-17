@@ -49,6 +49,10 @@ Debug 只允许这一个 HTTP origin；不支持任意局域网 HTTP 地址。Re
 
 从文件管理器真实分享 `parent-message.mp4`（11.4 秒、约 0.16 MB）进入 App 后，一次确认并在约 30 秒内完成真实画面、语音分析和回复生成。系统分享、`ACTION_PROCESS_TEXT`、图片/视频入口仍工作。静态快捷方式本次只验证系统注册；实体手机、真实微信、微信 AppID 和 Android Studio AVD 仍未验证。
 
+### 2026-10-17 当前悬浮球运行结果
+
+在同一 MEmu Android 9 / WebView 68 环境安装当前 APK 与官方微信 8.0.79，通过应用说明和 Android 系统确认手动启用无障碍服务。悬浮球仅在微信前台出现；点击“读取可见文字”读取登录页暴露的“登录 / 注册 / 语言”，言外先显示未上传确认卡，确认后真实 DeepSeek 生成回复。原生“复制返回”结束言外并回到微信，悬浮球再次出现。记录见 `wechat-bubble-test-results.json`。
+
 ## 构建
 
 Android Studio 可直接打开此目录。命令行需要 Android SDK 35、Build Tools 35.0.0、JDK 17 或兼容 JDK，以及 Gradle 8.10.2。项目固定 AGP 8.8.2、AndroidX WebKit 1.17.1、微信 SDK 6.8.40；最低 Android 7.0 / API 24。
@@ -60,7 +64,7 @@ Android Studio 可直接打开此目录。命令行需要 Android SDK 35、Build
 
 项目已包含 Gradle 8.10.2 wrapper；macOS/Linux 使用 `./gradlew`。通过 `ANDROID_HOME` 或仅本机 `local.properties` 的 `sdk.dir` 指定 SDK。Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。Release 默认不配置签名，需要开发者自己的 keystore；release 禁止 WebView 调试。不要上传签名私钥。
 
-Gradle 默认使用 1 GB 最大堆和一个 worker，不开启并行构建；命令行使用 `--no-daemon` 在构建结束后释放构建进程。当前 Debug 有 15 个 JUnit 用例，覆盖配置、一次性快捷令牌、分享文本、媒体类型/大小、文件名边界及微信可见文字过滤。当前悬浮球 APK 已构建并通过 lint，尚未安装到设备；上方 MEmu 记录仅覆盖此前系统入口，不能证明悬浮球或微信真实分享已接通。
+Gradle 默认使用 1 GB 最大堆和一个 worker，不开启并行构建；命令行使用 `--no-daemon` 在构建结束后释放构建进程。当前 Debug 有 15 个 JUnit 用例，覆盖配置、一次性快捷令牌、分享文本、媒体类型/大小、文件名边界及微信可见文字过滤。当前悬浮球 APK 已构建、通过 lint，并完成上述模拟器运行验收。
 
 ## 真实配置与验收
 
@@ -72,7 +76,7 @@ Gradle 默认使用 1 GB 最大堆和一个 worker，不开启并行构建；命
 回复键盘是 Android 系统输入法服务，因此首次启用时系统会显示输入法隐私提示。当前实现没有字母键、不记录按键，也不读取输入框已有内容；“分析剪贴板”和“插入回复”都必须由用户点击。需要正常打字时点“切换键盘”回到原输入法。
 5. 手动检查首次 HTTP Basic 登录、错误口令重试、`?host=android` 紧凑页、所有插件入口、原生系统分享回复、图片/视频文件选择、离线重试，以及从设置/微信返回后草稿保留。切换服务地址会重载；同地址修改 AppID、原生返回键和打开设置复用原 WebView。系统终止进程后不保证未提交草稿恢复。
 
-暂无真实 AppID、匹配签名和真机微信的环境，不能宣称已通过微信真机分享验收。2026-10-14 的 MEmu 记录属于悬浮球加入前的 APK；当前悬浮球、实体手机、真实微信和 Android Studio AVD 均待验收。单元测试与模拟器运行不能替代目标设备验收。
+暂无真实移动应用 AppID、匹配签名和实体手机环境，不能宣称已通过微信真机分享验收。当前模拟器只验证官方微信登录页，没有登录账号，也没有覆盖聊天消息、视频号、好友选择和发送。单元测试与模拟器运行不能替代目标设备验收。
 
 ## 网页桥接
 

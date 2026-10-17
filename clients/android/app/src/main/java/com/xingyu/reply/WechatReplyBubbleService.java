@@ -5,6 +5,9 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -20,6 +23,7 @@ import java.util.List;
 
 /** Reads visible WeChat text only after the user presses the floating action. */
 public final class WechatReplyBubbleService extends AccessibilityService {
+    private static final String TAG = "WechatReplyBubble";
     private static final String WECHAT_PACKAGE = "com.tencent.mm";
     private static final int MAX_NODES = 1200;
     private static final int MAX_CHARS = 6000;
@@ -27,6 +31,8 @@ public final class WechatReplyBubbleService extends AccessibilityService {
     private View bubble, menu;
     private WindowManager.LayoutParams bubbleLayout, menuLayout;
     private boolean menuOpen;
+    private Handler handler;
+    private final Runnable syncBubbleAction = this::syncBubble;
 
     @Override public void onServiceConnected() {
         super.onServiceConnected();
@@ -37,18 +43,57 @@ public final class WechatReplyBubbleService extends AccessibilityService {
             return;
         }
         windows = getSystemService(WindowManager.class);
+        handler = new Handler(Looper.getMainLooper());
+        handler.post(syncBubbleAction);
     }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
         if (event == null || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
-        CharSequence packageName = event.getPackageName();
-        if (isWechatPackage(packageName == null ? null : packageName.toString())) showBubble();
-        else hideBubble();
+        if (handler == null) return;
+        handler.removeCallbacks(syncBubbleAction);
+        handler.postDelayed(syncBubbleAction, 100);
     }
 
     @Override public void onInterrupt() { hideBubble(); }
 
     static boolean isWechatPackage(String packageName) { return WECHAT_PACKAGE.equals(packageName); }
+
+    private void syncBubble() {
+        if (isWechatForeground()) showBubble();
+        else hideBubble();
+    }
+
+    private boolean isWechatForeground() {
+        AccessibilityNodeInfo root = null;
+        try {
+            root = getRootInActiveWindow();
+            if (root != null && isWechatPackage(packageName(root))) return true;
+        } catch (RuntimeException error) {
+            Log.w(TAG, "Unable to read the active accessibility root", error);
+        } finally {
+            if (root != null) root.recycle();
+        }
+
+        boolean found = false;
+        try {
+            List<AccessibilityWindowInfo> activeWindows = getWindows();
+            for (AccessibilityWindowInfo window : activeWindows) {
+                AccessibilityNodeInfo candidate = null;
+                try {
+                    if (window.getType() == AccessibilityWindowInfo.TYPE_APPLICATION && window.isActive()) {
+                        candidate = window.getRoot();
+                        found |= candidate != null && isWechatPackage(packageName(candidate));
+                    }
+                } finally {
+                    if (candidate != null) candidate.recycle();
+                    window.recycle();
+                }
+            }
+        } catch (RuntimeException error) {
+            Log.w(TAG, "Unable to inspect accessibility windows", error);
+        }
+        return found;
+    }
 
     private void showBubble() {
         if (windows == null || bubble != null) return;
@@ -65,7 +110,11 @@ public final class WechatReplyBubbleService extends AccessibilityService {
         bubbleLayout.x = dp(8);
         button.setOnTouchListener(new BubbleTouchListener());
         try { windows.addView(bubble, bubbleLayout); }
-        catch (RuntimeException error) { bubble = null; bubbleLayout = null; }
+        catch (RuntimeException error) {
+            Log.e(TAG, "Unable to show the WeChat accessibility overlay", error);
+            bubble = null;
+            bubbleLayout = null;
+        }
     }
 
     private void toggleMenu() {
@@ -239,6 +288,7 @@ public final class WechatReplyBubbleService extends AccessibilityService {
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
     @Override public void onDestroy() {
+        if (handler != null) handler.removeCallbacks(syncBubbleAction);
         hideBubble();
         super.onDestroy();
     }

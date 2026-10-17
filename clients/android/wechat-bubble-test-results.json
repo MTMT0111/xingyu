@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-17",
+  "environment": {
+    "platform": "Lenovo/MEmu",
+    "androidVersion": "9",
+    "apiLevel": 28,
+    "webViewVersion": "68.0.3440.70",
+    "adbDevice": "127.0.0.1:11509"
+  },
+  "androidApp": {
+    "package": "com.xingyu.reply",
+    "debugApkBytes": 1354015,
+    "debugApkSha256": "4b1baa1e453c7590e1ecefcf1861f333ae56c08ba979db0ed7125a35e2e97824",
+    "v2SignatureVerified": true
+  },
+  "wechat": {
+    "package": "com.tencent.mm",
+    "version": "8.0.79",
+    "source": "official WeChat Android download",
+    "certificateSha256": "0fe4ff85c215918396dadc7cd8ce6963339af33d37751a56e54c7206b63a3c7c",
+    "accountLoggedIn": false,
+    "testedPage": "welcome/login"
+  },
+  "results": {
+    "consentRequiredBeforeSystemSettings": true,
+    "accessibilityServiceEnabledThroughSystemUi": true,
+    "bubbleVisibleOnlyWithWechatForeground": true,
+    "bubbleMenuOpened": true,
+    "visibleTextReadAfterExplicitTap": ["登录", "注册", "语言"],
+    "confirmationShownBeforeNetworkRequest": true,
+    "deepSeekReplyGeneratedAfterConfirmation": true,
+    "generatedReply": "谢谢妈惦记，我这边也凉了些，你那边冷不冷？",
+    "copyReturnFinishedActivity": true,
+    "returnedToWechat": true,
+    "bubbleRestoredAfterReturn": true,
+    "webView68InteractionScriptParsed": true
+  },
+  "notTested": [
+    "physical Android phone",
+    "logged-in WeChat chat",
+    "chat history or contact selection",
+    "WeChat Channels or chat video content",
+    "automatic sending",
+    "Android Studio AVD"
+  ]
+}

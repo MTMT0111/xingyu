@@ -19,12 +19,14 @@ test('public static demo completes a private, editable text reply without an API
 });
 
 test('public page assets use repository-relative URLs for GitHub Pages', async () => {
-  const [html, css] = await Promise.all([
+  const [html, css, app] = await Promise.all([
     readFile(new URL('../public/index.html', import.meta.url), 'utf8'),
-    readFile(new URL('../public/styles.css', import.meta.url), 'utf8')
+    readFile(new URL('../public/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../public/app.js', import.meta.url), 'utf8')
   ]);
   assert.match(html, /href="\.\/styles\.css"/);
   assert.match(html, /src="\.\/demo\.js"/);
   assert.match(html, /src="\.\/app\.js"/);
   assert.doesNotMatch(css, /url\('\/assets\//);
+  assert.doesNotMatch(app, /\?\.|\?\?/, 'Android 9 WebView 68 must parse the interaction script');
 });

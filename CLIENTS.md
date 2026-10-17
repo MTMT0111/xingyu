@@ -47,9 +47,9 @@
 
 完整步骤分别见 clients/android/README.md 和 clients/ios/README.md。安卓开发签名只供开发测试；正式版需使用自己持有的签名，并与微信开放平台登记的应用一致。iOS 必须在 Mac 上编译和签名，源码静态检查不是 iOS 编译通过。
 
-仓库的 [Android 开发版 APK](downloads/xingyu-android-debug.apk) 已更新为带微信悬浮球的 Debug 版：1,353,367 字节，SHA-256 `02eae60f813877995a21427678dfaf3d8558a995944588964ea6f7dd55327302`，v2 签名校验通过。构建、15 个单元测试和 lint 通过；悬浮球尚未在实体设备/真实微信上运行验收。
+仓库的 [Android 开发版 APK](downloads/xingyu-android-debug.apk) 已更新为带微信悬浮球的 Debug 版：1,354,015 字节，SHA-256 `4b1baa1e453c7590e1ecefcf1861f333ae56c08ba979db0ed7125a35e2e97824`，v2 签名校验通过。构建、15 个单元测试和 lint 通过；当前包已在 MEmu 的官方微信 8.0.79 登录页完成悬浮球运行验收。
 
-安装开发包后先填 HTTPS 根地址，或在 Android Debug 设置中选择“USB 本地调试”。USB 转发命令、Studio 内置设备镜像与演示步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。MEmu 的历史验收覆盖此前系统分享版；当前带悬浮球 APK 已构建并校验签名，但尚未在设备安装测试。当前没有可安装的 iPhone IPA，需在 Mac 上编译签名。
+安装开发包后先填 HTTPS 根地址，或在 Android Debug 设置中选择“USB 本地调试”。USB 转发命令、Studio 内置设备镜像与演示步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。当前没有可安装的 iPhone IPA，需在 Mac 上编译签名。
 
 ## 当前还需要的真实配置
 
@@ -67,8 +67,8 @@ Android 使用 SDK transaction 关联回调。iOS SDK 响应没有 transaction�
 
 2026-10-11 已在 MEmu Android 9 通过 ADB 安装并验收旧版“`ACTION_SEND` / `ACTION_PROCESS_TEXT` → 确认导入 → 真实生成 → 编辑 → 复制 → 返回来源”闭环，运行记录见 `clients/android/usb-demo-test-results.json`。`native-build-results.json` 中的设备数量只是更早的构建时快照，不能用来判断后续运行时的设备连接状态。
 
-2026-10-14 在 Android 9 / MEmu WebView 68 验证了此前系统分享版（SHA-256 `1da7bf765e91e283b3d244ff400d709e2d3d04a09c2f2e40c685ad31153f0d9a`）：`ACTION_SEND` 文字一次确认后真实 DeepSeek 自动生成；原生“复制返回”写入剪贴板并结束页面；快捷设置磁贴读回同一句、打开确认卡并消费一次性令牌；随后无令牌 `QUICK_REPLY` 重放没有读取剪贴板。静态快捷方式 `clipboard_reply` 已注册且不携带令牌，必须再点“粘贴”。此前同一环境已验证原生“发送”打开 `ChooserActivity` 以及 11.4 秒视频的真实画面、语音分析和回复生成；模拟器没有可接收分享的 App。新加入的微信悬浮球尚未做设备运行验收。
+2026-10-17 在同一 Android 9 / MEmu / WebView 68 环境安装当前包与官方微信 8.0.79：用户同意和系统授权流程通过；悬浮球只在微信前台显示；点击读取登录页暴露的“登录 / 注册 / 语言”，页面先显示未上传确认卡，确认后真实 DeepSeek 生成回复，“复制返回”结束言外并回到微信，悬浮球再次出现。运行记录见 `clients/android/wechat-bubble-test-results.json`。
 
-实体 Android 手机、真实微信、Android Studio AVD 与微信 AppID 仍未验收；Chooser 打开不能证明回复已交给微信。SDK 选人验收等待合法主体及 AppID 条件满足。页面用 sessionStorage 暂存当前标签页文字草稿，刷新可恢复；附件文件不保存，操作系统清理、关闭 WebView 或更换服务地址后的恢复不作保证。
+实体 Android 手机、已登录微信聊天、视频号内容、Android Studio AVD 与微信 AppID 仍未验收；登录页实测不能证明聊天消息或视频可访问，也不能证明回复已发给联系人。SDK 选人验收等待合法主体及 AppID 条件满足。页面用 sessionStorage 暂存当前标签页文字草稿，刷新可恢复；附件文件不保存，操作系统清理、关闭 WebView 或更换服务地址后的恢复不作保证。
 
 官方依据：[Android 接入与分享](https://developers.weixin.qq.com/doc/oplatform/Mobile_App/Share_and_Favorites/Android.html)、[iOS 接入与分享](https://developers.weixin.qq.com/doc/oplatform/Mobile_App/Share_and_Favorites/iOS.html)。
