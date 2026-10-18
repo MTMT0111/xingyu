@@ -43,7 +43,7 @@ $trialPassword = $null
 $trialOldEnvironment = @{}
 foreach ($name in @('PORT','BIND_HOST','PUBLIC_ORIGIN','TRIAL_PASSWORD')) { $trialOldEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 function Read-TrialPage([string]$address, [hashtable]$headers) {
-    $trialRequestDeadline = [DateTime]::UtcNow.AddSeconds(30)
+    $trialRequestDeadline = [DateTime]::UtcNow.AddSeconds(90)
     do {
         try {
             $response = Invoke-WebRequest -UseBasicParsing -Uri $address -Headers $headers -MaximumRedirection 0 -TimeoutSec 10
@@ -54,7 +54,7 @@ function Read-TrialPage([string]$address, [hashtable]$headers) {
             Start-Sleep -Seconds 2
         }
     } while ([DateTime]::UtcNow -lt $trialRequestDeadline)
-    throw '30 秒内无法连接试用地址，可能是当前网络不支持 Cloudflare Tunnel。'
+    throw '90 秒内无法连接试用地址，可能是当前网络不支持 Cloudflare Tunnel。'
 }
 try {
     $trialOut = Join-Path $trialRoot 'tunnel-out.log'
