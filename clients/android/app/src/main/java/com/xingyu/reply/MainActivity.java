@@ -71,7 +71,10 @@ import org.json.JSONTokener;
 /** A small trusted-origin host. The server keeps LLM/Jev credentials; this app never needs them. */
 public final class MainActivity extends Activity {
     public static final String ACTION_QUICK_REPLY = "com.xingyu.reply.action.QUICK_REPLY";
+    static final String ACTION_SCREEN_CAPTURE = "com.xingyu.reply.action.SCREEN_CAPTURE";
     static final String EXTRA_QUICK_REPLY_TOKEN = "com.xingyu.reply.extra.QUICK_REPLY_TOKEN";
+    static final String EXTRA_SCREEN_CAPTURE_TOKEN = "com.xingyu.reply.extra.SCREEN_CAPTURE_TOKEN";
+    static final String EXTRA_SCREEN_VISIBLE_TEXT = "com.xingyu.reply.extra.SCREEN_VISIBLE_TEXT";
     static final String PREFS_NAME = "xingyu";
     static final String PREF_QUICK_REPLY_TOKEN = "quickReplyToken";
     static final String PREF_WECHAT_BUBBLE_CONSENT = "wechatBubbleDisclosureAccepted";
@@ -119,11 +122,18 @@ public final class MainActivity extends Activity {
     private static final class InboundShare {
         final String id, entry, text, mime, kind, name, token;
         final Uri uri;
+        final byte[] bytes;
         final long size;
         InboundShare(String id, String entry, String text) {
-            this(id, entry, text, null, null, null, null, null, 0);
+            this(id, entry, text, null, null, null, null, null, null, 0);
         }
         InboundShare(String id, String entry, String text, String mime, String kind, String name, String token, Uri uri, long size) {
+            this(id, entry, text, mime, kind, name, token, uri, null, size);
+        }
+        InboundShare(String id, String entry, String text, String mime, String kind, String name, String token, byte[] bytes) {
+            this(id, entry, text, mime, kind, name, token, null, bytes, bytes.length);
+        }
+        private InboundShare(String id, String entry, String text, String mime, String kind, String name, String token, Uri uri, byte[] bytes, long size) {
             this.id = id;
             this.entry = entry;
             this.text = text;
@@ -132,9 +142,10 @@ public final class MainActivity extends Activity {
             this.name = name;
             this.token = token;
             this.uri = uri;
+            this.bytes = bytes;
             this.size = size;
         }
-        boolean hasAttachment() { return uri != null; }
+        boolean hasAttachment() { return uri != null || bytes != null; }
     }
 
     @Override public void onCreate(Bundle state) {
@@ -218,7 +229,7 @@ public final class MainActivity extends Activity {
         form.addView(button("启用回复键盘", this::openInputMethodSettings));
         form.addView(button("切换到回复键盘", this::showInputMethodPicker));
         form.addView(label("微信悬浮球", 18));
-        bubbleStatus = label("只在微信前台显示；读取需要你点球确认。", 13);
+        bubbleStatus = label("只在微信前台显示；单击采集一次当前屏幕。", 13);
         form.addView(bubbleStatus);
         bubbleSettingsButton = button("开启微信悬浮球", this::prepareWechatBubble);
         form.addView(bubbleSettingsButton);
@@ -288,7 +299,7 @@ public final class MainActivity extends Activity {
         LinearLayout disclosure = new LinearLayout(this);
         disclosure.setOrientation(LinearLayout.VERTICAL);
         disclosure.setPadding(dp(24), dp(8), dp(24), 0);
-        TextView details = label("启用后，悬浮球只在微信前台显示。只有你点“读取可见文字”时，言外才读取微信当前页面向 Android 暴露的可见文字；不会持续监听或读取隐藏聊天。进入言外后，你还要确认一次，文字才会发到已配置的分析服务。视频画面、声音和微信内部搜索数据无法读取。", 15);
+        TextView details = label("启用后，悬浮球只在微信前台显示。Android 11 以上只有在你单击时才截取一次当前可见屏幕，并读取微信向 Android 暴露的可见文字；低版本只读取可见文字。不会持续录屏或读取隐藏聊天。进入言外后仍需确认，内容才会发到已配置的分析服务。完整视频与声音请使用微信分享或保存后分享。", 15);
         details.setGravity(android.view.Gravity.TOP);
         disclosure.addView(details);
         CheckBox consent = new CheckBox(this);
@@ -333,8 +344,8 @@ public final class MainActivity extends Activity {
         boolean enabled = isWechatBubbleEnabled();
         bubbleSettingsButton.setText(enabled ? "管理或关闭微信悬浮球" : "开启微信悬浮球");
         bubbleStatus.setText(enabled
-            ? "已开启；读取只在微信前台且你点击悬浮球后发生。"
-            : "只在微信前台显示；读取需要你点球确认。");
+            ? "已开启；单击悬浮球才采集一次当前可见屏幕。"
+            : "只在微信前台显示；单击采集一次当前屏幕。");
     }
 
     private void showSettings() {
@@ -496,7 +507,7 @@ public final class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String action = intent == null ? null : intent.getAction();
-        if (ACTION_QUICK_REPLY.equals(action) || Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
+        if (ACTION_QUICK_REPLY.equals(action) || ACTION_SCREEN_CAPTURE.equals(action) || Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
             receiveInboundIntent(intent);
         } else {
             externalEntryId = null;
@@ -512,6 +523,25 @@ public final class MainActivity extends Activity {
             clearLaunchIntent();
             if (pendingClipboardImport && hasWindowFocus()) handler.post(this::pasteClipboard);
             else if (!pendingClipboardImport) Toast.makeText(this, "点顶部“粘贴”后开始分析。", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (ACTION_SCREEN_CAPTURE.equals(action)) {
+            String token = intent.getStringExtra(EXTRA_SCREEN_CAPTURE_TOKEN);
+            byte[] image = ScreenCaptureStore.take(token);
+            CharSequence rawText = intent.getCharSequenceExtra(EXTRA_SCREEN_VISIBLE_TEXT);
+            clearLaunchIntent();
+            if (image == null) {
+                showInboundError("屏幕快照已失效，请回到微信重新点击悬浮球。");
+                return;
+            }
+            String text = null;
+            if (rawText != null && !rawText.toString().trim().isEmpty()) {
+                try { text = InputRules.inboundText(rawText); }
+                catch (IllegalArgumentException ignored) { }
+            }
+            String id = UUID.randomUUID().toString();
+            clearInboundShare();
+            queueInbound(new InboundShare(id, "screen", text, "image/jpeg", "image", "微信当前屏幕.jpg", UUID.randomUUID().toString(), image));
             return;
         }
         if (!Intent.ACTION_SEND.equals(action) && !Intent.ACTION_SEND_MULTIPLE.equals(action) && !Intent.ACTION_PROCESS_TEXT.equals(action)) return;
@@ -680,7 +710,7 @@ public final class MainActivity extends Activity {
         if (!"GET".equals(request.getMethod()) || request.getUrl().getQuery() != null || value == null ||
             !value.hasAttachment() || !token.equals(value.token)) return inboundResponse(404, "Not Found", "text/plain", 0, new byte[0]);
         try {
-            InputStream stream = getContentResolver().openInputStream(value.uri);
+            InputStream stream = value.bytes != null ? new ByteArrayInputStream(value.bytes) : getContentResolver().openInputStream(value.uri);
             if (stream == null) return inboundResponse(410, "Gone", "text/plain", 0, new byte[0]);
             Runnable cleanup = listenerAdded ? null : () -> handler.post(() -> clearInboundShare(value.id));
             return inboundResponse(200, "OK", value.mime, value.size, new BoundedInputStream(stream, value.size, cleanup));

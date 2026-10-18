@@ -234,7 +234,7 @@ function normalizeInboundShare(value) {
     if (url.origin !== location.origin || url.search || url.hash || !/^\/\.xingyu-share\/[\w-]{8,128}$/.test(url.pathname)) return null;
     attachment = { kind: item.kind, mime: item.mime, size: item.size, name: item.name, url: url.href };
   }
-  const entry = data.entry === 'process_text' ? 'process_text' : data.entry === 'clipboard' ? 'clipboard' : 'share';
+  const entry = data.entry === 'process_text' ? 'process_text' : data.entry === 'clipboard' ? 'clipboard' : data.entry === 'screen' ? 'screen' : 'share';
   return text || attachment ? { id: data.id, text, attachment, entry } : null;
 }
 
@@ -276,7 +276,7 @@ function presentInboundShare(inbound) {
   const androidHost = document.body.dataset.host === 'android';
   document.body.dataset.entry = 'share';
   const conflict = hasDraftContent();
-  $('inbound-share-title').textContent = conflict ? '这里还有一份未完成的草稿' : inbound.entry === 'process_text' ? '已选中一段文字' : inbound.entry === 'clipboard' ? '剪贴板里的一段文字' : inbound.attachment && inbound.attachment.kind === 'image' ? '收到一张图片' : inbound.attachment && inbound.attachment.kind === 'video' ? '收到一段视频' : '收到一段文字';
+  $('inbound-share-title').textContent = conflict ? '这里还有一份未完成的草稿' : inbound.entry === 'process_text' ? '已选中一段文字' : inbound.entry === 'clipboard' ? '剪贴板里的一段文字' : inbound.entry === 'screen' ? '已截取微信当前屏幕' : inbound.attachment && inbound.attachment.kind === 'image' ? '收到一张图片' : inbound.attachment && inbound.attachment.kind === 'video' ? '收到一段视频' : '收到一段文字';
   const preview = inbound.text || inbound.attachment.name;
   $('inbound-share-preview').textContent = conflict ? `使用新内容会替换当前输入、附件和分析结果。新内容：${preview}` : preview;
   $('inbound-share-note').textContent = nativeWechat.post ? '尚未上传，也不会自动分析。' : '尚未上传，也不会自动分析；返回原应用请使用系统返回键。';

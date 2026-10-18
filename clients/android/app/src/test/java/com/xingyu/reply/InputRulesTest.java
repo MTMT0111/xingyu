@@ -106,6 +106,23 @@ public final class InputRulesTest {
         assertTrue(Character.isSurrogatePair(text.charAt(text.length() - 2), text.charAt(text.length() - 1)));
     }
 
+    @Test public void screenCaptureIsBoundedCopiedAndConsumedOnce() {
+        byte[] original = {1, 2, 3};
+        String token = ScreenCaptureStore.put(original);
+        original[0] = 9;
+        assertNull(ScreenCaptureStore.take("wrong"));
+        assertArrayEquals(new byte[] {1, 2, 3}, ScreenCaptureStore.take(token));
+        assertNull(ScreenCaptureStore.take(token));
+        String discarded = ScreenCaptureStore.put(new byte[] {4});
+        ScreenCaptureStore.discard("wrong");
+        assertArrayEquals(new byte[] {4}, ScreenCaptureStore.take(discarded));
+        discarded = ScreenCaptureStore.put(new byte[] {5});
+        ScreenCaptureStore.discard(discarded);
+        assertNull(ScreenCaptureStore.take(discarded));
+        assertThrows(IllegalArgumentException.class, () -> ScreenCaptureStore.put(new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> ScreenCaptureStore.put(new byte[(int) InputRules.MAX_IMAGE_BYTES + 1]));
+    }
+
     @Test public void sharesExactTextWithinUtf8Limit() {
         assertTrue(InputRules.validText("妈，放心，我晚点给你打电话。"));
         assertTrue(InputRules.validText("a".repeat(10240)));
