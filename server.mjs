@@ -182,6 +182,8 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
   const cfg = { ...settings(), ...config };
   let publicUrl = null;
   let trialAuthorization = null;
+  let trialAccessToken = null;
+  let trialAccessAuthorization = null;
   if (cfg.publicOrigin) {
     try {
       publicUrl = new URL(cfg.publicOrigin);
@@ -189,6 +191,8 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
     } catch { throw new Error('PUBLIC_ORIGIN 必须为固定的 HTTPS 来源，例如 https://reply.example.com，不含路径、查询参数或账号。'); }
     if (!/^[\x21-\x7E]{16,128}$/.test(cfg.trialPassword)) throw new Error('公网试用必须设置 TRIAL_PASSWORD：16–128 位无空格 ASCII 字符；用户名固定为 trial。');
     trialAuthorization = createHash('sha256').update(`Basic ${Buffer.from(`trial:${cfg.trialPassword}`).toString('base64')}`).digest();
+    trialAccessToken = createHash('sha256').update(`Link ${cfg.trialPassword}`).digest('base64url');
+    trialAccessAuthorization = createHash('sha256').update(trialAccessToken).digest();
   }
   let activeLiveRequests = 0;
   let activeBodyReads = 0;
@@ -204,16 +208,31 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
     if (publicUrl ? host.toLowerCase() !== publicUrl.host : !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) return json(res, 403, { error: '不接受这个访问地址。', code: 'HOST_DENIED' });
     const origin = publicUrl?.origin ?? `http://${host}`;
     if (req.headers.origin && req.headers.origin !== origin) return json(res, 403, { error: '不接受来自其他页面的请求。', code: 'ORIGIN_DENIED' });
-    if (trialAuthorization && !timingSafeEqual(trialAuthorization, createHash('sha256').update(req.headers.authorization ?? '').digest())) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Xingyu private trial", charset="UTF-8"');
-      return json(res, 401, { error: '这是邀请试用页面，请输入用户名 trial 和试用口令。', code: 'TRIAL_AUTH_REQUIRED' });
-    }
     let url;
     try {
       url = new URL(req.url, origin);
       if (url.origin !== origin) throw new Error('Foreign URL');
     } catch {
       return json(res, 400, { error: '请求地址无效。', code: 'INVALID_URL' });
+    }
+    if (trialAuthorization) {
+      const access = url.searchParams.get('access') ?? '';
+      if (req.method === 'GET' && url.pathname === '/' && url.searchParams.size === 1 && timingSafeEqual(trialAccessAuthorization, createHash('sha256').update(access).digest())) {
+        res.writeHead(303, {
+          Location: '/',
+          'Set-Cookie': `xingyu_trial=${trialAccessToken}; Path=/; Max-Age=28800; HttpOnly; Secure; SameSite=Strict`,
+        });
+        return res.end();
+      }
+      const cookieAuthorized = (req.headers.cookie ?? '').split(';').some((entry) => {
+        const [name, value = ''] = entry.trim().split('=');
+        return name === 'xingyu_trial' && timingSafeEqual(trialAccessAuthorization, createHash('sha256').update(value).digest());
+      });
+      const basicAuthorized = timingSafeEqual(trialAuthorization, createHash('sha256').update(req.headers.authorization ?? '').digest());
+      if (!cookieAuthorized && !basicAuthorized) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Xingyu private trial", charset="UTF-8"');
+        return json(res, 401, { error: '这是邀请试用页面，请使用直达链接，或输入用户名 trial 和试用口令。', code: 'TRIAL_AUTH_REQUIRED' });
+      }
     }
     try {
       if (req.method === 'GET' && url.pathname === '/api/config') {

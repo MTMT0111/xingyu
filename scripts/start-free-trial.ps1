@@ -76,6 +76,10 @@ try {
     $trialRng.GetBytes($trialRandom)
     $trialRng.Dispose()
     $trialPassword = [Convert]::ToBase64String($trialRandom).TrimEnd('=').Replace('+','-').Replace('/','_')
+    $trialSha = [Security.Cryptography.SHA256]::Create()
+    $trialAccessToken = [Convert]::ToBase64String($trialSha.ComputeHash([Text.Encoding]::UTF8.GetBytes('Link ' + $trialPassword))).TrimEnd('=').Replace('+','-').Replace('/','_')
+    $trialSha.Dispose()
+    $trialAccessUrl = $trialOrigin + '/?access=' + $trialAccessToken
     $env:PORT = '4174'
     $env:BIND_HOST = '127.0.0.1'
     $env:PUBLIC_ORIGIN = $trialOrigin
@@ -96,7 +100,13 @@ try {
         $trialChecks += @{path=$case.path;authenticated=$case.auth;status=$trialStatus;expected=$case.expected}
         if ($trialStatus -ne $case.expected) { throw ('HTTPS 保护检查未通过：' + $case.path + ' HTTP ' + $trialStatus) }
     }
-    $trialState = @{url=$trialOrigin;username='trial';password=$trialPassword;createdAt=[DateTime]::UtcNow.ToString('o');tunnel=@{id=$trialTunnel.Id;startedAt=$trialTunnel.StartTime.ToUniversalTime().ToString('o')};server=@{id=$trialServer.Id;startedAt=$trialServer.StartTime.ToUniversalTime().ToString('o')}}
+    $trialWebSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    $trialAccessResponse = Invoke-WebRequest -UseBasicParsing -Uri $trialAccessUrl -WebSession $trialWebSession -MaximumRedirection 3 -TimeoutSec 20
+    $trialCookieResponse = Invoke-WebRequest -UseBasicParsing -Uri ($trialOrigin + '/api/config') -WebSession $trialWebSession -MaximumRedirection 0 -TimeoutSec 20
+    if ([int]$trialAccessResponse.StatusCode -ne 200 -or [int]$trialCookieResponse.StatusCode -ne 200) { throw '直达链接的自动登录检查未通过。' }
+    $trialChecks += @{path='/?access=<redacted>';authenticated=$true;status=200;expected=200}
+    $trialChecks += @{path='/api/config (cookie)';authenticated=$true;status=200;expected=200}
+    $trialState = @{url=$trialAccessUrl;origin=$trialOrigin;username='trial';password=$trialPassword;createdAt=[DateTime]::UtcNow.ToString('o');tunnel=@{id=$trialTunnel.Id;startedAt=$trialTunnel.StartTime.ToUniversalTime().ToString('o')};server=@{id=$trialServer.Id;startedAt=$trialServer.StartTime.ToUniversalTime().ToString('o')}}
     $trialState | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $trialStatePath -Encoding UTF8
     $trialIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().User
     $trialAcl = Get-Acl -LiteralPath $trialStatePath
@@ -104,8 +114,8 @@ try {
     $trialAcl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($trialIdentity, 'FullControl', 'Allow')))
     Set-Acl -LiteralPath $trialStatePath -AclObject $trialAcl
     $trialChecks | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $trialRoot 'https-results.json') -Encoding UTF8
-    Write-Host ('试用地址：' + $trialOrigin)
-    Write-Host '用户名：trial'
+    Write-Host ('试用直达地址：' + $trialAccessUrl)
+    Write-Host '直达链接会自动登录并跳转到干净地址；备用用户名：trial'
     Write-Host ('口令保存在本机私有文件：' + $trialStatePath)
     Write-Host 'HTTPS 与访问保护检查通过。此结果不代表模型或微信已接通。'
     Write-Host '关闭电脑或停止隧道后失效；结束试用请运行本脚本 -Stop。'

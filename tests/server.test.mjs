@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { request } from 'node:http';
 import { once } from 'node:events';
 import test from 'node:test';
@@ -491,6 +492,15 @@ test('a public HTTPS trial authenticates the whole page and never reveals its pa
     assert.equal(accepted.status, 200);
     assert.doesNotMatch(await accepted.text(), /test-private-trial-password/);
   }
+  const access = createHash('sha256').update(`Link ${trialConfig.trialPassword}`).digest('base64url');
+  assert.equal((await app.get('/?access=wrong', { headers: { host: trialHeaders.host } })).status, 401);
+  const direct = await app.get(`/?access=${access}`, { headers: { host: trialHeaders.host } });
+  assert.equal(direct.status, 303);
+  assert.equal(direct.headers.get('location'), '/');
+  const cookie = direct.headers.get('set-cookie');
+  assert.match(cookie, /^xingyu_trial=[A-Za-z0-9_-]+; Path=\/; Max-Age=28800; HttpOnly; Secure; SameSite=Strict$/);
+  assert.doesNotMatch(cookie, /test-private-trial-password/);
+  assert.equal((await app.get('/api/config', { headers: { host: trialHeaders.host, cookie: cookie.split(';')[0] } })).status, 200);
   for (const authorization of ['Bearer test-private-trial-password', 'Basic ' + Buffer.from('trial:wrong-password').toString('base64'), 'Basic ' + Buffer.from('another:' + trialConfig.trialPassword).toString('base64')]) {
     assert.equal((await app.post(input(), { headers: { ...trialHeaders, authorization } })).status, 401);
   }
