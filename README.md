@@ -25,7 +25,7 @@ npm start
 
 下方配置状态和随仓库保存的测试报告记录原开发电脑的历史结果，不代表新克隆已配置密钥、连接模型、部署公网或通过真机测试。
 
-## 当前开发环境（2026-10-19）
+## 当前开发环境（2026-10-20）
 
 - 本地 `127.0.0.1:4173` 已启动，配置接口确认真实文字、图片和视频入口均启用，当前为 LLM 独立模式。
 - 仅配置 LLM 即可分析并生成回复；配置 `TYPESAFE_API_KEY` 后才增加 Jev 分类。仓库不含真实密钥。
@@ -34,7 +34,7 @@ npm start
 - Android Debug 增加“USB 本地调试”，通过 `adb reverse` 访问固定 `http://127.0.0.1:4173`；Release 仍只接受 HTTPS。无需额外 Studio 插件。
 - Android 已实现系统分享、选中文字与“知意 · 回复键盘”。在微信输入框切换到该键盘后，可主动分析已复制的消息；生成并确认后返回微信，再点“插入回复”写入当前输入框。另有明确征得同意后才能启用的实验悬浮球：它使用系统无障碍服务，只在微信前台显示；Android 11 以上仅在用户单击时截取一次当前可见屏幕并读取可访问文字，低版本只读取可访问文字。普通入口不监听聊天或后台剪贴板，也不申请存储、联系人或传统悬浮窗权限。
 - Android WebView 固定使用 `?host=android` 插件模式，与默认入口共用紧凑工作台，并隐藏草稿、示例等次要操作。原生“发送”使用 Android `ACTION_SEND` 打开系统分享面板，没有微信 AppID 时仍可使用；不会自动选择联系人或确认送达。
-- 2026-10-19 工程测试 64/64、浏览器回归 52/52 通过；Android Debug/Release 各 16 个单元测试和 lint 通过，Debug APK v2 签名有效。2026-10-17 的 MEmu 微信登录页记录覆盖此前的文字版悬浮球；本次新增的 Android 11+ 单次截屏入口尚未连接设备实测，详情见 [运行记录](clients/android/wechat-bubble-test-results.json)。
+- 2026-10-20 工程测试 65/65、浏览器回归 52/52、真实 DeepSeek 合成样例 7/7 通过；Android Debug/Release 各 16 个单元测试和 lint 通过，Debug APK v2 签名有效。2026-10-17 的 MEmu 微信登录页记录覆盖此前的文字版悬浮球；本次新增的 Android 11+ 单次截屏入口尚未连接设备实测，详情见 [运行记录](clients/android/wechat-bubble-test-results.json)。
 - Lenovo/MEmu Android 9（API 28，Chrome/WebView 68.0.3440.70）已验证当前版 `ACTION_SEND` 文字一次确认后自动调用真实 DeepSeek 并生成回复；原生“复制返回”写入剪贴板并结束页面，随后 `QUICK_REPLY` 读回了同一句话。快捷设置磁贴成功添加并点击，能打开剪贴板确认；静态快捷方式 `clipboard_reply` 已在系统注册。
 - 原生“发送”成功打开 Android `ChooserActivity`，但模拟器没有可接收的 App，因此未验证实际交付。文件管理器真实分享 `parent-message.mp4`（11.4 秒、约 0.16 MB）成功进入知意，一次确认后约 30 秒完成真实视频画面、语音分析并生成回复；系统分享、`ACTION_PROCESS_TEXT` 及图片/视频入口仍正常。
 - WebView 68 兼容修复和 `?host=android` 紧凑页随当前版运行。当前悬浮球实测覆盖官方微信登录页的可见文字，没有登录微信账号；实体安卓手机、已登录聊天、视频号素材、Android Studio AVD、iOS 及 Jev 仍未验收。小程序 AppID 和开发者工具预览已通过，但不能等同于微信真机完成回复闭环。
@@ -43,13 +43,13 @@ npm start
 
 用户已确认所提供密钥属于 **DeepSeek**。密钥仅用于服务端配置，不写进本 README、网页、客户端或交付压缩包。当前优先搭建免费试用环境；域名购买、付费认证与 iOS 分发留到后续。
 
-- 网页、分析接口、编辑复制、本机历史与双端微信桥接已实现。2026-10-19 `npm test` 为 64/64 通过，其中小程序专项 14 项。
+- 网页、分析接口、编辑复制、本机历史与双端微信桥接已实现。2026-10-20 `npm test` 为 65/65 通过，其中小程序专项 14 项。
 - 公开可玩 Demo 已部署到 [GitHub Pages](https://mtmt0111.github.io/haohaohui-demo/)；它只运行本地规则和人工文案，不上传内容、不调用 DeepSeek，也不开放图片/视频。完整真实 AI 仍由本机服务验证，不能把静态 Demo 写成公网 AI 服务。
 - 2026-10-19 含回复键盘和单击截屏悬浮球的 Android Debug 构建、Debug/Release 各 16 个单元测试、lint 与 APK v2 签名校验通过。最新下载包为 1,323,031 字节，SHA-256 `5b6b653061c656c96c1bdeccab035f351ec0d9dfbb13f353d22f872b78a98a97`。此前文字版已完成 MEmu 微信登录页闭环；本次截屏版未连接设备，iOS 仍为源码，尚未在 Mac 编译。
-- DeepSeek 已配置官方服务 `https://api.deepseek.com` 的 `deepseek-flash`。2026-10-17 两次真实合成样本调用（文字、图片）均 HTTP 200 并通过结构校验；本机 `/api/reply` 也实际生成了一条长辈关心回复。详见 `deepseek-test-results.json`；这只验证了 DeepSeek，不代表 Jev 或完整手机链路已通过。
+- DeepSeek 已配置官方服务 `https://api.deepseek.com` 的 `deepseek-flash`。2026-10-20 `npm run test:live` 使用 7 个非私人合成样例完成真实网页闭环，覆盖文字、长文、健康说法、图片和带声音视频；视频实际抽取 6 帧并由本地 Whisper 转写，随后调用真实视觉与回复模型。详见 `live-test-results.json`；这只验证了本机 DeepSeek 链路，不代表 Jev 或完整手机链路已通过。
 - TypeSafe/Jev 账户已由用户创建，但仍未配置 Jev 密钥。旧版曾因此禁用真实生成；现在 LLM 可独立运行，Jev 分支仍需单独验收，不能将 LLM 成功称为 Jev 已接通。
 - 用户已在微信开放平台确认当前个人主体不能创建移动应用。SDK 工程保留，但直接选微信联系人仍需要合格主体的移动应用 AppID 及匹配包名/签名。Android 系统分享接收另走系统标准入口，不受这个 AppID 前提限制。
-- 本地 AI 服务当前运行于 `http://127.0.0.1:4173`。临时 Quick Tunnel 提供自动登录直达链接，并保留 Basic 访问保护；地址随进程变化，不写入仓库，也不能替代小程序需要登记的固定 HTTPS 合法域名。公开 Pages Demo 仍是纯前端离线体验。
+- 本地 AI 服务当前运行于 `http://127.0.0.1:4173`。此前 Quick Tunnel 地址会随进程失效，不再作为提交入口；稳定公开体验使用 GitHub Pages 的纯前端离线 Demo。小程序真实 AI 仍需要已登记的固定 HTTPS 合法域名。
 - 已完成 11 项本机访问保护检查：缺少口令返回 401、正确认证可访问、私有文件返回 404、错误 Host/Origin 返回 403。测试没有调用模型，测试端口已关闭；这不代表公网 TLS 或手机微信已验证。
 
 ### 免费手机试用启动入口
@@ -89,10 +89,10 @@ Android `ACTION_SEND` 和 `ACTION_PROCESS_TEXT` 是进入知意的入口；网�
 ## 未完成事项
 
 - [x] DeepSeek 真实文字与合成图片请求通过，响应经结构校验；报告为 `deepseek-test-results.json`。
-- [x] 2026-10-14 曾用 7 个非私人合成样例通过真实 LLM 网页闭环，包含健康说法与未知内容检查（历史记录在 Git 中）。2026-10-17 当前克隆缺少 Playwright，`npm run test:live` 在发出模型请求前明确标记为环境阻塞；没有安装浏览器依赖。
-- [x] 2026-10-17 本地视频真实解码与 Whisper 转写、取消及文件清理通过，视觉/决策/回复模型为测试替身；详见 `local-video-test-results.json`。
+- [x] 2026-10-20 `npm run test:live` 用 7 个非私人合成样例通过真实 LLM 网页闭环，包含健康说法、未知内容、图片和带声音视频；详见 `live-test-results.json`。
+- [x] 2026-10-20 本地视频真实解码与 Whisper 转写、取消及文件清理通过；独立 `test:video` 的云阶段为测试替身，完整真实云链路由 `test:live` 验证。
 - [ ] 扩大中文语义、健康回复与真实用户媒体的人工复核，不把合成样例和规则检查推广为普遍准确率。
-- [ ] 取得 TypeSafe/Jev 有效密钥，验证话题判断和健康断言分支，再完成 `npm run test:live` 的完整真实调用；Jev 降级结果不能算 Jev 接入通过。
+- [ ] 取得 TypeSafe/Jev 有效密钥，并在 `jev_llm` 模式重跑 `npm run test:live`，验证话题判断和健康断言分支；当前 7/7 结果仅为 `llm_only`，不能算 Jev 接入通过。
 - [x] 部署无需登录、点击即玩的公开文字 Demo，并核验首页、脚本、样式和字体均返回 HTTP 200；地址为 `https://mtmt0111.github.io/haohaohui-demo/`。
 - [ ] 取得可供小程序调用的 HTTPS 后端并核验口令保护与完整模型调用。公开静态 Demo 不承担这一能力；后续稳定部署、固定域名、持久化额度与运维仍未完成。
 - [x] 用户已创建 TypeSafe/Jev 账户；API Key 配置和真实调用仍是独立待办。
@@ -107,7 +107,7 @@ Android `ACTION_SEND` 和 `ACTION_PROCESS_TEXT` 是进入知意的入口；网�
 - [ ] 部署 HTTPS 服务，配置 `request` 合法域名与隐私保护指引；在 Android/iPhone 微信完成真实 LLM 闭环后再提交审核。
 - [ ] iPhone 微信网页验证口令登录、中文键盘、字体、媒体选择、复制与系统分享；桌面浏览器模拟不代替真机。
 - [ ] iOS 在 Mac 上生成工程、安装 Pods、编译并执行 XCTest，完成签名及 Universal Links / AASA 回调。基础个人设备测试可先评估 Apple 免费 Personal Team，但本项目的 Associated Domains 能力、签名和微信回调仍需核实，不能据此保证完整接入免费。发行/TestFlight 后续再讨论。[Apple 账号说明](https://developer.apple.com/help/account/basics/about-your-developer-account)
-- [x] 2026-10-14 合成图片与有声视频曾通过真实网页 → 本地处理 → 云视觉 → LLM 回复 → 编辑复制；本地 ASR 与云调用均未模拟。2026-10-17 本机复测真实 DeepSeek 文字/图片及实际文字回复接口通过，视频 ASR 通过但云模型使用测试替身。MEmu 的系统入站分享也已通过；本轮未连接实体手机，Jev 分支仍未配置。
+- [x] 2026-10-20 合成图片与有声视频通过真实网页 → 本地处理 → 云视觉 → LLM 回复 → 编辑复制；本地 ASR 与 DeepSeek 调用均未模拟。MEmu 的系统入站分享也有历史通过记录；本轮未连接实体手机，Jev 分支仍未配置。
 - [ ] 用实际可读的公众号正文完成抓取验收。之前两个真实链接均被微信验证码拦截；遇到限制先复制正文或上传截图，不绕过验证。
 - [ ] 恢复 Kiro 账号并完成真实 spec / 开发或审阅记录。现有调用返回 `TEMPORARILY_SUSPENDED`（HTTP 403），比赛要求的真实 Kiro 参与尚未满足。
 - [x] 已整理 [比赛提交清单](SUBMISSION.md)、50 字内一句话、200 字内事实版说明，并生成 4 分 22 秒、1280×720 的带字幕预检视频及小于 200 MB 的 ZIP。

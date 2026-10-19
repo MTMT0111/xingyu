@@ -1,12 +1,12 @@
 # 知意 · 验证记录
 
-基线验收日期：2026-10-11；文档更新：2026-10-19。版本：6.0.0。环境：Windows、Node.js 24.19.0、Chrome 155.0.8059.40，以及 Lenovo/MEmu Android 9（API 28、Chrome/WebView 68.0.3440.70）。2026-10-19 将产品统一更名为“知意”，加入最近 20 条本机历史；Node 运行依赖未增加。
+基线验收日期：2026-10-11；文档更新：2026-10-20。版本：6.0.0。环境：Windows、Node.js 24.19.0、Chrome 155.0.8059.40，以及 Lenovo/MEmu Android 9（API 28、Chrome/WebView 68.0.3440.70）。2026-10-19 将产品统一更名为“知意”，加入最近 20 条本机历史；Node 运行依赖未增加。
 
 ## Android 系统分享接收增补
 
 2026-10-11 验收的 Android 版本包含 `ACTION_SEND`（单段文字 / JPG、PNG、WebP / MP4、WebM、MOV）与 `ACTION_PROCESS_TEXT`。页面先确认导入，已有草稿可保留或主动替换；不会因收到分享而上传、调用模型或发送。复制完成后可主动返回来源 App。这条系统入口不需要微信 AppID、额外插件或存储权限。
 
-2026-10-19 浏览器回归 52/52 通过，JS / CSP 错误均为 0；工程测试 64/64 通过；Android Debug/Release 构建、各 16 个单元测试和 lint 通过，开发包 v2 签名有效。默认入口保持 430px 内的插件工作台；回复优先展示，分析过程与本机历史默认收起。
+2026-10-20 浏览器回归 52/52 通过，JS / CSP 错误均为 0；工程测试 65/65、真实 DeepSeek 合成样例 7/7 通过；Android Debug/Release 构建、各 16 个单元测试和 lint 通过，开发包 v2 签名有效。默认入口保持 430px 内的插件工作台；回复优先展示，分析过程与本机历史默认收起。
 
 随后在 Lenovo/MEmu Android 9 上通过 ADB 安装 APK、反向转发 4173 并连接真实本地服务。`ACTION_SEND` 文字、图片、视频与 `ACTION_PROCESS_TEXT` 均进入确认流程并通过；文字、图片、视频实际调用 DeepSeek 成功。11.4 秒视频实际抽取 6 帧、完成语音转写并生成回复；旧 WebView 缺少可用剪贴板写入时，复制操作降级为选中完整回复文字；系统返回键已回到来源图库。结果见 `clients/android/usb-demo-test-results.json`。
 
@@ -22,7 +22,7 @@
 - 系统分享、`ACTION_PROCESS_TEXT` 及图片/视频入口回归仍工作；Android WebView 使用 `?host=android` 紧凑工具模式。
 - 普通入口不监听剪贴板，无自启或常驻后台任务；磁贴服务只由系统按需绑定。可选悬浮球经单独说明和系统确认后使用无障碍服务，不申请传统悬浮窗权限，只在用户点“读取可见文字”时访问当前微信窗口节点。
 
-本次环境为 Android 9 / MEmu / WebView 68。实体手机、已登录微信聊天、视频号、微信 AppID 与 Android Studio AVD 仍未验证；登录页与 Chooser 通过不能代替真实微信收发验收。2026-10-19 当前工程测试 64/64、Android Debug/Release 各 16/16 和 lint 已重跑；设备运行结果仍只代表此前这台 MEmu。
+本次环境为 Android 9 / MEmu / WebView 68。实体手机、已登录微信聊天、视频号、微信 AppID 与 Android Studio AVD 仍未验证；登录页与 Chooser 通过不能代替真实微信收发验收。2026-10-20 当前工程测试 65/65、Android Debug/Release 各 16/16 和 lint 已重跑；设备运行结果仍只代表此前这台 MEmu。
 
 实体机仍需覆盖：文字/单图/单视频、PROCESS_TEXT、已有草稿不覆盖、外部入口一次确认后自动生成、空/超限/多选/失效授权拒绝、复制返回、系统分享回复及进程回收后的重新分享。步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。
 
@@ -32,7 +32,7 @@
 
 | 检查 | 当前结果 | 边界 |
 | --- | --- | --- |
-| npm test | 64 项通过 | 含 14 项小程序地址、认证、媒体、数据契约、微信聊天视频素材入口、离线文字闭环、收藏分享、页面请求、附件菜单、连接竞态、本机历史与旧 WebView 语法检查；模型服务使用测试替身，覆盖 LLM 独立与可选 Jev 分支 |
+| npm test | 65 项通过 | 含 14 项小程序地址、认证、媒体、数据契约、微信聊天视频素材入口、离线文字闭环、收藏分享、页面请求、附件菜单、连接竞态、本机历史、长辈称谓兜底与旧 WebView 语法检查；模型服务使用测试替身，覆盖 LLM 独立与可选 Jev 分支 |
 | 微信小程序源码 | JavaScript 语法、页面事件绑定和 14 项专项测试通过；开发者工具使用 AppID `wx44641c021b958fdd`，已上传 `0.8.0` 开发版本（41,838 字节）并声明聊天视频素材入口 | 尚无固定 HTTPS AI 合法域名、隐私指引、平台提审或 Android/iPhone 实体真机记录 |
 | 公开 Demo | GitHub Pages 构建成功；首页、脚本、样式和字体均返回 HTTP 200；静态规则检查通过 | 仅文字、本地规则和人工文案，不调用 DeepSeek，不支持图片/视频，不能代替真实 AI 与微信真机验收 |
 | 浏览器回归 | 52/52 通过，JS 与 CSP 错误均为 0 | 含本机历史恢复、系统分享接收确认、Android 紧凑插件页、慢启动自动提交保护、草稿保护、连续分享竞态、无桥接降级与返回；原生桥接、模型和微信 SDK 为测试替身 |
@@ -49,7 +49,7 @@
 
 复现步骤见 [本地部署与安卓演示](docs/本地部署与安卓演示.md)。Android Debug 允许的 HTTP 例外仅是 ADB 转发所用的 `127.0.0.1:4173`，Release 仍要求 HTTPS。页面的 sessionStorage 草稿仍只在当前标签页暂存；新增 localStorage 历史最多保留 20 条、每条原文最多 600 字，含摘要、理解、回复与对象/语气，不保存附件、截图或完整 OCR 证据，可单条继续编辑或全部清空。浏览器回归覆盖编辑稿持久化与恢复。WebView 68 兼容修复不增加新依赖。
 
-真实案例包含关心、邀约、长文、健康说法、含义不明、图片与有声视频。最新一轮文字生成耗时 1.218–1.939 秒，图片 2.876 秒，视频 8.756 秒；只代表本次样例和网络。视频实际执行本地抽帧与语音识别，并使用真实云视觉与 LLM。编辑后剪贴板与完整编辑文本一致，比较仅统一 Windows CRLF 换行，不裁剪空白；还检查健康说法与未知内容的回复边界。本轮另以 `tone: boundary` 真实请求验证“温和有边界”会到达 LLM 并返回对应表达。七个合成样例及规则检查不能证明普遍语义准确率，真实用户媒体、不同手机编码与微信交接仍需验证。结果见 `live-test-results.json`。
+真实案例包含关心、邀约、长文、健康说法、含义不明、图片与有声视频。2026-10-20 最终一轮文字生成耗时 1.11–1.55 秒，图片 2.52 秒，视频 5.76 秒；只代表本次样例和网络。视频实际执行本地抽帧与语音识别，并使用真实云视觉与 LLM。编辑后剪贴板与完整编辑文本一致，比较仅统一 Windows CRLF 换行，不裁剪空白；还检查健康说法与未知内容的回复边界。七个合成样例及规则检查不能证明普遍语义准确率，真实用户媒体、不同手机编码与微信交接仍需验证。结果见 `live-test-results.json`。
 
 ## 历史结果与证据（本轮改动之前）
 
@@ -61,18 +61,18 @@
 | Android 构建 | assembleDebug、5 项 JUnit、APK 签名校验通过 | 实际编译官方 SDK 和原生客户端；并非真机微信验收，详细记录见 native-build-results.json |
 | iOS 源码 | 19 项静态检查通过，已写 10 个 XCTest 方法 | Windows 未执行 Xcode 编译、签名或 XCTest，没有 IPA |
 | npm run test:video | 真实本地视频处理通过 | Python 解码、6 帧提取、Whisper 中文转写、取消及清理；三次云调用为测试数据 |
-| DeepSeek 独立实测 | 2 次真实调用通过，HTTP 200 | 使用用户确认的官方密钥，文字生成约 1.333 秒、图片识别约 1.401 秒，响应通过现有结构校验；不是完整 Jev 链路 |
-| npm run test:live | 旧版 blocked，0 次生成 | 旧版把 TYPESAFE_API_KEY 设为前置条件；本轮已改为可选，此结果不代表当前 LLM 状态 |
+| DeepSeek 独立实测 | 文字与合成图片真实调用通过，HTTP 200 | 使用用户确认的官方密钥，响应通过现有结构校验；不是完整 Jev 链路 |
+| npm run test:live | 7/7 真实生成通过，`fullLiveModelPass: true` | `llm_only`：覆盖文字、长文、健康说法、图片、有声视频、编辑复制；Jev 未配置 |
 | 真实公众号读取 | 2 个公开链接均 restricted | 微信转到验证码入口；未取得正文，真实抓取验收未通过 |
 | 微信真机 / HTTPS | 未验证 / 未部署 | Chromium 微信 UA 模拟不能代替真实微信 |
 | 免费试用本机保护 | 11 项通过，0 次模型调用 | 独立 127.0.0.1:4174 的鉴权、私有文件隔离和来源拒绝；测试后端口关闭，公网仍未启动 |
 | Kiro 实际审阅 | 403，账号暂时锁定 | 已登录及发起请求，未完成模型审阅或代码生成 |
 
-机器报告：browser-test-results.json、native-build-results.json、clients/ios/source-validation-results.json、deepseek-test-results.json、local-video-test-results.json、live-test-results.json、article-live-test-results.json、install-smoke-results.json。报告中的 mocked、blocked 与 fullLiveModelPass: false 是验收边界，不能改称线上通过。干净安装报告记录所测 5.0.0 ZIP 的 SHA-256；后续包加入验证码提示、系统分享、原生客户端及更新后的报告，分别经过对应验证。
+机器报告：browser-test-results.json、native-build-results.json、clients/ios/source-validation-results.json、deepseek-test-results.json、local-video-test-results.json、live-test-results.json、article-live-test-results.json、install-smoke-results.json。每份报告的 `mocked`、`blocked`、`fullLiveModelPass` 和设备字段都按各自范围解读；本轮 `live-test-results.json` 为真实 LLM 7/7 通过，但不代表 Jev 或实体微信通过。
 
 ## 实际本地视频测试
 
-使用本地合成的中文语音和字幕视频 tests/fixtures/parent-message.mp4，不含私人媒体。视频 171384 字节、11.417 秒。HTTP 上传实际调用 Python，抽取 6 帧，语音状态为 transcribed；本次约 2.281 秒返回。视觉、Jev 与回复阶段为明确标注的 fixtures。
+使用本地合成的中文语音和字幕视频 tests/fixtures/parent-message.mp4，不含私人媒体。视频 171384 字节、11.417 秒。HTTP 上传实际调用 Python，抽取 6 帧，语音状态为 transcribed；本次约 3.4 秒返回。独立 `test:video` 的视觉、Jev 与回复阶段为明确标注的 fixtures；随后 `test:live` 又以真实 DeepSeek 完成同一视频链路。
 
 真实转写保留了“晚上寄的吃饭”“天寄凉了”等同音误字。页面展示转写并提醒可能存在误差；抽帧也可能遗漏短暂画面。不能将一次合成语音样例当作各类真实视频的准确率结论。
 

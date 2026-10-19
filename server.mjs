@@ -128,7 +128,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
         { role: 'user', content: [{ type: 'text', text: video ? `按时间顺序抽取的${frames.length}帧视频画面，时长${video.duration}秒。` : '识别这张图片的内容。' }, ...frames.flatMap(frame => [{ type: 'text', text: `画面时间：${frame.time}秒` }, { type: 'image_url', image_url: { url: frame.dataUrl } }])] }
       ],
       ...(new URL(visionUrl).hostname === 'api.deepseek.com' ? { thinking: { type: 'disabled' } } : {}),
-      response_format: { type: 'json_object' }, max_tokens: 3000, stream: false
+      response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 3000, stream: false
     }, config.timeoutLlmMs, signal);
     if (visualResponse.choices?.[0]?.finish_reason === 'length') throw new Error('Truncated visual evidence');
     const visual = validateVisualEvidence(JSON.parse(visualResponse.choices?.[0]?.message?.content));
@@ -162,10 +162,11 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
     ],
     // DeepSeek enables thinking by default; short replies need the budget for their JSON answer.
     ...(new URL(generationUrl).hostname === 'api.deepseek.com' ? { thinking: { type: 'disabled' } } : {}),
-    response_format: { type: 'json_object' }, max_tokens: 800, stream: false
+    response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 800, stream: false
   }, config.timeoutLlmMs, signal);
   if (data.choices?.[0]?.finish_reason === 'length') throw new Error('Truncated generation');
   const result = validateGeneration(JSON.parse(data.choices?.[0]?.message?.content), strategy);
+  if (input.recipient === 'elder') result.reply = result.reply.replaceAll('你', '您');
   return {
     ...result, ...(evidence ? { evidence } : {}), strategy, topic: decision?.topic ?? 'unclear',
     decision_source: decision ? 'jev' : config.typesafeKey ? 'unavailable' : 'llm', generation_source: 'llm',

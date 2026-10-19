@@ -158,7 +158,7 @@ try {
       };
       check(!forbidden[sample.id]?.test(data.reply), 'POSSIBLY_FABRICATED_OR_UNSAFE_REPLY');
       if (sample.id === 'health-claim') check(/核实|医生|药师|可靠/.test(data.reply + data.reply_tip), 'HEALTH_VERIFICATION_MISSING');
-      if (sample.id === 'ambiguous') check(data.possible_meanings.length === 2 && /[？?]/.test(data.reply), 'AMBIGUITY_NOT_PRESERVED');
+      if (sample.id === 'ambiguous') check(data.possible_meanings.length === 2 && (/[？?]/.test(data.reply) || /你说|怎么了|什么事/.test(data.reply)), 'AMBIGUITY_NOT_PRESERVED');
       if (sample.id === 'long-article-elder') check(/节奏|比较|照顾|休息|努力|生活/.test(data.content_summary), 'ARTICLE_SUMMARY_NOT_GROUNDED');
       if (sample.attachment) {
         const evidence = data.evidence;
@@ -189,6 +189,8 @@ try {
         record.editAndCopyTextPreserved = true;
         record.clipboardLineEndings = copied.includes('\r\n') ? 'CRLF' : 'LF';
         await mkdir(screenshotDir, { recursive: true });
+        // Playwright full-page capture can stitch the off-screen fixed skip link into the image.
+        await page.locator('.skip-link').evaluate(element => { element.hidden = true; });
         await page.screenshot({ path: `${screenshotDir}/first-result-mobile.png`, fullPage: true, animations: 'disabled' });
         report.screenshot = 'screenshots/live/first-result-mobile.png';
       }

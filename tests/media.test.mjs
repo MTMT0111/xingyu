@@ -51,6 +51,8 @@ test('image contents are read first, then evidence reaches both Jev and reply ge
   assert.equal(response.status, 200);
   const result = await response.json();
   assert.equal(calls.length, 3);
+  assert.equal(calls[0].body.temperature, 0.2);
+  assert.equal(calls[2].body.temperature, 0.2);
   assert.ok(calls[0].body.messages[1].content.some(item => item.type === 'image_url' && item.image_url.url === 'data:image/png;base64,' + png));
   assert.ok(calls[1].body.state.message_text.includes(visual.visible_text));
   assert.deepEqual(JSON.parse(calls[2].body.messages[1].content).source_evidence, result.evidence);

@@ -1,6 +1,6 @@
 {
-  "startedAt": "2026-10-17T08:43:54.120Z",
-  "completedAt": "2026-10-17T08:43:58.224Z",
+  "startedAt": "2026-10-19T17:51:40.722Z",
+  "completedAt": "2026-10-19T17:51:44.217Z",
   "status": "passed",
   "localASRReal": true,
   "cloudModelsMocked": true,
@@ -14,15 +14,15 @@
   },
   "runtime": {
     "python": "python.exe",
-    "pythonPath": "media-deps",
-    "whisperModel": "media-model",
+    "pythonPath": "configured",
+    "whisperModel": "whisper-base",
     "model": "Systran/faster-whisper-base",
     "device": "cpu",
     "computeType": "int8"
   },
   "http": {
     "status": 200,
-    "seconds": 4,
+    "seconds": 3.403,
     "cloudFixtureCalls": 3,
     "order": [
       "vision_fixture",
@@ -38,7 +38,7 @@
   },
   "cancellation": {
     "code": "MEDIA_CANCELLED",
-    "seconds": 0.102,
+    "seconds": 0.087,
     "childProcessExited": true
   },
   "cleanup": {

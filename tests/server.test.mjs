@@ -293,6 +293,17 @@ test('LLM-only configuration generates a real reply without calling Jev or prete
   assert.doesNotMatch(result.note, /暂不可用/);
 });
 
+test('live replies keep the selected elder address even when the model uses 你', async (t) => {
+  const app = await serve(t, { config: { ...liveConfig, typesafeKey: '' }, fetchImpl: async () => llmResponse({
+    ...generation,
+    possible_meanings: ['也许是在分享一段让你放松的话。', '也可能是想听听你的感受。'],
+    reply: '谢谢你分享，你最喜欢哪一句？'
+  }) });
+  const response = await app.post(input({ mode: 'live', recipient: 'elder' }));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).reply, '谢谢您分享，您最喜欢哪一句？');
+});
+
 test('LLM-only provider failure remains an error instead of showing a template as AI', async (t) => {
   const app = await serve(t, { config: { ...liveConfig, typesafeKey: '' }, fetchImpl: async () => responseJson({}, 401) });
   const response = await app.post(input({ mode: 'live' }));
@@ -353,6 +364,7 @@ test('official DeepSeek short replies disable thinking and preserve the actual r
     const body = JSON.parse(options.body);
     assert.deepEqual(body.thinking, { type: 'disabled' });
     assert.deepEqual(body.response_format, { type: 'json_object' });
+    assert.equal(body.temperature, 0.2);
     return responseJson({ model: 'actual-provider-model', choices: [{ message: { content: JSON.stringify(generation) } }] });
   } });
   const response = await app.post({ text: '记得吃饭', mode: 'live' });
