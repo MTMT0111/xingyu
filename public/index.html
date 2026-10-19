@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f8f8f4">
   <meta name="description" content="从微信分享文字、文章、图片或短视频，读懂内容，再写一段自然、有分寸的回复。">
-  <title>言外 · 微信回复助手</title>
+  <title>知意 · 微信沟通助手</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23286b54'/%3E%3Cpath d='M8 9h24v17H19l-8 6v-6H8Z' fill='white'/%3E%3Cpath d='M13 14h14v2H13Zm0 6h9v2H13Z' fill='%23286b54'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <script src="./demo.js"></script>
+  <script src="./history.js"></script>
   <script src="./app.js" defer></script>
 </head>
 <body>
@@ -16,11 +17,11 @@
   <main class="container">
     <section class="plugin-header" aria-labelledby="hero-title">
       <div class="brand">
-        <div><h1 id="hero-title">言外</h1><p>看懂分享，再回一句</p></div>
+        <div><h1 id="hero-title">知意</h1><p>读懂话外的关心</p></div>
       </div>
       <span id="mode-label"><i aria-hidden="true"></i>本地示例 · 非实时 AI</span>
     </section>
-    <p class="plugin-lead">放入对方发来的文字、文章、图片或视频。</p>
+    <p class="plugin-lead">点一下读懂当前内容，回复前始终由你确认。</p>
 
     <ol class="workflow sr-only" aria-label="回复的三个步骤">
       <li id="step-input" aria-current="step"><span>1</span>放入内容</li>
@@ -128,6 +129,13 @@
         <div id="result-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
       </section>
     </section>
+
+    <details id="history-panel" class="history-panel">
+      <summary><span><strong>最近记录</strong><small>仅保存在这台设备</small></span><span id="history-count">0 条</span></summary>
+      <p id="history-empty" class="history-empty">生成回复后会保留最近 20 条；不保存附件、截图或识别全文。</p>
+      <ol id="history-list" class="history-list"></ol>
+      <button id="clear-history" class="clear-history" type="button" disabled>清空记录</button>
+    </details>
 
     <details id="wechat-guide" class="plugin-guide"><summary>微信里怎么用</summary><p>安卓可从微信的系统分享菜单或“处理所选文字”进入；也可粘贴文字、公众号正文，或选择保存的截图和短视频。生成后先确认和编辑，再复制返回原聊天。网页与个人主体不能自动读取好友、视频号卡片或代你发送。</p></details>
   </main>

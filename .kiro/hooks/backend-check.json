@@ -2,7 +2,7 @@
   "version": "v1",
   "hooks": [
     {
-      "name": "言外工程回归检查",
+      "name": "知意工程回归检查",
       "description": "保存服务端逻辑或工程测试后执行现有测试；不调用真实模型服务。",
       "trigger": "PostFileSave",
       "matcher": "(?:^|[/\\\\])(?:server\\.mjs|lib[/\\\\].*\\.mjs|tests[/\\\\].*\\.test\\.mjs)$",

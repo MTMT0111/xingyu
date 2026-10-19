@@ -3,7 +3,7 @@
   "version": "6.0.0",
   "private": true,
   "type": "module",
-  "description": "言外：适配微信 H5 的长辈消息回复助手",
+  "description": "知意：适配微信 H5 的长辈消息回复助手",
   "engines": {
     "node": ">=22"
   },

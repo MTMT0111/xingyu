@@ -459,6 +459,9 @@ test('static files are served from a whitelist without source or secret leakage'
   const page = await app.get('/');
   assert.equal(page.status, 200);
   assert.match(page.headers.get('content-type'), /text\/html/);
+  const history = await app.get('/history.js');
+  assert.equal(history.status, 200);
+  assert.match(history.headers.get('content-type'), /text\/javascript/);
   const illustration = await app.get('/assets/starry-night.jpg');
   assert.equal(illustration.status, 200);
   assert.match(illustration.headers.get('content-type'), /image\/jpeg/);
@@ -484,7 +487,7 @@ test('public deployment refuses insecure origins or an absent, weak trial passwo
 
 test('a public HTTPS trial authenticates the whole page and never reveals its password', async (t) => {
   const app = await serve(t, { config: trialConfig });
-  for (const path of ['/', '/demo.js', '/app.js', '/api/config', '/api/examples']) {
+  for (const path of ['/', '/demo.js', '/history.js', '/app.js', '/api/config', '/api/examples']) {
     const rejected = await app.get(path, { headers: { host: trialHeaders.host } });
     assert.equal(rejected.status, 401);
     assert.match(rejected.headers.get('www-authenticate'), /^Basic /);

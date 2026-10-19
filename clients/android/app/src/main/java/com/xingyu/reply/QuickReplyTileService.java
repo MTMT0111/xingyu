@@ -27,7 +27,7 @@ public final class QuickReplyTileService extends TileService {
         boolean saved = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE).edit()
             .putString(MainActivity.PREF_QUICK_REPLY_TOKEN, token).commit();
         if (!saved) {
-            Toast.makeText(this, "暂时无法打开，请直接进入言外。", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "暂时无法打开，请直接进入知意。", Toast.LENGTH_LONG).show();
             return;
         }
         Intent intent = new Intent(this, MainActivity.class)

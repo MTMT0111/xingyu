@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 param([switch]$Stop)
 $ErrorActionPreference = 'Stop'
 $trialProject = Split-Path $PSScriptRoot -Parent
@@ -27,7 +27,7 @@ if ($Stop) {
 }
 if (Test-Path -LiteralPath $trialStatePath) { throw '已有试用记录，请先使用本脚本 -Stop，再重新启动。' }
 if (Get-NetTCPConnection -LocalPort 4174 -State Listen -ErrorAction SilentlyContinue) { throw '4174 端口已占用，未启动任何公网隧道。' }
-if (-not (Test-Path -LiteralPath (Join-Path $trialProject 'server.mjs'))) { throw '请将此脚本保存在言外仓库的 scripts 文件夹中。' }
+if (-not (Test-Path -LiteralPath (Join-Path $trialProject 'server.mjs'))) { throw '请将此脚本保存在知意仓库的 scripts 文件夹中。' }
 $trialNode = (Get-Command node -ErrorAction Stop).Source
 if (-not (Test-Path -LiteralPath $trialExe)) {
     Write-Host '下载 Cloudflare 官方客户端 2026.10.0…'

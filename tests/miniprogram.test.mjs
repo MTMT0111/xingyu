@@ -131,11 +131,11 @@ test('mini program exposes one stable WeChat entry for sharing and favorites', (
     delete globalThis.wx;
   });
   assert.deepEqual(definition.onShareAppMessage(), {
-    title: '言外：看懂分享，再回一句',
+    title: '知意：看懂分享，再回一句',
     path: '/pages/index/index'
   });
-  assert.deepEqual(definition.onShareTimeline(), { title: '言外：看懂分享，再回一句' });
-  assert.deepEqual(definition.onAddToFavorites(), { title: '言外｜打开就能准备回复' });
+  assert.deepEqual(definition.onShareTimeline(), { title: '知意：看懂分享，再回一句' });
+  assert.deepEqual(definition.onAddToFavorites(), { title: '知意｜打开就能准备回复' });
 });
 
 test('mini program page connects and asks for one automatic natural reply', async (t) => {

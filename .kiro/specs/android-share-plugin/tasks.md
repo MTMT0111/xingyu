@@ -17,7 +17,7 @@
 ## 验证与待完成
 
 - [x] Android Debug / Release 均构建成功，各 13/13 项单元测试通过，lint 0 错误、2 条既有警告，开发包签名有效；结果写入 `native-build-results.json` / `QA.md`。
-- [x] 浏览器 51/51 通过，JS / CSP 错误为 0，包含三种回复方式、入站确认、草稿冲突、连续分享竞态、无桥接降级、媒体导入、复制/返回；证据已写入 `browser-test-results.json` / `QA.md`，原生接口明确为模拟。
+- [x] 浏览器 52/52 通过，JS / CSP 错误为 0，包含本机历史恢复、三种回复方式、入站确认、草稿冲突、连续分享竞态、无桥接降级、媒体导入、复制/返回；证据已写入 `browser-test-results.json` / `QA.md`，原生接口明确为模拟。
 - [x] Lenovo/MEmu Android 9 已验收文字、图片、视频、选中文字、一次确认、真实 DeepSeek、复制返回、快捷磁贴与系统 Chooser；这仍不代表实体手机或真实微信。
 - [ ] 连接 USB 真机并设置 `adb reverse tcp:4173 tcp:4173`，安装本轮 Debug APK，记录系统/WebView/微信版本。
 - [ ] 实体微信确认回复键盘、系统分享和选中文字入口；验证“分析剪贴板 → 复制返回 → 插入回复”和媒体回退路径。

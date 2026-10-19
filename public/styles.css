@@ -195,6 +195,20 @@ textarea::placeholder { color: #98a2af; opacity: 1; }
 .share-note { margin-top: 9px; color: var(--muted); font-size: 10px; line-height: 1.7; }
 .result-note { margin-top: 11px; padding-top: 10px; border-top: 1px solid #e8ebee; color: var(--muted); font-size: 10px; line-height: 1.7; }
 
+.history-panel { margin-top: 12px; padding: 0 14px 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.history-panel summary { min-height: 50px; display: flex; align-items: center; justify-content: space-between; color: var(--ink); cursor: pointer; list-style: none; }
+.history-panel summary > span:first-child { display: flex; flex-direction: column; }
+.history-panel summary strong { font-size: 12px; }
+.history-panel summary small, #history-count { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.history-empty { padding: 3px 0 10px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.history-list { padding: 0; list-style: none; }
+.history-item { padding: 10px 0; border-top: 1px solid #edf0f2; }
+.history-meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 9px; }
+.history-source { margin: 5px 0 3px; color: var(--ink); font-size: 11px; line-height: 1.55; }
+.history-reply { color: var(--muted); font-size: 10px; line-height: 1.55; }
+.history-open, .clear-history { min-height: 38px; margin-top: 8px; padding: 0 12px; border: 1px solid #d3dce6; border-radius: 6px; background: #f7f9fb; color: var(--blue); font-size: 10px; }
+.clear-history { color: var(--muted); }
+
 #mode-label { min-height: 34px; display: inline-flex; align-items: center; margin-left: 12px; color: var(--muted); font-size: 9px; white-space: nowrap; }
 #mode-label i { width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: #a5b0b6; }
 .plugin-guide { margin: 8px 2px 0; color: var(--muted); font-size: 10px; }
@@ -223,6 +237,7 @@ body[data-host="android"] .inbound-share { margin: 0 0 8px; }
 body[data-host="android"] #source-text { min-height: 104px; }
 body[data-host="android"] .attachment-tools { margin-top: 8px; }
 body[data-host="android"] .privacy-note { margin-top: 7px; }
+body[data-host="android"] .history-panel { margin: 8px 0 0; }
 
 @keyframes breathe { 50% { opacity: .35; transform: scale(.8); } }
 

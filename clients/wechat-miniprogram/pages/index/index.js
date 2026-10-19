@@ -109,15 +109,15 @@ Page({
   },
 
   onShareAppMessage() {
-    return { title: '言外：看懂分享，再回一句', path: '/pages/index/index' };
+    return { title: '知意：看懂分享，再回一句', path: '/pages/index/index' };
   },
 
   onShareTimeline() {
-    return { title: '言外：看懂分享，再回一句' };
+    return { title: '知意：看懂分享，再回一句' };
   },
 
   onAddToFavorites() {
-    return { title: '言外｜打开就能准备回复' };
+    return { title: '知意｜打开就能准备回复' };
   },
 
   request(path, options = {}) {

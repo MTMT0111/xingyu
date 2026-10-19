@@ -45,7 +45,7 @@ public final class WechatReplyBubbleService extends AccessibilityService {
         super.onServiceConnected();
         if (!getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
             .getBoolean(MainActivity.PREF_WECHAT_BUBBLE_CONSENT, false)) {
-            Toast.makeText(this, "请先在言外阅读并同意悬浮球的数据说明。", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "请先在知意阅读并同意悬浮球的数据说明。", Toast.LENGTH_LONG).show();
             disableSelf();
             return;
         }
@@ -111,7 +111,7 @@ public final class WechatReplyBubbleService extends AccessibilityService {
         button.setTextSize(16);
         button.setTextColor(Color.rgb(31, 50, 69));
         button.setGravity(Gravity.CENTER);
-        button.setContentDescription("言外，读取微信当前页");
+        button.setContentDescription("知意，读取微信当前页");
         button.setBackground(circle());
         bubble = button;
         bubbleLayout = overlay(56, 56);
@@ -143,7 +143,7 @@ public final class WechatReplyBubbleService extends AccessibilityService {
             return;
         }
         if (visibleText == null) {
-            showReadFailure("微信没有提供可见文字。小视频请长按保存或分享给言外分析。");
+            showReadFailure("微信没有提供可见文字。小视频请长按保存或分享给知意分析。");
             return;
         }
         launchText(visibleText);
@@ -158,7 +158,7 @@ public final class WechatReplyBubbleService extends AccessibilityService {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             startActivity(intent);
         } catch (IllegalArgumentException error) {
-            showReadFailure("当前页面没有可分析的文字。小视频请长按保存或分享给言外分析。");
+            showReadFailure("当前页面没有可分析的文字。小视频请长按保存或分享给知意分析。");
         } catch (RuntimeException error) {
             showReadFailure("无法打开分析页面；微信内容没有发送。");
         }
@@ -179,7 +179,7 @@ public final class WechatReplyBubbleService extends AccessibilityService {
                     if (destroyed) return;
                     if (image == null) {
                         if (visibleText != null) launchText(visibleText);
-                        else showReadFailure("当前画面无法截取。小视频请长按保存或分享给言外分析。");
+                        else showReadFailure("当前画面无法截取。小视频请长按保存或分享给知意分析。");
                         return;
                     }
                     String token = null;
@@ -201,7 +201,7 @@ public final class WechatReplyBubbleService extends AccessibilityService {
                 handler.post(() -> {
                     if (destroyed) return;
                     if (visibleText != null) launchText(visibleText);
-                    else showReadFailure("当前画面无法截取。小视频请长按保存或分享给言外分析。");
+                    else showReadFailure("当前画面无法截取。小视频请长按保存或分享给知意分析。");
                 });
             }
             });

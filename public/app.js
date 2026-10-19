@@ -10,7 +10,7 @@ const settle = promises => Promise.all(promises.map(promise => Promise.resolve(p
 )));
 const requestId = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID() :
   Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('-');
-const state = { busy: false, sharing: false, initializing: false, mode: 'demo', modeSettled: false, liveAvailable: false, mediaAvailable: false, videoAvailable: false, attachment: null, controller: null, result: null, submitted: null, exampleIndex: -1 };
+const state = { busy: false, sharing: false, initializing: false, mode: 'demo', modeSettled: false, liveAvailable: false, mediaAvailable: false, videoAvailable: false, attachment: null, controller: null, result: null, submitted: null, exampleIndex: -1, currentHistoryId: null };
 let pendingConfig = null;
 let pendingAndroidAutoGenerate = null;
 const draftKey = 'xingyu-draft-v1';
@@ -19,6 +19,7 @@ const nativeWechat = { post: null, available: false, reason: 'checking', pending
 let pendingInboundShare = null;
 let activeInboundId = null;
 let acceptingInboundShare = false;
+const recipientNames = { auto: '自动判断', mother: '妈妈', father: '爸爸', elder: '其他长辈' };
 let examples = [
   { text: '今天降温了，多穿点。忙也要记得吃饭，别总熬夜。' },
   { text: '这周末有空回来吃饭吗？想给你做你爱吃的菜。' },
@@ -60,6 +61,99 @@ function showError(message) {
 }
 
 function clearError() { $('form-error').hidden = true; }
+
+function readHistory() {
+  try { return window.ZhiyiHistory.read(localStorage); }
+  catch {
+    $('history-empty').textContent = '当前环境不允许本地保存记录；分析和回复仍可正常使用。';
+    return [];
+  }
+}
+
+function renderHistory() {
+  const history = readHistory();
+  $('history-count').textContent = history.length + ' 条';
+  $('history-empty').hidden = history.length > 0;
+  $('clear-history').disabled = history.length === 0;
+  $('history-list').textContent = '';
+  for (const item of history) {
+    const row = document.createElement('li');
+    row.className = 'history-item';
+    const meta = document.createElement('div');
+    meta.className = 'history-meta';
+    const recipient = document.createElement('span');
+    recipient.textContent = recipientNames[item.recipient];
+    const time = document.createElement('time');
+    time.dateTime = new Date(item.createdAt).toISOString();
+    time.textContent = new Date(item.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    meta.append(recipient, time);
+    const source = document.createElement('p');
+    source.className = 'history-source';
+    source.textContent = item.source || item.summary;
+    const reply = document.createElement('p');
+    reply.className = 'history-reply';
+    reply.textContent = item.reply;
+    const open = document.createElement('button');
+    open.className = 'history-open';
+    open.type = 'button';
+    open.dataset.historyId = item.id;
+    open.textContent = '继续编辑';
+    row.append(meta, source, reply, open);
+    $('history-list').append(row);
+  }
+}
+
+function rememberResult(text, payload, data) {
+  const item = {
+    id: requestId(),
+    createdAt: Date.now(),
+    recipient: payload.recipient,
+    tone: payload.tone,
+    source: text.slice(0, 600),
+    summary: data.content_summary,
+    possibleMeanings: data.possible_meanings,
+    replyTip: data.reply_tip,
+    reply: data.reply
+  };
+  try {
+    window.ZhiyiHistory.add(localStorage, item);
+    state.currentHistoryId = item.id;
+    renderHistory();
+  } catch { $('history-empty').textContent = '当前环境不允许本地保存记录；分析和回复仍可正常使用。'; }
+}
+
+function updateHistoryReply() {
+  if (!state.currentHistoryId) return;
+  try { window.ZhiyiHistory.updateReply(localStorage, state.currentHistoryId, $('reply-text').value); }
+  catch { /* History is optional and must never block editing. */ }
+}
+
+function openHistory(id) {
+  const item = readHistory().find(saved => saved.id === id);
+  if (!item || state.busy || state.sharing) return;
+  updateAttachment(null);
+  $('source-text').value = item.source;
+  $('recipient-select').value = item.recipient;
+  $('tone-select').value = item.tone;
+  const result = {
+    content_summary: item.summary,
+    possible_meanings: item.possibleMeanings,
+    reply_tip: item.replyTip,
+    reply: item.reply,
+    decision_source: 'local_rules',
+    generation_source: 'templates',
+    note: '从本机历史恢复；附件、截图和识别全文未保存。'
+  };
+  renderResult(result);
+  $('reply-text').value = item.reply;
+  state.submitted = { text: item.source.trim(), recipient: item.recipient, tone: item.tone };
+  state.currentHistoryId = item.id;
+  countInput();
+  updateControls();
+  saveDraft();
+  $('result-status').textContent = '历史记录，可继续编辑';
+  $('result-card').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
 
 function scrollIntoViewNow(element, block = 'center') {
   const previous = document.documentElement.style.scrollBehavior;
@@ -308,7 +402,7 @@ async function acceptInboundShare() {
       if (nextAttachment.kind === 'video') {
         const controller = new AbortController();
         nextAttachment.duration = await videoDuration(nextAttachment.url, controller.signal);
-        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给言外。');
+        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给知意。');
       }
     }
     if (pendingInboundShare !== inbound) {
@@ -403,6 +497,7 @@ function clearResult() {
   nativeWechat.lastShare = null;
   state.result = null;
   state.submitted = null;
+  state.currentHistoryId = null;
   $('result-content').hidden = true;
   $('reply-text').value = '';
   $('empty-state').hidden = false;
@@ -649,6 +744,7 @@ async function generateReply() {
     validateResult(data, attachment && attachment.kind || (article ? 'article' : undefined));
     renderResult(data);
     state.submitted = { text, recipient: payload.recipient, tone: payload.tone };
+    rememberResult(text, payload, data);
     saveDraft();
     $('result-announcement').textContent = '分析和回复已准备好，可以编辑并复制。';
     $('result-title').focus({ preventScroll: true });
@@ -796,12 +892,24 @@ $('reply-text').addEventListener('input', () => {
   $('return-source').hidden = true;
   $('copy-status').textContent = '';
   updateControls();
+  updateHistoryReply();
   saveDraft();
+});
+$('history-list').addEventListener('click', event => {
+  const button = event.target.closest('[data-history-id]');
+  if (button) openHistory(button.dataset.historyId);
+});
+$('clear-history').addEventListener('click', () => {
+  if (state.busy || state.sharing) return;
+  try { window.ZhiyiHistory.clear(localStorage); } catch { /* Storage may be unavailable. */ }
+  state.currentHistoryId = null;
+  renderHistory();
 });
 $('retry-init').addEventListener('click', initialize);
 window.addEventListener('pagehide', saveDraft);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveDraft(); });
 restoreDraft();
+renderHistory();
 countInput();
 updateControls();
 initializeWechat();

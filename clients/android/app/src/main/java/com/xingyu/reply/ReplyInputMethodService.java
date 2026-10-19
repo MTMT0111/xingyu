@@ -28,7 +28,7 @@ public final class ReplyInputMethodService extends InputMethodService {
 
         LinearLayout heading = new LinearLayout(this);
         heading.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = text("言外", 18, Color.rgb(25, 31, 29));
+        TextView title = text("知意", 18, Color.rgb(25, 31, 29));
         title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         heading.addView(title, new LinearLayout.LayoutParams(0, dp(42), 1));
         Button switcher = button("切换键盘", false, view -> showKeyboardPicker());

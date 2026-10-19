@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">言外</string>
-    <string name="ime_label">言外 · 回复键盘</string>
-    <string name="tile_label">言外</string>
+    <string name="app_name">知意</string>
+    <string name="ime_label">知意 · 回复键盘</string>
+    <string name="tile_label">知意</string>
     <string name="shortcut_short_label">分析剪贴板</string>
-    <string name="shortcut_long_label">打开言外分析消息</string>
-    <string name="bubble_service_label">言外微信悬浮球</string>
+    <string name="shortcut_long_label">打开知意分析消息</string>
+    <string name="bubble_service_label">知意微信悬浮球</string>
     <string name="bubble_service_description">仅在用户点击悬浮球时，截取一次微信当前屏幕并读取可访问文字；确认前不会上传，也不会自动发送。</string>
 </resources>

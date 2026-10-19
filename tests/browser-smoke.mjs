@@ -117,7 +117,7 @@ try {
   assert.ok(typography.inputSize >= 16, 'mobile input text must be at least 16px');
   assert.equal(await page.locator('.planet-art').count(), 0, 'the old planet decoration is removed');
   assert.equal(await page.locator('.brand-seal').count(), 0, 'the decorative brand seal is removed');
-  assert.equal(await page.locator('#hero-title').innerText(), '言外');
+  assert.equal(await page.locator('#hero-title').innerText(), '知意');
   assert.ok(typography.loadedFonts.length > 0, 'the local title font must load');
   assert.ok([...assets.values()].every(status => status === 200), 'all used local design assets must load');
   const brokenImages = await page.locator('img[src]').evaluateAll(images => images.filter(image => !image.complete || image.naturalWidth === 0).map(image => image.src));
@@ -373,6 +373,14 @@ try {
   await tabDraft.locator('#copy-reply').click();
   assert.equal(await tabDraft.evaluate(() => navigator.clipboard.readText()), '爸，刚忙完，准备吃饭了。你呢？');
   check('tab reload restores edited reply, recipient, chosen mode and truthful LLM source without another generation');
+  await tabDraft.locator('#history-panel summary').click();
+  assert.ok(await tabDraft.locator('.history-item').count() >= 1);
+  assert.equal(await tabDraft.locator('.history-item').first().locator('.history-reply').innerText(), '爸，刚忙完，准备吃饭了。你呢？');
+  await tabDraft.locator('#source-text').fill('临时的新消息');
+  await tabDraft.locator('.history-item').first().locator('.history-open').click();
+  assert.equal(await tabDraft.locator('#source-text').inputValue(), '吃饭了吗？');
+  assert.equal(await tabDraft.locator('#reply-text').inputValue(), '爸，刚忙完，准备吃饭了。你呢？');
+  check('device-local history restores the selected recipient, source and edited reply without another request');
   await tabDraft.locator('#attachment-input').setInputFiles({ name: 'draft.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6KXsAAAAASUVORK5CYII=', 'base64') });
   await settled(tabDraft);
   await tabDraft.reload({ waitUntil: 'networkidle' });
