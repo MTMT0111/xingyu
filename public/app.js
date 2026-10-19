@@ -3,6 +3,8 @@
 const $ = id => document.getElementById(id);
 if (new URLSearchParams(location.search).get('host') === 'android') document.body.dataset.host = 'android';
 const staticDemo = location.hostname.endsWith('.github.io') || new URLSearchParams(location.search).get('demo') === '1';
+const inWechatBrowser = /MicroMessenger/i.test(navigator.userAgent);
+if (inWechatBrowser) document.body.dataset.client = 'wechat';
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 const settle = promises => Promise.all(promises.map(promise => Promise.resolve(promise).then(
   value => ({ status: 'fulfilled', value }),
@@ -472,7 +474,9 @@ function updateControls() {
   $('share-reply').hidden = !canShareReply();
   $('share-reply').disabled = locked || empty;
   $('share-reply-text').textContent = state.sharing ? '正在分享…' : '系统分享';
-  $('share-note').textContent = $('share-reply').hidden ? '当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。' : '系统菜单里有微信时才能继续选人；没有微信请复制回复。';
+  $('share-note').textContent = $('share-reply').hidden ?
+    inWechatBrowser ? '当前在微信内：复制回复后，点左上角返回聊天，长按输入框粘贴并确认发送。' : '当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。' :
+    '系统菜单里有微信时才能继续选人；没有微信请复制回复。';
   $('wechat-reply').hidden = !nativeWechat.post || !nativeWechat.available;
   $('wechat-reply').disabled = locked || empty || !nativeWechat.available;
   for (const id of ['inbound-accept', 'inbound-dismiss', 'inbound-return']) $(id).disabled = locked;
@@ -787,7 +791,7 @@ async function copyReply() {
         return;
       }
     } catch { /* Keep the text selected for manual copy. */ }
-    $('copy-status').textContent = '已选中文字，请长按或按 Ctrl / ⌘ + C 复制。';
+    $('copy-status').textContent = '已选中文字，请长按所选回复并选择“复制”；使用键盘时也可按 Ctrl / ⌘ + C。';
   }
 }
 

@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-17",
+  "date": "2026-10-20",
   "scope": "text, media, article, live-mode recovery, compact plugin UI, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction",
   "browser": "155.0.8059.84",
   "checks": [
@@ -16,7 +16,7 @@
     "malformed successful responses fail clearly without rendering garbage or losing input",
     "input and generated HTML-like text remain text, never executable markup",
     "320/390/1440px layouts do not overflow, mobile controls are at least 44px, reduced motion is respected",
-    "WeChat UA/touch simulation uses legacy one-tap copy when available and keeps selected-text fallback when both clipboard paths fail",
+    "WeChat UA/touch simulation shows return-to-chat guidance, uses legacy one-tap copy when available and keeps selected-text fallback when both clipboard paths fail",
     "configuration failure keeps live mode unavailable; local fallback and reconnect both work",
     "configuration outages preserve edited replies and provenance; reconnect respects the established or chosen mode",
     "tab reload restores edited reply, recipient, chosen mode and truthful LLM source without another generation",

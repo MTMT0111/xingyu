@@ -290,6 +290,7 @@ try {
   await wechatPage.goto(base, { waitUntil: 'networkidle' });
   await wechatPage.locator('#try-example').click();
   await generate(wechatPage);
+  assert.match(await wechatPage.locator('#share-note').innerText(), /当前在微信内.*左上角返回聊天/);
   await wechatPage.locator('#reply-text').fill('妈，收到您的关心啦。');
   await wechatPage.locator('#copy-reply').click();
   assert.match(await wechatPage.locator('#copy-status').innerText(), /已复制/);
@@ -300,7 +301,7 @@ try {
   assert.deepEqual(await wechatPage.locator('#reply-text').evaluate(el => [el.selectionStart, el.selectionEnd]), [0, '妈，收到您的关心啦。'.length]);
   await noOverflow(wechatPage, 390);
   await wechat.close();
-  check('WeChat UA/touch simulation uses legacy one-tap copy when available and keeps selected-text fallback when both clipboard paths fail');
+  check('WeChat UA/touch simulation shows return-to-chat guidance, uses legacy one-tap copy when available and keeps selected-text fallback when both clipboard paths fail');
 
   const recovery = await context.newPage();
   observe(recovery);
@@ -1336,7 +1337,7 @@ try {
 
   assert.deepEqual(errors, []);
   check('no uncaught JavaScript or Content Security Policy errors across exercised flows');
-  const report = { date: '2026-10-17', scope: 'text, media, article, live-mode recovery, compact plugin UI, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'plugin-inbound-390.png', 'inbound-share-390.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
+  const report = { date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date()), scope: 'text, media, article, live-mode recovery, compact plugin UI, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction', browser: await browser.version(), checks, passed: checks.length, errors, assets: Object.fromEntries(assets), typography, screenshots: ['desktop-empty.png', 'desktop-result.png', 'mobile-390.png', 'mobile-320.png', 'media-image-390.png', 'media-video-390.png', 'media-video-320.png', 'share-reply-390.png', 'share-reply-320.png', 'plugin-inbound-390.png', 'inbound-share-390.png', 'native-ready-390.png', 'native-ready-320.png'].map(name => `screenshots/core/${name}`), liveModelsCalled: false, mediaVerification: 'Real local image/MP4 preview and metadata; model responses mocked, cancellation and timeout recovery exercised', videoScreenshotFixture: { recipient: 'mother', duration: 11.417, frameCount: 6, audioStatus: 'transcribed', transcript: videoTranscript, transcriptSource: 'Recorded local ASR output from local-video-test-results.json; not rerun by this browser test', cloudResponses: 'mocked', previewReadyStateMinimum: 2 }, systemShareVerification: 'Web Share APIs and inbound Android bridge mocked; native share disabled in other test contexts; no message sent and no real phone or WeChat share sheet tested', nativeWechatVerification: { androidTransport: 'Mocked postMessage(JSON string) and onmessage', iosTransport: 'Mocked postMessage(object) and CustomEvent detail', nativeSdk: 'mocked; no native SDK or physical phone executed', nativeTimeout: 'Only the native 10000ms share timer accelerated to 25ms', messagesSent: false }, wechatVerification: 'Chromium UA/touch simulation and mocked native bridge only; no physical WeChat device tested', kiroAiReview: false };
   await writeFile(new URL('../browser-test-results.json', import.meta.url), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify({ passed: checks.length, screenshots: screenshotDir }));
 } finally {

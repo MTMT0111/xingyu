@@ -10,6 +10,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server.mjs",
     "test": "node --test tests/*.test.mjs",
+    "test:wechat-web": "node scripts/wechat-web-smoke.mjs",
     "test:live": "node --env-file-if-exists=.env scripts/live-smoke.mjs",
     "test:video": "node --env-file-if-exists=.env scripts/video-local-smoke.mjs"
   },

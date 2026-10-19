@@ -215,7 +215,7 @@ node tests/browser-smoke.mjs
 
 ## Kiro 的实际参与
 
-本版由 Codex 完成。Kiro 已完成登录；2026-10-14 对当前单列插件版再次实际调用只读审阅，仍返回账号临时锁定 `TEMPORARILY_SUSPENDED`（HTTP 403），未完成模型审阅或代码生成。不能将这算作 Kiro 已参与开发。
+本版由 Codex 完成。Kiro 已完成登录；2026-10-20 使用官方 Kiro CLI 2.32.0 对当前版本再次实际调用只读审阅，仍返回账号临时锁定 `TEMPORARILY_SUSPENDED`（HTTP 403），未完成模型审阅或代码生成。不能将这算作 Kiro 已参与开发。
 
 证据见 `KIRO.md`。`.kiro/steering/project.md` 已同步当前单页和媒体范围；`.kiro/specs/oil-letter-redesign/` 是旧油画书信版历史规格，当前范围以 `PRODUCT.md` 为准。旧规格中的多阶段流程不再是本版待做事项。
 

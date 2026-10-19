@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-20",
+  "url": "https://mtmt0111.github.io/haohaohui-demo/",
+  "profiles": [
+    {
+      "profile": "Android WeChat",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "passed": true,
+      "checks": [
+        "load",
+        "generate",
+        "edit",
+        "manual-copy",
+        "history-restore",
+        "no-overflow",
+        "44px-copy-target"
+      ]
+    },
+    {
+      "profile": "iPhone WeChat",
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "passed": true,
+      "checks": [
+        "load",
+        "generate",
+        "edit",
+        "manual-copy",
+        "history-restore",
+        "no-overflow",
+        "44px-copy-target"
+      ]
+    }
+  ],
+  "physicalDevice": false,
+  "messagesSent": false
+}

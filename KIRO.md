@@ -1,18 +1,18 @@
 # Kiro 接续与实际使用记录
 
-核验日期：2026-10-17。
+核验日期：2026-10-20。
 
 ## 当前事实
 
-2026-10-17 最新实际调用：对最终提交改动发起受限只读审阅，Kiro CLI 2.28.0 启动 KAS 0.66.26 并加载项目 Steering 后仍返回 `403 / TEMPORARILY_SUSPENDED`。当前账号限制已重新验证，未产生模型输出、工具调用或文件编辑；不能将本轮 Codex 实现计为 Kiro 开发。
+2026-10-20 最新实际调用：从 Kiro 官方 Windows MSI 安装并运行 Kiro CLI 2.32.0，确认 Builder ID 仍为登录状态；随后对当前 Android 悬浮球、微信内网页和比赛材料发起仅授权 `read,grep` 的只读审阅。KAS 0.66.43 启动后仍返回 `403 / TEMPORARILY_SUSPENDED`，未产生模型输出、工具调用或文件编辑；不能将本轮 Codex 实现计为 Kiro 开发。
 
 本轮 `.kiro/` 是 Codex 根据 Kiro 官方文档准备的项目配置。已下载、验证并实际启动 Kiro CLI，用户也已完成登录；实际项目审阅会话加载了 Steering，但被 Kiro 服务端的账号临时锁定错误阻断，**尚无 Kiro 模型审阅或生成结果**。环境启动和配置加载证据不能替代比赛中“Kiro 已实际开发”的证明。
 
 初始化前已检查 Windows PATH、常见 C/D 盘应用目录、卸载注册表和运行进程，以及 WSL Ubuntu-22.04 的 PATH 与 `~/.local/bin`，没有找到 Kiro IDE 或 CLI。没有配置 `KIRO_API_KEY`（只检查是否存在，没有读取任何密钥内容）。WSL 可运行，但报告本地代理转发与 systemd 用户会话提示；本次使用 Windows 原生 CLI。
 
-官方稳定 CLI 清单当日返回 `2.28.0`；Windows x64 包为约 281 MiB 的 MSI。已下载到工作区 `work/kiro/`，校验 SHA-256 与官方清单一致，Authenticode 状态为 `Valid`，签名主体 `Amazon Web Services, Inc.`。用 Windows Installer `/a` 仅解包到工作目录，退出码为 0；没有运行系统安装 `/i`，没有改系统 PATH。
+2026-10-20 官方稳定 CLI 清单返回 `2.32.0`；Windows x64 MSI 为 267,739,136 字节，SHA-256 `0d7b556b5315767d1f3a83bca466d632461fcc6379f103d6ad5558234263f299`。下载结果与官方清单一致，MSI 安装退出码为 0。
 
-实际可执行文件位于工作区 `work/kiro/unpacked/LocalApp/Kiro-Cli/kiro-cli.exe`。`--version` 返回 `kiro-cli-chat 2.28.0`；`chat --help` 与 `login --help` 均实际运行成功。
+实际可执行文件位于 `%LOCALAPPDATA%\kiro-cli\kiro-cli.exe`。`--version` 返回 `kiro-cli-chat 2.32.0`；`login --help` 和 `whoami` 均实际运行成功，`whoami` 只用于确认登录状态，仓库不记录账号或令牌。
 
 ## 项目已准备
 
@@ -24,7 +24,7 @@
 | `.kiro/specs/oil-letter-redesign/tasks.md` | 实际 Kiro 接续任务 | 保留未勾选 |
 | `.kiro/hooks/backend-check.json` | IDE 保存服务端/测试后运行 `npm test` | 本地 JSON/匹配规则检查；未在 Kiro 触发 |
 
-Hooks 使用当前文档的 `version: v1` JSON 格式。官方触发器表说明文件保存事件适用于 IDE 和 CLI V3；headless 文档说明 CLI 2.27.1 起 V3 引擎加载现版 hooks。已检查本机 2.28.0 帮助确有 `--v3`，仍需登录后在真实会话验证 hook 触发。
+Hooks 使用当前文档的 `version: v1` JSON 格式。官方触发器表说明文件保存事件适用于 IDE 和 CLI V3；headless 文档说明 CLI 2.27.1 起 V3 引擎加载现版 hooks。当前 2.32.0 已实际接受 `chat --v3`，仍需账号恢复后在成功会话中验证 hook 触发。
 
 ## 最小实际接续
 
@@ -110,3 +110,9 @@ Kiro Agent Server 0.66.26 启动，但提示阶段返回 HTTP 403、`TEMPORARILY
 Kiro Agent Server 0.66.26 启动，会话 `sess_fe94c8a9-dd17-4246-9e0c-cb5a80beacb6` 的 `steering_inclusion` 再次确认 `.kiro/steering/project.md` 已加载。提示阶段仍返回 HTTP 403、`TEMPORARILY_SUSPENDED`；显示请求 ID `07fcc331-716d-49df-8a54-51dc13ed307d`，KRS 请求 ID `38ba5c16-a20b-4e24-88e8-6960f46200cf`。结果仍为 **0 个模型输出、0 个工具调用、0 个文件修改**。因此本轮实现不能计为 Kiro 开发，比赛中 Kiro 使用深度的 35% 仍未满足，需由账号本人通过 [Kiro 官方支持](https://support.aws.amazon.com/#/contacts/kiro) 完成身份验证后再执行一次真实任务。
 
 聊天视频素材入口、Android 实验悬浮球与临时 HTTPS 回归完成后，又发起一次只读审阅，仅授权 `read,grep`，禁止读取 `.env`、试用口令、密钥和用户数据，也禁止执行 shell 或修改文件。Windows 原生 Kiro CLI 仍为 2.28.0，KAS 仍为 0.66.26；会话 `sess_e4f65373-5d71-4a8d-9c74-5310814c5ee5` 已加载 `.kiro/steering/project.md`，随后再次收到 HTTP 403、`TEMPORARILY_SUSPENDED`。显示请求 ID `04ecd8d1-ff81-4249-af40-8e90fcf4bbbd`，KRS 请求 ID `bd08d54b-1dfd-413c-8eb2-76ae4b9ea701`。结果仍为 **0 个模型输出、0 个工具调用、0 个文件修改**；本次不能计为 Kiro 审阅。
+
+## 2026-10-20 官方 CLI 2.32.0 重试
+
+重新读取官方活动页后，使用 Kiro 官方发布清单和 MSI 安装 Windows x64 CLI 2.32.0。安装包大小为 267,739,136 字节，SHA-256 与官方清单完全一致；`whoami` 确认 Builder ID 登录仍有效。随后运行 `chat --v3 --no-interactive --trust-tools=read,grep`，提示仅允许读取当前 Steering、Android 分享规格、悬浮球实现、微信内网页、比赛材料及测试，明确禁止读取 `.env`、密钥、口令、日志和用户数据，也禁止修改文件或执行 shell。
+
+Kiro Agent Server 0.66.43 成功启动，但在模型与工具执行前，KRS 返回 HTTP 403、`TEMPORARILY_SUSPENDED`。KRS 请求 ID 为 `60569381-fb8b-4e15-b02c-0348aa85f51b`，最终请求 ID 为 `58660bd4-f971-41ca-9546-6370a3c2ec4c`，退出码 1。结果仍为 **0 个模型输出、0 个工具调用、0 个文件修改**；因此 Kiro 使用深度的比赛硬条件截至 2026-10-20 仍未满足，只能由账号本人通过 [Kiro 官方支持](https://support.aws.amazon.com/#/contacts/kiro) 完成身份验证后重跑。
