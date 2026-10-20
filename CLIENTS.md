@@ -1,6 +1,6 @@
 # 知意 · 微信客户端接入
 
-微信小程序、安卓与 iPhone 客户端复用同一后端。小程序使用原生组件；Android 还支持系统分享、处理所选文字、显式粘贴、启动器静态快捷方式和快捷设置磁贴；AI 密钥留在服务器。“妈妈/爸爸/其他长辈”只是回复称呼，不是微信联系人选择器。
+Windows 悬浮助手、微信小程序、安卓与 iPhone 客户端复用同一后端。Windows 端使用系统 UI Automation 单次读取当前微信可见内容；小程序使用原生组件；Android 还支持系统分享、处理所选文字、显式粘贴、启动器静态快捷方式和快捷设置磁贴；AI 密钥留在服务器。“妈妈/爸爸/其他长辈”只是回复称呼，不是微信联系人选择器。
 
 **当前账号限制：**用户于 2026-10-10 在开放平台确认个人主体不能创建移动应用，本阶段暂停 AppID 申请。直接在页面调微信选联系人仍需合格主体的移动应用 AppID，以及匹配包名/签名；下面 SDK 流程不是当前可用状态。Android 通用系统分享收发、分析、复制和返回来源应用均不需要微信 AppID。
 
@@ -41,11 +41,12 @@
 
 | 平台 | 工程 | 构建方式 | 配置 |
 | --- | --- | --- | --- |
+| Windows | clients/windows | 系统 C# 编译器 + WinForms/UI Automation，无第三方依赖 | 本机服务默认 `http://127.0.0.1:4173`；远程服务只接受 HTTPS |
 | 微信小程序 | clients/wechat-miniprogram | 微信原生 WXML/WXSS/JavaScript，无第三方插件 | 已配置小程序 AppID；发布还需 HTTPS `request` 合法域名和隐私指引 |
 | Android | clients/android | Gradle，官方微信 SDK 6.8.40 | HTTPS 地址；Debug 另支持固定 USB 本地地址；AppID 仅 SDK 选人需要；包名 com.xingyu.reply |
 | iOS | clients/ios | XcodeGen + CocoaPods，官方微信 SDK 2.0.9 | xcconfig、URL Scheme、Universal Links、Associated Domains 与 Apple 签名 |
 
-完整步骤分别见 clients/android/README.md 和 clients/ios/README.md。安卓开发签名只供开发测试；正式版需使用自己持有的签名，并与微信开放平台登记的应用一致。iOS 必须在 Mac 上编译和签名，源码静态检查不是 iOS 编译通过。
+Windows 使用步骤见 clients/windows/README.md；移动端步骤分别见 clients/android/README.md 和 clients/ios/README.md。安卓开发签名只供开发测试；正式版需使用自己持有的签名，并与微信开放平台登记的应用一致。iOS 必须在 Mac 上编译和签名，源码静态检查不是 iOS 编译通过。
 
 仓库的 [Android 开发版 APK](downloads/xingyu-android-debug.apk) 已更新为带微信悬浮球与本机回复历史的 Debug 版：1,323,031 字节，SHA-256 `5b6b653061c656c96c1bdeccab035f351ec0d9dfbb13f353d22f872b78a98a97`，v2 签名校验通过；Debug/Release 各 16 个单元测试和 lint 通过。此前文字版已在 MEmu 的官方微信 8.0.79 登录页完成悬浮球闭环；当前 Android 11+ 单次截屏版仍待实体设备验收。
 
