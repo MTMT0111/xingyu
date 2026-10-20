@@ -15,11 +15,13 @@
     if (!item || typeof item !== 'object' || typeof item.id !== 'string' || item.id.length > 100 ||
         !Number.isFinite(item.createdAt) || !recipients.includes(item.recipient) || !tones.includes(item.tone) ||
         !Array.isArray(item.possibleMeanings) || item.possibleMeanings.length > 5) throw new Error('Invalid history item');
+    if (item.context !== undefined && (typeof item.context !== 'string' || Array.from(item.context).length > 200)) throw new Error('Invalid history context');
     return {
       id: item.id,
       createdAt: item.createdAt,
       recipient: item.recipient,
       tone: item.tone,
+      ...(item.context === undefined ? {} : { context: text(item.context, 400) }),
       source: text(item.source, 600),
       summary: text(item.summary, 1000),
       possibleMeanings: item.possibleMeanings.map(function (value) { return text(value, 200); }),

@@ -28,7 +28,7 @@
 
   <view class="composer">
     <view class="section-heading">
-      <text class="section-title">带入一条内容</text>
+      <text class="section-title">对方说了什么</text>
       <text class="section-caption">文字、文章、图片或视频</text>
     </view>
 
@@ -56,8 +56,14 @@
       <button class="remove-attachment" disabled="{{busy}}" bindtap="removeAttachment">移除</button>
     </view>
 
+    <button class="context-toggle" disabled="{{busy}}" bindtap="toggleContext">{{showContext ? '− 收起补充' : '+ 补充一句'}}<text class="optional-label">可选</text></button>
+    <view wx:if="{{showContext}}" class="context-box">
+      <textarea class="context-text" value="{{replyContext}}" disabled="{{busy}}" bindinput="onContextInput" maxlength="200" placeholder="比如：这是妈妈发来的，回短一点。或：这周没空，想婉拒。" />
+      <view class="context-note">{{mode === 'live' ? '不用选分类，直接说你的想法。' : '真实 AI 会参考这句话；离线体验使用固定文案。'}}</view>
+    </view>
+
     <view wx:if="{{error && !result}}" class="error-message">{{error}}</view>
-    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在理解内容' : '理解并生成回复'}}</button>
+    <button wx:if="{{!result}}" class="button primary" loading="{{busy}}" disabled="{{busy}}" bindtap="generateReply">{{busy ? '正在理解内容' : '帮我回一句'}}</button>
     <view wx:if="{{!result}}" class="privacy-note">内容只在你点击后提交，发送前仍由你确认。</view>
   </view>
 

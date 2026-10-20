@@ -171,6 +171,17 @@ test('mini program page connects and asks for one automatic natural reply', asyn
   assert.deepEqual(requests[1].data, { text: '天凉了，记得加衣服。', recipient: 'auto', tone: 'warm', mode: 'live', variant: 0 });
   assert.equal(page.data.replyText, '爸，谢谢你惦记。');
   assert.equal(page.data.busy, false);
+  page.onContextInput({ detail: { value: '这是爸爸发来的，简短一点' } });
+  assert.equal(page.data.result, null);
+  await page.generateReply();
+  assert.equal(requests.at(-1).data.context, '这是爸爸发来的，简短一点');
+  page.onContextInput({ detail: { value: '好'.repeat(201) } });
+  const count = requests.length;
+  await page.generateReply();
+  assert.match(page.data.error, /200/);
+  assert.equal(requests.length, count);
+  page.clearInput();
+  assert.equal(page.data.replyContext, '');
 });
 
 test('a repeated tap during startup connection sends only one reply request', async (t) => {

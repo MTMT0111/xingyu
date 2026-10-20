@@ -54,6 +54,13 @@
 .text-button { min-height: 58rpx; margin: 0; padding: 0 8rpx; background: transparent; color: #52675d; font-size: 22rpx; line-height: 58rpx; }
 
 .source-actions { gap: 10rpx; margin: 14rpx 0 20rpx; }
+.context-toggle { min-height: 88rpx; margin: 0; padding: 0; background: transparent; color: #286b54; font-size: 26rpx; line-height: 88rpx; text-align: left; }
+.optional-label { margin-left: 14rpx; color: #748078; font-size: 22rpx; }
+.context-box { margin-bottom: 22rpx; }
+.context-text { width: 100%; height: 172rpx; padding: 18rpx; border: 1rpx solid #d5ddd9; border-radius: 12rpx; background: #fff; font-size: 30rpx; line-height: 1.65; box-sizing: border-box; }
+.context-note { margin-top: 10rpx; color: #748078; font-size: 21rpx; line-height: 1.55; }
+button { min-height: 44px; }
+.source-text, .reply-text, .context-text { font-size: 16px; }
 .source-action {
   flex: 1;
   min-width: 0;

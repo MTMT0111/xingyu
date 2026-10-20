@@ -63,7 +63,7 @@
       : /视频|分享|转发|文章|链接|公众号|有意思|鸡汤|人生/.test(text) ? 'sharing'
       : /吃饭|熬夜|多穿|降温|天[凉冷]|保暖|关心|照顾|身体|保重/.test(text) ? 'care' : 'unclear';
     const template = replies[topic];
-    const tone = ['warm', 'brief', 'boundary'].includes(input.tone) ? input.tone : 'warm';
+    const tone = input.variant === 1 ? 'brief' : input.variant === 2 ? 'boundary' : ['warm', 'brief', 'boundary'].includes(input.tone) ? input.tone : 'warm';
     let generated = template[tone];
     if (input.recipient === 'mother') generated = `妈，${generated}`;
     else if (input.recipient === 'father') generated = `爸，${generated}`;
@@ -75,7 +75,7 @@
       reply: generated,
       decision_source: 'local_rules',
       generation_source: 'templates',
-      note: '公开 Demo · 本地规则和人工文案，未上传内容、未调用 AI。'
+      note: '公开 Demo · 本地规则和人工文案，未上传内容、未调用 AI。' + (input.context ? ' 补充说明需连接真实 AI 后才能理解。' : '')
     };
   }
 

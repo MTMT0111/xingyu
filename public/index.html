@@ -21,7 +21,7 @@
       </div>
       <span id="mode-label"><i aria-hidden="true"></i>本地示例 · 非实时 AI</span>
     </section>
-    <p class="plugin-lead">点一下读懂当前内容，回复前始终由你确认。</p>
+    <p class="plugin-lead">把对方发来的内容放进来，一起想一句合适的回复。</p>
 
     <ol class="workflow sr-only" aria-label="回复的三个步骤">
       <li id="step-input" aria-current="step"><span>1</span>放入内容</li>
@@ -46,38 +46,20 @@
     <section class="workbench" aria-label="微信内容回复助手">
       <form id="translate-form" class="input-panel" novalidate>
         <div class="panel-heading">
-          <div><span class="section-number">01</span><h2>带入一条内容</h2></div>
+          <div><span class="section-number">01</span><h2>对方说了什么</h2></div>
           <span class="tiny-label">不会自动发送</span>
-        </div>
-
-        <div class="preference-row">
-          <label>回复对象
-            <select id="recipient-select">
-              <option value="auto">自动判断</option>
-              <option value="mother">妈妈</option>
-              <option value="father">爸爸</option>
-              <option value="elder">其他长辈</option>
-            </select>
-          </label>
-          <label>回复方式
-            <select id="tone-select">
-              <option value="warm">认真聊聊</option>
-              <option value="brief">简短自然</option>
-              <option value="boundary">温和有边界</option>
-            </select>
-          </label>
         </div>
 
         <label for="source-text" class="sr-only">微信中的文字、公众号正文或链接</label>
         <div class="source-wrap">
-          <textarea id="source-text" rows="5" placeholder="粘贴聊天文字、群内评论、公众号正文或链接，也可以从微信直接分享进来。" aria-describedby="source-counter"></textarea>
+          <textarea id="source-text" rows="5" placeholder="粘贴一条消息、公众号链接，或添加对方分享的图片和视频…" aria-describedby="source-counter"></textarea>
           <span id="source-counter" class="counter">0 / 6000</span>
         </div>
         <div class="draft-row"><span id="draft-status" role="status">草稿仅在当前标签页暂存</span><button id="clear-draft" type="button" disabled>清空</button></div>
 
         <div class="attachment-tools">
           <div><strong>图片或短视频</strong><span>截图 ≤4 MB · 视频 ≤20 MB / 60 秒</span></div>
-          <label class="file-button" for="attachment-input">选择文件</label>
+          <button class="file-button" id="choose-attachment" type="button">添加附件</button>
           <input id="attachment-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mov" aria-describedby="attachment-help">
           <p id="attachment-help" class="sr-only">可以选择一张图片，或一段 20 MB、60 秒以内的短视频。</p>
         </div>
@@ -89,10 +71,17 @@
         </div>
         <p id="media-note" class="media-note" role="status" hidden></p>
 
+        <details id="context-panel" class="context-panel">
+          <summary>补充一句<span>可选</span></summary>
+          <label class="sr-only" for="reply-context">补充关系、近况或表达偏好</label>
+          <textarea id="reply-context" rows="2" maxlength="400" placeholder="比如：这是妈妈发来的，回短一点。或：这周没空，想婉拒。" aria-describedby="context-help context-counter"></textarea>
+          <div class="context-footer"><p id="context-help">不用选分类，直接说你的想法。</p><span id="context-counter">0 / 200</span></div>
+        </details>
+
         <div class="example-row"><span>想先看看效果？</span><button id="try-example" type="button">放入一条示例</button></div>
         <div id="form-error" class="error-message" role="alert" hidden></div>
         <div class="generation-actions">
-          <button id="translate-button" class="primary-button" type="submit"><span id="translate-button-text">读懂并准备回复</span><span aria-hidden="true">→</span></button>
+          <button id="translate-button" class="primary-button" type="submit"><span id="translate-button-text">帮我回一句</span><span aria-hidden="true">→</span></button>
           <button id="cancel-request" type="button" hidden>取消</button>
         </div>
         <p id="privacy-note" class="privacy-note">本地示例：按关键词匹配文案，未调用 AI。</p>
@@ -106,18 +95,21 @@
           <span id="result-status" class="tiny-label">等待内容</span>
         </div>
         <div id="empty-state" class="empty-state">
-          <span class="empty-line" aria-hidden="true"></span>
-          <p>生成后先确认内容，再放回当前聊天。</p>
+          <p>不必想好怎么回。<br><span>先读懂对方，再用自己的话回应。</span></p>
         </div>
         <div id="loading-state" class="loading-state" role="status" hidden><span class="loading-dot" aria-hidden="true"></span><span id="loading-text">正在想一句合适的回应…</span></div>
         <div id="result-content" hidden>
+          <details id="analysis-panel" class="analysis-panel"><summary>看看为什么这样回</summary>
           <div class="content-block"><h3>这段内容在说什么</h3><p id="content-summary"></p></div>
           <details id="content-evidence" class="content-evidence" hidden><summary>核对识别到的原文与画面</summary><div id="visual-evidence"><h4 id="visual-evidence-title">画面与文字</h4><p id="visual-summary"></p></div><div id="audio-evidence"><h4>视频中的话</h4><p id="audio-status"></p><p id="audio-transcript"></p></div><p id="evidence-coverage"></p></details>
           <div class="meaning-block"><h3>可能想和你聊什么</h3><ul id="possible-meanings"></ul><p class="tip-label">值得继续聊的方向</p><p id="reply-tip-text" class="reply-tip"></p></div>
+          </details>
           <div class="reply-label"><label for="reply-text">可以这样回</label><span>先改成自己的话</span></div>
           <textarea id="reply-text" rows="4" aria-label="可编辑的回复"></textarea>
+          <p id="result-error" class="error-message" role="alert" hidden></p>
           <div class="copy-row">
             <span id="copy-status" role="status"></span>
+            <button id="regenerate-reply" type="button">换一句</button>
             <button id="wechat-reply" class="primary-button" type="button" aria-describedby="share-note" disabled hidden><span id="wechat-reply-text">去微信选人</span><span aria-hidden="true">↗</span></button>
             <button id="return-source" class="primary-button" type="button" hidden><span>复制并返回</span><span aria-hidden="true">↩</span></button>
             <button id="copy-reply" type="button" disabled><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="6" y="5" width="9" height="11" rx="2"/><path d="M11 3H5a2 2 0 0 0-2 2v6"/></svg>复制回复</button>

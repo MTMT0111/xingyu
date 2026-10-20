@@ -98,17 +98,19 @@ try {
   await page.goto(base, { waitUntil: 'networkidle' });
   assert.match(await page.locator('#mode-label').innerText(), /本地|演示/);
   assert.equal(await page.locator('#mode-controls').isVisible(), false);
-  assert.equal(await page.locator('#recipient-select').inputValue(), 'auto');
+  assert.equal(await page.locator('#recipient-select, #tone-select').count(), 0);
+  assert.equal(await page.locator('#context-panel').evaluate(el => el.open), false);
   assert.equal(await page.locator('#empty-state').isVisible(), true);
   assert.equal(await page.locator('#result-content').isVisible(), false);
   assert.equal(await page.locator('.plugin-header').isVisible(), true);
-  assert.ok((await page.locator('main.container').boundingBox()).width <= 430, 'default UI must stay plugin-width');
+  assert.ok((await page.locator('main.container').boundingBox()).width >= 1000, 'desktop uses the available width');
+  assert.ok((await page.locator('#result-card').boundingBox()).x > (await page.locator('#translate-form').boundingBox()).x + 400, 'desktop panels sit side by side');
   await noOverflow(page, 1440);
   await page.keyboard.press('Tab');
   assert.equal(await page.locator('.skip-link').evaluate(el => el === document.activeElement), true);
   await page.locator('#hero-title').click();
   await capture(page, 'desktop-empty');
-  check('compact plugin initial state, honest demo disclosure and keyboard skip link');
+  check('responsive desktop initial state, honest demo disclosure and keyboard skip link');
 
   const typography = await page.evaluate(async () => {
     await document.fonts.ready;
@@ -118,11 +120,11 @@ try {
   assert.equal(await page.locator('.planet-art').count(), 0, 'the old planet decoration is removed');
   assert.equal(await page.locator('.brand-seal').count(), 0, 'the decorative brand seal is removed');
   assert.equal(await page.locator('#hero-title').innerText(), '知意');
-  assert.ok(typography.loadedFonts.length > 0, 'the local title font must load');
+  assert.equal(typography.loadedFonts.length, 0, 'system typography avoids downloading decorative fonts');
   assert.ok([...assets.values()].every(status => status === 200), 'all used local design assets must load');
   const brokenImages = await page.locator('img[src]').evaluateAll(images => images.filter(image => !image.complete || image.naturalWidth === 0).map(image => image.src));
   assert.deepEqual(brokenImages, []);
-  check('compact text brand, local typography and image assets render without browser-page decoration');
+  check('compact text brand and system typography render without decorative assets');
 
   let submitted = 0;
   const countRequests = request => { if (new URL(request.url()).pathname === '/api/reply') submitted++; };
@@ -141,7 +143,7 @@ try {
   await page.locator('#source-text').fill('鸡汤'.repeat(3000));
   await generate(page);
   assert.match(await page.locator('#source-counter').innerText(), /6000 \/ 6000/);
-  assert.ok((await page.locator('#content-summary').innerText()).length > 0);
+  assert.ok((await page.locator('#content-summary').textContent()).length > 0);
   check('a 6000-character article reaches the backend and renders its content summary');
 
   await page.locator('#try-example').click();
@@ -156,8 +158,8 @@ try {
   await generate(page);
   assert.deepEqual((await firstRequest).postDataJSON(), { text: '天凉了，多穿点。记得吃饭，别太累。', recipient: 'auto', tone: 'warm', mode: 'demo' });
   assert.ok(await page.locator('#possible-meanings li').count() >= 1);
-  assert.ok((await page.locator('#content-summary').innerText()).length > 0);
-  assert.ok((await page.locator('#reply-tip-text').innerText()).length > 0);
+  assert.ok((await page.locator('#content-summary').textContent()).length > 0);
+  assert.ok((await page.locator('#reply-tip-text').textContent()).length > 0);
   assert.equal(await page.locator('#source-text').isVisible(), true);
   assert.equal(await page.locator('#reply-text').isVisible(), true);
   assert.doesNotMatch(await page.locator('#reply-text').inputValue(), /^(妈|爸)/);
@@ -198,7 +200,7 @@ try {
   await pending;
   try {
     for (const id of ['source-text', 'reply-text']) assert.equal(await page.locator(`#${id}`).evaluate(el => el.readOnly), true, `${id} locks while pending`);
-    for (const id of ['recipient-select', 'tone-select', 'mode-select', 'translate-button', 'try-example', 'copy-reply']) assert.equal(await page.locator(`#${id}`).isDisabled(), true, `${id} locks while pending`);
+    for (const id of ['reply-context', 'regenerate-reply', 'mode-select', 'translate-button', 'try-example', 'copy-reply']) assert.equal(await page.locator(`#${id}`).isDisabled(), true, `${id} locks while pending`);
     await page.locator('#translate-form').evaluate(form => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
     assert.equal(retryRequests, 1);
@@ -206,24 +208,40 @@ try {
   await failedResponse;
   await settled(page);
   assert.match(await page.locator('#form-error').innerText(), /服务暂时不可用/);
+  assert.equal(await page.locator('#result-error').isVisible(), true, 'regeneration errors are also visible beside the preserved reply');
   assert.equal(await page.locator('#reply-text').inputValue(), editedReply);
   assert.equal(await page.locator('#source-text').inputValue(), '天凉了，多穿点。记得吃饭，别太累。');
   assert.equal(await page.locator('#result-content').isVisible(), true);
   assert.equal(await page.locator('#source-text').evaluate(el => el.readOnly), false);
-  assert.equal(await page.locator('#recipient-select').isDisabled(), false);
+  assert.equal(await page.locator('#reply-context').isDisabled(), false);
   await page.unroute('**/api/reply');
   await generate(page);
   assert.equal(await page.locator('#form-error').isVisible(), false);
+  assert.equal(await page.locator('#result-error').isVisible(), false);
   check('pending requests lock edits and prevent duplicates; failures preserve hand-edited drafts and retry succeeds');
 
-  for (const [recipient, salutation, forbidden] of [['father', /^爸/, /妈/], ['elder', /您/, /妈|爸|长辈，/]]) {
-    await page.locator('#recipient-select').selectOption(recipient);
-    assert.equal(await page.locator('#result-content').isVisible(), false);
-    await generate(page, recipient === 'father');
-    assert.match(await page.locator('#reply-text').inputValue(), salutation);
-    assert.doesNotMatch(await page.locator('#reply-text').inputValue(), forbidden);
-  }
-  check('recipient changes clear stale output and mom, dad, elder replies use correct addresses; Ctrl+Enter works');
+  await page.locator('#context-panel summary').click();
+  await page.locator('#reply-context').fill('这是爸爸发来的，回短一点');
+  assert.equal(await page.locator('#result-content').isVisible(), false);
+  const contextRequest = page.waitForRequest('**/api/reply');
+  await generate(page, true);
+  assert.equal((await contextRequest).postDataJSON().context, '这是爸爸发来的，回短一点');
+  assert.match(await page.locator('#result-note').innerText(), /不理解补充要求/);
+  await page.locator('#reply-context').fill('好'.repeat(201));
+  await page.locator('#translate-button').click();
+  assert.match(await page.locator('#form-error').innerText(), /200/);
+  await page.reload({ waitUntil: 'networkidle' });
+  assert.equal(await page.locator('#reply-context').inputValue(), '好'.repeat(201));
+  await page.locator('#reply-context').fill('');
+  await page.locator('#context-panel summary').click();
+  await generate(page);
+  const priorReply = await page.locator('#reply-text').inputValue();
+  const variantRequest = page.waitForRequest('**/api/reply');
+  await page.locator('#regenerate-reply').click();
+  await settled(page);
+  assert.equal((await variantRequest).postDataJSON().variant, 1);
+  assert.notEqual(await page.locator('#reply-text').inputValue(), priorReply);
+  check('optional context clears stale replies, enforces its limit, survives reload and supports Ctrl+Enter; in-place regeneration changes the reply');
 
   await page.locator('#source-text').fill('给你分享个抖音视频，你有空看看 https://v.douyin.com/example/');
   assert.equal(await page.locator('#result-content').isVisible(), false);
@@ -253,13 +271,13 @@ try {
   await generate(page);
   assert.equal(await page.evaluate(() => window.injected), undefined);
   assert.equal(await page.locator('#possible-meanings img, #possible-meanings script, #reply-tip-text svg, #reply-tip-text script').count(), 0);
-  assert.match(await page.locator('#possible-meanings').innerText(), /<img/);
+  assert.match(await page.locator('#possible-meanings').textContent(), /<img/);
   await page.unroute('**/api/reply');
   check('input and generated HTML-like text remain text, never executable markup');
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
-    await page.locator('#recipient-select').selectOption('mother');
+    assert.equal(await page.locator('#recipient-select').count(), 0);
     await page.locator('#source-text').fill('天凉了，记得穿暖一点。');
     await noOverflow(page, width);
     await generate(page);
@@ -360,12 +378,13 @@ try {
   });
   await tabDraft.goto(base, { waitUntil: 'networkidle' });
   await tabDraft.locator('#source-text').fill('吃饭了吗？');
-  await tabDraft.locator('#recipient-select').selectOption('father');
+  await tabDraft.locator('#context-panel summary').click();
+  await tabDraft.locator('#reply-context').fill('这是爸爸发来的，回短一点');
   await generate(tabDraft);
   await tabDraft.locator('#reply-text').fill('爸，刚忙完，准备吃饭了。你呢？');
   await tabDraft.reload({ waitUntil: 'networkidle' });
   assert.equal(await tabDraft.locator('#source-text').inputValue(), '吃饭了吗？');
-  assert.equal(await tabDraft.locator('#recipient-select').inputValue(), 'father');
+  assert.equal(await tabDraft.locator('#reply-context').inputValue(), '这是爸爸发来的，回短一点');
   assert.equal(await tabDraft.locator('#reply-text').inputValue(), '爸，刚忙完，准备吃饭了。你呢？');
   assert.equal(await tabDraft.locator('#mode-select').inputValue(), 'live');
   assert.match(await tabDraft.locator('#result-note').innerText(), /AI 分析 · AI 生成/);
@@ -373,7 +392,7 @@ try {
   assert.equal(draftRequests, 1, 'restoring a draft must not call a model again');
   await tabDraft.locator('#copy-reply').click();
   assert.equal(await tabDraft.evaluate(() => navigator.clipboard.readText()), '爸，刚忙完，准备吃饭了。你呢？');
-  check('tab reload restores edited reply, recipient, chosen mode and truthful LLM source without another generation');
+  check('tab reload restores edited reply, optional context, chosen mode and truthful LLM source without another generation');
   await tabDraft.locator('#history-panel summary').click();
   assert.ok(await tabDraft.locator('.history-item').count() >= 1);
   assert.equal(await tabDraft.locator('.history-item').first().locator('.history-reply').innerText(), '爸，刚忙完，准备吃饭了。你呢？');
@@ -381,7 +400,7 @@ try {
   await tabDraft.locator('.history-item').first().locator('.history-open').click();
   assert.equal(await tabDraft.locator('#source-text').inputValue(), '吃饭了吗？');
   assert.equal(await tabDraft.locator('#reply-text').inputValue(), '爸，刚忙完，准备吃饭了。你呢？');
-  check('device-local history restores the selected recipient, source and edited reply without another request');
+  check('device-local history restores the optional context, source and edited reply without another request');
   await tabDraft.locator('#attachment-input').setInputFiles({ name: 'draft.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6KXsAAAAASUVORK5CYII=', 'base64') });
   await settled(tabDraft);
   await tabDraft.reload({ waitUntil: 'networkidle' });
@@ -398,6 +417,20 @@ try {
   assert.equal(await tabDraft.locator('#result-content').isVisible(), false);
   assert.equal(await tabDraft.locator('#clear-draft').isDisabled(), true);
   assert.equal(await tabDraft.evaluate(() => sessionStorage.getItem('xingyu-draft-v1')), null);
+  const legacyDraft = await context.newPage();
+  observe(legacyDraft);
+  let legacyRequests = 0;
+  legacyDraft.on('request', request => { if (new URL(request.url()).pathname === '/api/reply') legacyRequests++; });
+  await legacyDraft.addInitScript(result => sessionStorage.setItem('xingyu-draft-v1', JSON.stringify({
+    text: '旧版草稿', recipient: 'father', tone: 'brief', mode: 'demo', hadAttachment: false,
+    submitted: { text: '旧版草稿', recipient: 'father', tone: 'brief' }, result, reply: '爸，刚忙完。'
+  })), resultFixture);
+  await legacyDraft.goto(base, { waitUntil: 'networkidle' });
+  assert.equal(await legacyDraft.locator('#reply-context').inputValue(), '回复爸爸，简短自然');
+  assert.equal(await legacyDraft.locator('#reply-text').inputValue(), '爸，刚忙完。');
+  assert.equal(legacyRequests, 0);
+  await legacyDraft.close();
+  check('legacy recipient and tone drafts migrate into editable context without losing the reply or calling AI');
   await tabDraft.addInitScript(() => sessionStorage.setItem('xingyu-draft-v1', '{broken-json'));
   await tabDraft.reload({ waitUntil: 'networkidle' });
   assert.equal(await tabDraft.locator('#result-content').isVisible(), false);
@@ -466,8 +499,8 @@ try {
   assert.match(await liveUI.locator('#privacy-note').innerText(), /发送/);
   assert.match(await liveUI.locator('#mode-label').innerText(), /真实 AI/);
   await liveUI.locator('#source-text').fill('吃饭了吗？');
-  await liveUI.locator('#recipient-select').selectOption('father');
-  await liveUI.locator('#tone-select').selectOption('boundary');
+  await liveUI.locator('#context-panel summary').click();
+  await liveUI.locator('#reply-context').fill('这是爸爸发来的，温和地表达自己的想法');
   await generate(liveUI);
   assert.equal(liveRequests[0].mode, 'live', 'configured environments use the real route on the first submission');
   await liveUI.locator('#mode-select').selectOption('demo');
@@ -476,7 +509,7 @@ try {
   assert.equal(await liveUI.locator('#result-content').isVisible(), false);
   assert.match(await liveUI.locator('#privacy-note').innerText(), /发送/);
   await generate(liveUI);
-  assert.deepEqual(liveRequests.at(-1), { text: '吃饭了吗？', recipient: 'father', tone: 'boundary', mode: 'live' });
+  assert.deepEqual(liveRequests.at(-1), { text: '吃饭了吗？', recipient: 'auto', tone: 'warm', mode: 'live', context: '这是爸爸发来的，温和地表达自己的想法' });
   assert.match(await liveUI.locator('#result-note').innerText(), /Jev.*AI/s);
   check('configured live UI passes reply style, defaults to real generation, declares transmission and shows provenance; explicit mode changes clear stale output (mocked)');
 
@@ -517,6 +550,7 @@ try {
   await generate(articlePage);
   assert.deepEqual(articleRequests[0], { text: articleText, recipient: 'auto', tone: 'warm', mode: 'live' });
   assert.equal(await articlePage.evaluate(() => window.__requestTimers.at(-1)), 60000);
+  await articlePage.locator('#analysis-panel > summary').click();
   await articlePage.locator('#content-evidence summary').click();
   assert.match(await articlePage.locator('#visual-evidence-title').innerText(), /文章标题与正文/);
   assert.match(await articlePage.locator('#visual-summary').innerText(), /读取到的正文.*<img/s);
@@ -640,7 +674,8 @@ try {
   assert.equal(await mediaPage.locator('#source-text').inputValue(), '');
   await generate(mediaPage);
   assert.deepEqual(mediaRequests[0], { text: '', recipient: 'auto', tone: 'warm', mode: 'live', attachment: { kind: 'image', name: imageFile.name, mime: 'image/png', data: pngBytes.toString('base64') } });
-  assert.match(await mediaPage.locator('#content-summary').innerText(), /图片.*养生/);
+  assert.match(await mediaPage.locator('#content-summary').textContent(), /图片.*养生/);
+  await mediaPage.locator('#analysis-panel > summary').click();
   assert.equal(await mediaPage.locator('#content-evidence').isVisible(), true);
   await mediaPage.locator('#content-evidence summary').click();
   assert.match(await mediaPage.locator('#visual-summary').innerText(), /规律作息/);
@@ -655,7 +690,7 @@ try {
   const pendingMedia = mediaPage.waitForRequest('**/api/reply');
   await mediaPage.locator('#translate-button').click();
   await pendingMedia;
-  for (const id of ['attachment-input', 'remove-attachment', 'translate-button', 'recipient-select', 'mode-select', 'copy-reply']) assert.equal(await mediaPage.locator(`#${id}`).isDisabled(), true, `${id} locks during media processing`);
+  for (const id of ['attachment-input', 'remove-attachment', 'translate-button', 'reply-context', 'mode-select', 'copy-reply']) assert.equal(await mediaPage.locator(`#${id}`).isDisabled(), true, `${id} locks during media processing`);
   assert.equal(await mediaPage.locator('#cancel-request').isVisible(), true);
   await mediaPage.locator('#translate-form').evaluate(form => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
   await mediaPage.locator('#cancel-request').click();
@@ -844,7 +879,7 @@ try {
   assert.doesNotMatch(JSON.stringify(firstShare.data), /https?:|private-original|attachment|possible_meanings|content_summary/);
   assert.equal(await sharePage.locator('#reply-text').evaluate(element => element.readOnly), true);
   assert.equal(await sharePage.locator('#source-text').evaluate(element => element.readOnly), true);
-  for (const id of ['share-reply', 'copy-reply', 'translate-button', 'recipient-select', 'mode-select', 'attachment-input', 'remove-attachment', 'try-example']) assert.equal(await sharePage.locator(`#${id}`).isDisabled(), true);
+  for (const id of ['share-reply', 'copy-reply', 'translate-button', 'reply-context', 'mode-select', 'attachment-input', 'remove-attachment', 'try-example']) assert.equal(await sharePage.locator(`#${id}`).isDisabled(), true);
   assert.equal(await sharePage.locator('#result-card').getAttribute('aria-busy'), 'false');
   assert.equal(await sharePage.locator('#loading-state').isVisible(), false, 'system sharing must not show AI generation progress');
   await sharePage.locator('#reply-text').press('x');
@@ -934,7 +969,7 @@ try {
     for (const id of ['share-reply', 'copy-reply']) assert.ok((await sharePage.locator(`#${id}`).boundingBox()).height >= 44);
     await capture(sharePage, `share-reply-${width}`);
   }
-  assert.deepEqual(await sharePage.locator('#recipient-select option').evaluateAll(options => options.map(option => [option.value, option.textContent])), [['auto', '自动判断'], ['mother', '妈妈'], ['father', '爸爸'], ['elder', '其他长辈']]);
+  assert.equal(await sharePage.locator('#recipient-select, #tone-select').count(), 0, 'no forced categories or fake contact chooser');
   check('share and copy stay usable at 320/390px with 44px buttons; relationship options never become fake WeChat contacts');
   await shareContext.close();
 
@@ -976,7 +1011,7 @@ try {
   assert.equal(await nativePage.evaluate(() => window.__nativeRawTypes.every(type => type === 'string')), true);
   assert.equal(await nativePage.locator('#reply-text').evaluate(element => element.readOnly), true);
   assert.equal(await nativePage.locator('#source-text').evaluate(element => element.readOnly), true);
-  for (const id of ['wechat-reply', 'copy-reply', 'translate-button', 'recipient-select', 'attachment-input']) assert.equal(await nativePage.locator(`#${id}`).isDisabled(), true);
+  for (const id of ['wechat-reply', 'copy-reply', 'translate-button', 'reply-context', 'attachment-input']) assert.equal(await nativePage.locator(`#${id}`).isDisabled(), true);
   assert.equal(await nativePage.locator('#result-card').getAttribute('aria-busy'), 'false');
   assert.equal(await nativePage.locator('#loading-state').isVisible(), false);
   await nativePage.locator('#wechat-reply').dispatchEvent('click');
@@ -1064,7 +1099,7 @@ try {
   await pluginPage.goto(`${base}/?host=android`, { waitUntil: 'networkidle' });
   const dispatchPluginInbound = detail => pluginPage.evaluate(value => window.dispatchEvent(new CustomEvent('xingyu-inbound-share', { detail: value })), detail);
   assert.equal(await pluginPage.locator('body').getAttribute('data-host'), 'android');
-  for (const selector of ['.workflow', '.draft-row', '.example-row', '.preference-row', '.mode-controls', '.empty-state']) assert.equal(await pluginPage.locator(selector).isHidden(), true);
+  for (const selector of ['.workflow', '.draft-row', '.example-row', '.mode-controls', '.empty-state']) assert.equal(await pluginPage.locator(selector).isHidden(), true);
   assert.equal(await pluginPage.locator('.plugin-header').isVisible(), true);
   await dispatchPluginInbound({ schemaVersion: 1, type: 'inboundShare', id: 'clipboard-entry', entry: 'clipboard', text: '妈妈问我今天有没有按时吃饭。' });
   assert.equal(await pluginPage.locator('#inbound-share-title').innerText(), '剪贴板里的一段文字');

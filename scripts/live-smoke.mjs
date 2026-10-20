@@ -101,7 +101,10 @@ try {
       report.cases.push(record);
       if (await page.locator('#remove-attachment').isVisible()) await page.locator('#remove-attachment').click();
       await page.locator('#source-text').fill(sample.text);
-      await page.locator('#recipient-select').selectOption(sample.recipient);
+      await page.locator('#context-panel').evaluate(element => { element.open = true; });
+      const replyContext = ({ mother: '这是妈妈发来的，请称呼妈，回复简短一点', father: '这是爸爸发来的，请称呼爸', elder: '这是长辈发来的，请用您称呼' })[sample.recipient];
+      await page.locator('#reply-context').fill(replyContext);
+      record.context = replyContext;
       if (sample.attachment) {
         await page.locator('#attachment-input').setInputFiles(sample.attachment.kind === 'image' ? imagePath : videoPath);
         await page.locator('#attachment-preview').waitFor({ state: 'visible' });
@@ -115,7 +118,7 @@ try {
       record.elapsedMs = Math.round(performance.now() - started);
       record.httpStatus = response.status();
       const sent = response.request().postDataJSON();
-      check(sent?.mode === 'live' && sent.text === sample.text && sent.recipient === sample.recipient, 'REQUEST_NOT_LIVE_OR_MISMATCHED');
+      check(sent?.mode === 'live' && sent.text === sample.text && sent.recipient === 'auto' && Boolean(sent.context), 'REQUEST_NOT_LIVE_OR_MISMATCHED');
       if (sample.attachment) check(sent.attachment?.kind === sample.attachment.kind && sent.attachment.name === sample.attachment.name &&
         sent.attachment.mime === (sample.attachment.kind === 'image' ? 'image/png' : 'video/mp4') && typeof sent.attachment.data === 'string' && sent.attachment.data.length > 100, 'ATTACHMENT_NOT_SENT');
       const data = await response.json();
@@ -146,10 +149,11 @@ try {
       await page.locator('#result-content').waitFor({ state: 'visible' });
       await page.waitForFunction(() => !document.getElementById('translate-button').disabled);
       check(await page.locator('#reply-text').inputValue() === data.reply, 'REPLY_NOT_RENDERED_EXACTLY');
+      await page.locator('#analysis-panel').evaluate(element => { element.open = true; });
       check(await page.locator('#content-summary').innerText() === data.content_summary, 'SUMMARY_NOT_RENDERED_EXACTLY');
       check((await page.locator('#possible-meanings li').count()) === data.possible_meanings.length, 'ANALYSIS_NOT_RENDERED');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'MOBILE_HORIZONTAL_OVERFLOW');
-      check(sample.recipient === 'elder' ? /您/.test(data.reply) : data.reply.startsWith(sample.recipient === 'mother' ? '妈' : '爸'), 'RECIPIENT_MISMATCH');
+      check(sample.recipient === 'elder' ? /您/.test(data.reply) : data.reply.includes(sample.recipient === 'mother' ? '妈' : '爸'), 'RECIPIENT_MISMATCH');
       check(!/我(?:已经|刚刚|刚|认真)?(?:看完|看过|看了|查了|查过|没查到)|我回头问(?:问)?医生/.test(data.reply), 'UNSUPPORTED_PERSONAL_ACTION');
       const forbidden = {
         'care-mother': /我(?:已经|刚刚|刚)(?:吃过|吃了|穿好)|体检(?:结果)?(?:全绿|正常)/,

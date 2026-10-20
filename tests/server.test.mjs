@@ -4,7 +4,7 @@ import { request } from 'node:http';
 import { once } from 'node:events';
 import test from 'node:test';
 import { createServer } from '../server.mjs';
-import { generateLocal, selectStrategy, validateDecision, validateInput } from '../lib/translate.mjs';
+import { generateLocal, selectStrategy, validateDecision, validateGeneration, validateInput } from '../lib/translate.mjs';
 
 const input = (overrides = {}) => ({ text: '这 10 种食物千万别再吃了！', context: '', recipient: 'mother', tone: 'warm', mode: 'demo', variant: 0, ...overrides });
 const liveConfig = {
@@ -153,6 +153,18 @@ test('strategy boundaries retain health caution and low-confidence ambiguity', (
   assert.equal(choose({ confidence: 0.5999 }), 'uncertain');
   assert.equal(choose({ confidence: 0.6 }), 'warm');
   assert.equal(choose({ topic: 'unclear', confidence: 1 }), 'uncertain');
+});
+
+test('valid extra model hypotheses are bounded without relaxing ambiguity or field validation', () => {
+  const meanings = ['可能想见见你。', '也许想一起吃饭。', '或许想聊聊近况。'];
+  assert.deepEqual(validateGeneration({ ...generation, possible_meanings: meanings }, 'uncertain').possible_meanings, meanings.slice(0, 2));
+  assert.equal(meanings.length, 3, 'provider data is not mutated');
+  assert.throws(() => validateGeneration({ ...generation, possible_meanings: [meanings[0]] }, 'uncertain'));
+  for (const extra of [42, '', '他肯定非常焦虑', '可能' + '好'.repeat(100)]) {
+    assert.throws(() => validateGeneration({ ...generation, possible_meanings: [...meanings, extra] }, 'uncertain'));
+  }
+  assert.throws(() => validateGeneration({ ...generation, possible_meanings: Array(6).fill(meanings[0]) }, 'uncertain'));
+  assert.throws(() => validateGeneration({ ...generation, reply: '', possible_meanings: meanings }, 'uncertain'));
 });
 
 test('local generation offers usable variations without inventing the child’s recent life', () => {

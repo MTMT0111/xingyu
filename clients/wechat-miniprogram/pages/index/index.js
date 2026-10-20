@@ -63,6 +63,8 @@ Page({
     mode: 'demo',
     sourceText: '',
     sourceCount: 0,
+    replyContext: '',
+    showContext: false,
     attachment: null,
     attachmentDetail: '',
     busy: false,
@@ -201,9 +203,16 @@ Page({
     this.clearResult();
   },
 
+  toggleContext() { this.setData({ showContext: !this.data.showContext }); },
+  onContextInput(event) {
+    if (this.data.busy) return;
+    this.setData({ replyContext: event.detail.value, error: '' });
+    this.clearResult();
+  },
+
   clearInput() {
     if (this.data.busy) return;
-    this.setData({ sourceText: '', sourceCount: 0, attachment: null, attachmentDetail: '', error: '' });
+    this.setData({ sourceText: '', sourceCount: 0, replyContext: '', showContext: false, attachment: null, attachmentDetail: '', error: '' });
     this.clearResult();
   },
 
@@ -270,6 +279,8 @@ Page({
     const previous = this.data.result;
     try {
       const text = validateMessage(this.data.sourceText, Boolean(this.data.attachment));
+      const context = this.data.replyContext.trim();
+      if (codepointLength(context) > 200) throw new Error('补充说明请控制在 200 字以内。');
       this.setData({ busy: true, error: '', showSettings: false });
       if (!this.data.connected) await this.checkConnection(true);
       if (!this.data.connected) {
@@ -289,6 +300,7 @@ Page({
         mode: this.data.mode,
         variant: this.data.result ? (this.data.variant + 1) % 3 : this.data.variant
       };
+      if (context) payload.context = context;
       if (this.data.attachment) {
         // shortcut: reuse the existing JSON API; switch to streamed upload before raising the 20 MB limit.
         payload.attachment = {

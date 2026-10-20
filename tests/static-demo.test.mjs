@@ -14,6 +14,8 @@ test('public static demo completes a private, editable text reply without an API
   assert.match(result.reply, /核实/);
   assert.equal(result.generation_source, 'templates');
   assert.match(result.note, /未上传内容/);
+  assert.notEqual(demo.reply({ text: '多穿点，注意保暖', variant: 0 }).reply, demo.reply({ text: '多穿点，注意保暖', variant: 1 }).reply);
+  assert.match(demo.reply({ text: '你好', context: '回短一点' }).note, /真实 AI/);
   assert.throws(() => demo.reply({ text: '', recipient: 'mother', tone: 'warm' }));
   assert.throws(() => demo.reply({ text: '视频', attachment: { kind: 'video' } }));
 });
@@ -51,6 +53,12 @@ test('local history keeps safe summaries and the latest 20 replies', async () =>
   assert.equal(history.read(storage)[0].id, 'item-21');
   history.updateReply(storage, 'item-21', '我会照顾好自己。');
   assert.equal(history.read(storage)[0].reply, '我会照顾好自己。');
+  const entry = history.read(storage)[0];
+  assert.equal(entry.context, undefined, 'legacy entries remain readable for migration');
+  history.add(storage, { ...entry, context: '这是爸爸发来的，回短一点' });
+  assert.equal(history.read(storage)[0].context, '这是爸爸发来的，回短一点');
+  assert.throws(() => history.add(storage, { ...entry, context: '好'.repeat(201) }));
+  assert.throws(() => history.add(storage, { ...entry, context: { instruction: 'invalid' } }));
   assert.throws(() => history.add(storage, { id: 'unsafe', createdAt: 1, recipient: 'stranger', tone: 'warm', source: '', summary: '', possibleMeanings: [], replyTip: '', reply: '' }));
   history.clear(storage);
   assert.equal(history.read(storage).length, 0);

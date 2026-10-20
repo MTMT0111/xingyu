@@ -13,6 +13,7 @@ const settle = promises => Promise.all(promises.map(promise => Promise.resolve(p
 const requestId = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID() :
   Array.from(crypto.getRandomValues(new Uint32Array(4)), value => value.toString(16).padStart(8, '0')).join('-');
 const state = { busy: false, sharing: false, initializing: false, mode: 'demo', modeSettled: false, liveAvailable: false, mediaAvailable: false, videoAvailable: false, attachment: null, controller: null, result: null, submitted: null, exampleIndex: -1, currentHistoryId: null };
+let replyVariant = 0;
 let pendingConfig = null;
 let pendingAndroidAutoGenerate = null;
 const draftKey = 'xingyu-draft-v1';
@@ -22,6 +23,14 @@ let pendingInboundShare = null;
 let activeInboundId = null;
 let acceptingInboundShare = false;
 const recipientNames = { auto: '自动判断', mother: '妈妈', father: '爸爸', elder: '其他长辈' };
+function savedContext(item) {
+  if (item.context !== undefined) {
+    if (typeof item.context !== 'string' || item.context.length > 4000) throw new Error('Invalid reply context');
+    return item.context;
+  }
+  // Preserve old recipient/tone choices as editable words when restoring earlier drafts.
+  return [item.recipient !== 'auto' ? '回复' + recipientNames[item.recipient] : '', { brief: '简短自然', boundary: '温和有边界' }[item.tone] || ''].filter(Boolean).join('，');
+}
 let examples = [
   { text: '今天降温了，多穿点。忙也要记得吃饭，别总熬夜。' },
   { text: '这周末有空回来吃饭吗？想给你做你爱吃的菜。' },
@@ -60,9 +69,11 @@ async function requestJSON(url, options, { timeout = 32000, signal } = {}) {
 function showError(message) {
   $('form-error').textContent = message;
   $('form-error').hidden = false;
+  $('result-error').textContent = message;
+  $('result-error').hidden = !state.result;
 }
 
-function clearError() { $('form-error').hidden = true; }
+function clearError() { $('form-error').hidden = true; $('result-error').hidden = true; }
 
 function readHistory() {
   try { return window.ZhiyiHistory.read(localStorage); }
@@ -84,7 +95,7 @@ function renderHistory() {
     const meta = document.createElement('div');
     meta.className = 'history-meta';
     const recipient = document.createElement('span');
-    recipient.textContent = recipientNames[item.recipient];
+    recipient.textContent = '回复记录';
     const time = document.createElement('time');
     time.dateTime = new Date(item.createdAt).toISOString();
     time.textContent = new Date(item.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -111,6 +122,7 @@ function rememberResult(text, payload, data) {
     createdAt: Date.now(),
     recipient: payload.recipient,
     tone: payload.tone,
+    context: payload.context || '',
     source: text.slice(0, 600),
     summary: data.content_summary,
     possibleMeanings: data.possible_meanings,
@@ -135,8 +147,8 @@ function openHistory(id) {
   if (!item || state.busy || state.sharing) return;
   updateAttachment(null);
   $('source-text').value = item.source;
-  $('recipient-select').value = item.recipient;
-  $('tone-select').value = item.tone;
+  $('reply-context').value = savedContext(item);
+  $('context-panel').open = Boolean($('reply-context').value);
   const result = {
     content_summary: item.summary,
     possible_meanings: item.possibleMeanings,
@@ -148,7 +160,7 @@ function openHistory(id) {
   };
   renderResult(result);
   $('reply-text').value = item.reply;
-  state.submitted = { text: item.source.trim(), recipient: item.recipient, tone: item.tone };
+  state.submitted = { text: item.source.trim(), recipient: 'auto', tone: 'warm', context: $('reply-context').value.trim() };
   state.currentHistoryId = item.id;
   countInput();
   updateControls();
@@ -171,9 +183,9 @@ function saveDraft() {
       saved[key] = state.result[key];
       return saved;
     }, {});
-    const draft = { text: $('source-text').value, recipient: $('recipient-select').value, tone: $('tone-select').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect) };
+    const draft = { text: $('source-text').value, recipient: 'auto', tone: 'warm', context: $('reply-context').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect) };
     if (draft.text.length > 24000 || draft.reply.length > 20000) throw new Error('Draft too large');
-    if (draft.text || result || draft.hadAttachment) sessionStorage.setItem(draftKey, JSON.stringify(draft));
+    if (draft.text || draft.context || result || draft.hadAttachment) sessionStorage.setItem(draftKey, JSON.stringify(draft));
     else sessionStorage.removeItem(draftKey);
     const status = attachmentNeedsReselect ? '草稿已恢复；附件需重新选择' : '草稿仅在当前标签页暂存';
     if ($('draft-status').textContent !== status) $('draft-status').textContent = status;
@@ -191,13 +203,15 @@ function restoreDraft() {
     const draft = JSON.parse(raw);
     const tone = draft && draft.tone === undefined ? 'warm' : draft ? draft.tone : undefined;
     if (!draft || typeof draft.text !== 'string' || draft.text.length > 24000 || typeof draft.reply !== 'string' || draft.reply.length > 20000 || !['auto', 'mother', 'father', 'elder'].includes(draft.recipient) || !['warm', 'brief', 'boundary'].includes(tone) || !['demo', 'live'].includes(draft.mode) || typeof draft.hadAttachment !== 'boolean') throw new Error('Invalid draft');
+    const context = savedContext(draft);
     if (draft.result) {
       validateResult(draft.result);
       if (!draft.submitted || draft.submitted.text !== draft.text.trim() || draft.submitted.recipient !== draft.recipient || (draft.submitted.tone == null ? 'warm' : draft.submitted.tone) !== tone) throw new Error('Stale draft');
+      if (savedContext(draft.submitted).trim() !== context.trim()) throw new Error('Stale context');
     }
     $('source-text').value = draft.text;
-    $('recipient-select').value = draft.recipient;
-    $('tone-select').value = tone;
+    $('reply-context').value = context;
+    $('context-panel').open = Boolean(context);
     $('mode-select').value = draft.mode;
     state.mode = draft.mode;
     state.modeSettled = true;
@@ -206,7 +220,7 @@ function restoreDraft() {
     if (draft.result) {
       renderResult(draft.result);
       $('reply-text').value = draft.reply;
-      state.submitted = draft.submitted;
+      state.submitted = { text: draft.text.trim(), recipient: 'auto', tone: 'warm', context: context.trim() };
       $('empty-state').hidden = true;
       $('result-status').textContent = '已恢复，可继续编辑';
       $('result-note').textContent += ' 当前为恢复的草稿；识别全文未暂存。';
@@ -222,6 +236,8 @@ function clearDraft() {
   if (state.busy || state.sharing) return;
   attachmentNeedsReselect = false;
   $('source-text').value = '';
+  $('reply-context').value = '';
+  $('context-panel').open = false;
   updateAttachment(null);
   countInput();
   saveDraft();
@@ -233,6 +249,7 @@ function countInput() {
   const count = Array.from($('source-text').value).length;
   $('source-counter').textContent = count + ' / 6000';
   $('source-counter').classList.toggle('over-limit', count > 6000);
+  $('context-counter').textContent = Array.from($('reply-context').value).length + ' / 200';
   $('source-text').setAttribute('aria-invalid', String(count > 6000));
   document.querySelector('.source-wrap').classList.toggle('invalid', count > 6000);
 }
@@ -335,7 +352,7 @@ function normalizeInboundShare(value) {
 }
 
 function hasDraftContent() {
-  return Boolean($('source-text').value.trim() || state.attachment || state.result || $('reply-text').value.trim() || attachmentNeedsReselect);
+  return Boolean($('source-text').value.trim() || $('reply-context').value.trim() || state.attachment || state.result || $('reply-text').value.trim() || attachmentNeedsReselect);
 }
 
 function acknowledgeInbound(id, action, finish = false) {
@@ -414,6 +431,8 @@ async function acceptInboundShare() {
     }
     updateAttachment(nextAttachment);
     $('source-text').value = inbound.text;
+    $('reply-context').value = '';
+    $('context-panel').open = false;
     inputChanged();
     activeInboundId = inbound.id;
     acknowledgeInbound(inbound.id, 'accepted');
@@ -430,7 +449,7 @@ async function acceptInboundShare() {
     if (accepted) {
       if (autoGenerate && state.initializing) pendingAndroidAutoGenerate = {
         text: $('source-text').value,
-        recipient: $('recipient-select').value,
+        context: $('reply-context').value,
         attachment: state.attachment
       };
       else if (autoGenerate) generateReply();
@@ -460,15 +479,15 @@ function updateControls() {
   const locked = state.busy || state.sharing || acceptingInboundShare;
   if (!locked && pendingInboundShare && $('inbound-share').hidden) presentInboundShare(pendingInboundShare);
   const empty = !state.result || !$('reply-text').value.trim();
-  if (!state.busy) $('translate-button-text').textContent = state.result ? '换一种回复' : '读懂并准备回复';
-  $('clear-draft').disabled = locked || !($('source-text').value || state.result || state.attachment || attachmentNeedsReselect);
+  if (!state.busy) $('translate-button-text').textContent = state.result ? '再想一句' : '帮我回一句';
+  $('clear-draft').disabled = locked || !($('source-text').value || $('reply-context').value || state.result || state.attachment || attachmentNeedsReselect);
   for (const id of ['step-input', 'step-understand', 'step-reply']) {
     if (id === (state.busy ? 'step-understand' : state.result ? 'step-reply' : 'step-input')) $(id).setAttribute('aria-current', 'step');
     else $(id).removeAttribute('aria-current');
   }
   $('source-text').readOnly = locked;
   $('reply-text').readOnly = locked;
-  for (const id of ['translate-button', 'recipient-select', 'tone-select', 'mode-select', 'try-example', 'retry-init', 'attachment-input', 'remove-attachment']) $(id).disabled = locked;
+  for (const id of ['translate-button', 'regenerate-reply', 'reply-context', 'mode-select', 'try-example', 'retry-init', 'attachment-input', 'choose-attachment', 'remove-attachment']) $(id).disabled = locked;
   $('retry-init').disabled = locked || state.initializing;
   $('copy-reply').disabled = locked || empty;
   $('share-reply').hidden = !canShareReply();
@@ -493,11 +512,12 @@ function setBusy(busy, phase = 'text') {
   $('empty-state').hidden = busy || Boolean(state.result);
   updateControls();
   $('cancel-request').hidden = !busy || !state.controller;
-  $('translate-button-text').textContent = !busy ? (state.result ? '换一种回复' : '读懂并准备回复') : phase === 'prepare' ? '正在准备附件…' : phase === 'media' ? '正在读懂内容…' : phase === 'article' ? '正在读懂文章…' : '正在想一句回复…';
+  $('translate-button-text').textContent = !busy ? (state.result ? '再想一句' : '帮我回一句') : phase === 'prepare' ? '正在准备附件…' : phase === 'media' ? '正在读懂内容…' : phase === 'article' ? '正在读懂文章…' : '正在想一句回复…';
   $('loading-text').textContent = phase === 'prepare' ? '正在检查附件，文件还没有上传。' : phase === 'media' ? '正在识别内容、整理理解。视频可能需要一两分钟，可以随时取消。' : phase === 'article' ? '正在读取公众号正文、整理理解，可以随时取消。' : '正在想一句合适的回应…';
 }
 
 function clearResult() {
+  replyVariant = 0;
   nativeWechat.lastShare = null;
   state.result = null;
   state.submitted = null;
@@ -514,9 +534,9 @@ function inputChanged() {
   pendingAndroidAutoGenerate = null;
   countInput();
   clearError();
-  if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('recipient-select').value !== state.submitted.recipient || $('tone-select').value !== (state.submitted.tone == null ? 'warm' : state.submitted.tone))) {
+  if (state.submitted && ($('source-text').value.trim() !== state.submitted.text || $('reply-context').value.trim() !== state.submitted.context)) {
     clearResult();
-    $('result-announcement').textContent = '消息或回复对象已修改，请重新生成。';
+    $('result-announcement').textContent = '内容或补充说明已修改，请重新生成。';
   }
   updateControls();
   saveDraft();
@@ -533,6 +553,7 @@ function updateModeNotice() {
   const live = state.mode === 'live';
   $('mode-label').lastChild.textContent = live ? '真实 AI · 在线生成' : '本地示例 · 非实时 AI';
   $('privacy-note').textContent = live ? '点击生成后，文字及所选附件将发送到配置的 AI 服务。' : '本地示例：按关键词匹配文案，未调用 AI。';
+  $('context-help').textContent = live ? '不用选分类，直接说你的想法。' : '真实 AI 会参考这句话；本地示例使用固定文案。';
   updateMediaNotice();
 }
 
@@ -734,7 +755,15 @@ async function generateReply() {
   }
   const unavailable = mediaError();
   if (unavailable) { showError(unavailable); return; }
-  const payload = { text, recipient: $('recipient-select').value, tone: $('tone-select').value, mode: state.mode };
+  const context = $('reply-context').value.trim();
+  if (Array.from(context).length > 200) {
+    showError('补充说明请控制在 200 字以内。');
+    $('context-panel').open = true;
+    $('reply-context').focus();
+    return;
+  }
+  const payload = { text, recipient: 'auto', tone: 'warm', mode: state.mode, ...(context ? { context } : {}) };
+  if (state.result) payload.variant = (replyVariant + 1) % 3;
   state.modeSettled = true;
   const attachment = state.attachment;
   const article = !attachment && state.mode === 'live' && /https:\/\/mp\.weixin\.qq\.com\/s(?:[/?#\s]|$)/i.test(text);
@@ -747,14 +776,15 @@ async function generateReply() {
     if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
     validateResult(data, attachment && attachment.kind || (article ? 'article' : undefined));
     renderResult(data);
-    state.submitted = { text, recipient: payload.recipient, tone: payload.tone };
+    replyVariant = payload.variant || 0;
+    state.submitted = { text, recipient: payload.recipient, tone: payload.tone, context };
     rememberResult(text, payload, data);
     saveDraft();
     $('result-announcement').textContent = '分析和回复已准备好，可以编辑并复制。';
     $('result-title').focus({ preventScroll: true });
     if (document.body.dataset.host === 'android') {
       requestAnimationFrame(() => scrollIntoViewNow($('reply-text'), 'start'));
-    } else if (matchMedia('(max-width: 650px)').matches) {
+    } else if (matchMedia('(max-width: 760px)').matches) {
       $('result-card').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     }
   } catch (error) {
@@ -863,14 +893,16 @@ async function initialize() {
   if (pendingAndroidAutoGenerate) {
     const pending = pendingAndroidAutoGenerate;
     pendingAndroidAutoGenerate = null;
-    if (!pendingInboundShare && $('source-text').value === pending.text && $('recipient-select').value === pending.recipient && state.attachment === pending.attachment) generateReply();
+    if (!pendingInboundShare && $('source-text').value === pending.text && $('reply-context').value === pending.context && state.attachment === pending.attachment) generateReply();
   }
 }
 
 $('translate-form').addEventListener('submit', event => { event.preventDefault(); generateReply(); });
 $('source-text').addEventListener('input', inputChanged);
-$('recipient-select').addEventListener('change', inputChanged);
-$('tone-select').addEventListener('change', inputChanged);
+$('reply-context').addEventListener('input', inputChanged);
+$('reply-context').addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); generateReply(); } });
+$('regenerate-reply').addEventListener('click', generateReply);
+$('choose-attachment').addEventListener('click', () => $('attachment-input').click());
 $('source-text').addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); generateReply(); } });
 $('try-example').addEventListener('click', () => {
   if (state.busy || state.sharing) return;

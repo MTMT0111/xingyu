@@ -44,11 +44,10 @@ try {
     assert.equal(await page.locator('#hero-title').innerText(), '知意');
     assert.match(await page.locator('#mode-label').innerText(), /本地示例/);
     await page.locator('#source-text').fill('天凉了，记得穿暖一点，也要按时吃饭。');
-    await page.locator('#recipient-select').selectOption('mother');
-    await page.locator('#tone-select').selectOption('brief');
+    assert.equal(await page.locator('#recipient-select, #tone-select').count(), 0);
     await page.locator('#translate-button').click();
     await page.locator('#result-content').waitFor({ state: 'visible' });
-    assert.match(await page.locator('#reply-text').inputValue(), /^妈，/);
+    assert.ok((await page.locator('#reply-text').inputValue()).length > 0);
     assert.match(await page.locator('#share-note').innerText(), /当前在微信内.*左上角返回聊天/);
     await page.locator('#reply-text').fill('妈，知道啦，我会照顾好自己，你也要注意保暖。');
     await page.locator('#copy-reply').click();
