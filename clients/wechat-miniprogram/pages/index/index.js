@@ -238,6 +238,15 @@ Page({
     });
   },
 
+  showVideoShareGuide() {
+    wx.showModal({
+      title: '把聊天视频交给知意',
+      content: '回到微信聊天，长按要回复的视频，点“更多”或“用小程序打开”，选择知意的视频分析入口。视频回到这里后会自动载入；检查素材，再点“帮我回一句”。只有点生成时才会上传分析。若菜单没有知意入口，可先保存视频，再从“选聊天文件”导入。',
+      confirmText: '知道了',
+      showCancel: false
+    });
+  },
+
   chooseMedia() {
     if (!wx.chooseMedia) return this.setData({ error: '当前微信版本不支持选择媒体。' });
     wx.chooseMedia({

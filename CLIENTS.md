@@ -6,7 +6,7 @@ Windows 悬浮助手、微信小程序、安卓与 iPhone 客户端复用同一�
 
 ## 微信小程序入口
 
-`clients/wechat-miniprogram` 是不依赖 `web-view` 的原生小程序。它通过 `wx.chooseMessageFile` 从微信会话选择媒体，通过 `wx.chooseMedia` 访问相册/拍摄，通过用户点击读取剪贴板；随后调用现有 `/api/config` 和 `/api/reply`。结果只能由用户编辑并复制回聊天，不读取联系人、不自动收消息、不代发。详细导入、AppID、HTTPS 合法域名和隐私指引步骤见 [小程序 README](clients/wechat-miniprogram/README.md)。
+`clients/wechat-miniprogram` 是不依赖 `web-view` 的原生小程序。它声明 `video/*` 聊天素材入口，接收微信主动转交的视频（场景 `1173`），也通过 `wx.chooseMessageFile` 选择会话文件、`wx.chooseMedia` 访问相册/拍摄、用户点击读取剪贴板；随后调用现有 `/api/config` 和 `/api/reply`。结果只能由用户编辑并复制回聊天，不读取联系人、不自动收消息、不代发。聊天素材入口已写入代码并有自动测试，真实微信长按视频菜单仍需在当前体验版/真机验证。详细步骤见 [小程序 README](clients/wechat-miniprogram/README.md)。
 
 个人主体无法创建移动应用不阻止注册小程序，但小程序可用类目和审核结果仍以微信公众平台实际账号为准。当前项目已配置小程序 AppID `wx44641c021b958fdd`，并在微信开发者工具完成正式导入与预览；体验版和真机仍待 HTTPS 服务就绪后验证。
 

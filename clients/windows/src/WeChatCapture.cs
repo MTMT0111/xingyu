@@ -106,7 +106,7 @@ namespace ZhiyiDesktop
             return new CaptureResult {
                 Text = NormalizeLines(candidates.Select(item => item.Text), 6000),
                 Recipient = PickRecipient(candidates, window.Bounds),
-                Image = CaptureWindow(window.Bounds),
+                Image = CaptureConversation(window.Bounds),
                 Mime = "image/jpeg",
                 FileName = "wechat-current-window.jpg",
                 WindowBounds = window.Bounds
@@ -121,6 +121,7 @@ namespace ZhiyiDesktop
             {
                 if (String.IsNullOrWhiteSpace(raw)) continue;
                 var value = String.Join(" ", raw.Replace('\0', ' ').Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
+                if (value.IndexOf("MMUIRender", StringComparison.OrdinalIgnoreCase) >= 0 || value.Equals("Weixin", StringComparison.OrdinalIgnoreCase) || value.Equals("WeChat", StringComparison.OrdinalIgnoreCase)) continue;
                 if (value.Length > 500 || value.Length < 1 || !seen.Add(value)) continue;
                 if (result.Length + value.Length + 1 > maxCharacters) break;
                 if (result.Length > 0) result.AppendLine();
@@ -181,11 +182,16 @@ namespace ZhiyiDesktop
             return result;
         }
 
-        private static byte[] CaptureWindow(Rectangle bounds)
+        private static byte[] CaptureConversation(Rectangle bounds)
         {
-            using (var source = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format24bppRgb))
+            var captureBounds = new Rectangle(
+                bounds.Left + (int)(bounds.Width * 0.20),
+                bounds.Top + (int)(bounds.Height * 0.08),
+                (int)(bounds.Width * 0.78),
+                (int)(bounds.Height * 0.82));
+            using (var source = new Bitmap(captureBounds.Width, captureBounds.Height, PixelFormat.Format24bppRgb))
             {
-                using (var graphics = Graphics.FromImage(source)) graphics.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size, CopyPixelOperation.SourceCopy);
+                using (var graphics = Graphics.FromImage(source)) graphics.CopyFromScreen(captureBounds.Location, Point.Empty, captureBounds.Size, CopyPixelOperation.SourceCopy);
                 int width = source.Width, height = source.Height;
                 const int maxSide = 1920;
                 if (Math.Max(width, height) > maxSide)

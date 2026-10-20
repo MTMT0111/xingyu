@@ -1,14 +1,14 @@
 .page-shell {
   width: 100%;
-  max-width: 760rpx;
+  max-width: 820rpx;
   margin: 0 auto;
-  padding: 0 32rpx calc(48rpx + env(safe-area-inset-bottom));
+  padding: 0 40rpx calc(64rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .topbar,.sheet-heading,.source-meta,.source-actions,.attachment-row,.result-actions,.settings-actions { display: flex; align-items: center; }
-.topbar { min-height: 92rpx; justify-content: space-between; border-bottom: 1rpx solid #dfe5e1; }
-.brand-caption { color: #56655e; font-size: 24rpx; line-height: 1.35; }
+.topbar { min-height: 108rpx; justify-content: space-between; border-bottom: 1rpx solid #e5eae7; }
+.brand-caption { color: #56655e; font-size: 25rpx; line-height: 1.45; }
 
 .settings-trigger {
   min-width: 126rpx;
@@ -43,17 +43,22 @@
 .settings-actions { gap: 12rpx; margin-top: 18rpx; }
 .settings-actions .button { flex: 1; }
 
-.composer { padding-top: 34rpx; }
-.section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 18rpx; margin-bottom: 18rpx; }
-.section-title { color: #18211d; font-size: 31rpx; font-weight: 700; }
+.composer { padding-top: 48rpx; }
+.section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 18rpx; margin-bottom: 24rpx; }
+.section-title { color: #18211d; font-size: 34rpx; font-weight: 700; }
 .section-caption { color: #748078; font-size: 22rpx; text-align: right; }
-.source-box { position: relative; border: 1rpx solid #cfd9d4; border-radius: 14rpx; background: #ffffff; }
-.source-text { width: 100%; height: 280rpx; padding: 22rpx 22rpx 58rpx; color: #1d2924; font-size: 28rpx; line-height: 1.65; box-sizing: border-box; }
+.video-entry { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; margin: 0 0 28rpx; padding: 24rpx 22rpx; border-left: 5rpx solid #dfb33f; background: #fffaf0; }
+.video-entry-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
+.video-entry-title { color: #26342e; font-size: 26rpx; font-weight: 700; }
+.video-entry-note { color: #738078; font-size: 24rpx; line-height: 1.6; }
+.video-entry-button { flex: 0 0 auto; min-height: 68rpx; margin: 0; padding: 0 15rpx; border: 1rpx solid #dec77e; border-radius: 10rpx; background: #fff; color: #705d27; font-size: 23rpx; line-height: 68rpx; }
+.source-box { position: relative; border: 1rpx solid #cfd9d4; border-radius: 18rpx; background: #ffffff; }
+.source-text { width: 100%; height: 320rpx; padding: 28rpx 24rpx 64rpx; color: #1d2924; font-size: 28rpx; line-height: 1.75; box-sizing: border-box; }
 .source-meta { position: absolute; right: 14rpx; bottom: 8rpx; left: 20rpx; justify-content: space-between; }
 .counter { color: #89938e; font-size: 21rpx; }
 .text-button { min-height: 58rpx; margin: 0; padding: 0 8rpx; background: transparent; color: #52675d; font-size: 22rpx; line-height: 58rpx; }
 
-.source-actions { gap: 10rpx; margin: 14rpx 0 20rpx; }
+.source-actions { flex-wrap: wrap; gap: 12rpx; margin: 18rpx 0 30rpx; }
 .context-toggle { min-height: 88rpx; margin: 0; padding: 0; background: transparent; color: #286b54; font-size: 26rpx; line-height: 88rpx; text-align: left; }
 .optional-label { margin-left: 14rpx; color: #748078; font-size: 22rpx; }
 .context-box { margin-bottom: 22rpx; }
@@ -64,19 +69,20 @@ button { min-height: 44px; }
 .source-action {
   flex: 1;
   min-width: 0;
-  height: 72rpx;
+  height: 80rpx;
   margin: 0;
   padding: 0 8rpx;
   border: 1rpx solid #d4ded8;
-  border-radius: 10rpx;
+  border-radius: 12rpx;
   background: #ffffff;
   color: #315e4e;
-  font-size: 22rpx;
-  line-height: 72rpx;
+  font-size: 25rpx;
+  line-height: 80rpx;
   white-space: nowrap;
 }
+.source-action:first-child { flex: 0 0 100%; }
 
-.attachment-row { gap: 14rpx; min-width: 0; margin: 0 0 20rpx; padding: 13rpx 0; border-top: 1rpx solid #e2e7e4; border-bottom: 1rpx solid #e2e7e4; }
+.attachment-row { gap: 16rpx; min-width: 0; margin: 0 0 28rpx; padding: 20rpx 0; border-top: 1rpx solid #e2e7e4; border-bottom: 1rpx solid #e2e7e4; }
 .attachment-preview { flex: 0 0 auto; background: #e8eeeb; }
 .attachment-preview.image { width: 108rpx; height: 108rpx; border-radius: 10rpx; }
 .attachment-preview.video { width: 184rpx; height: 108rpx; border-radius: 10rpx; }
@@ -85,14 +91,14 @@ button { min-height: 44px; }
 .attachment-detail { color: #77847d; font-size: 21rpx; }
 .remove-attachment { flex: 0 0 auto; margin: 0; padding: 0 4rpx; background: transparent; color: #a84f43; font-size: 22rpx; }
 
-.button { min-height: 92rpx; border-radius: 12rpx; font-size: 26rpx; line-height: 92rpx; }
+.button { min-height: 96rpx; border-radius: 14rpx; font-size: 27rpx; line-height: 96rpx; }
 .button.primary,.button.solid { background: #286b54; color: #ffffff; font-weight: 700; }
 .button.secondary { border: 1rpx solid #cfdad4; background: #ffffff; color: #315e4e; }
 .button[disabled],.source-action[disabled],.settings-trigger[disabled],.remove-attachment[disabled] { opacity: .5; }
-.privacy-note { margin-top: 12rpx; text-align: center; }
+.privacy-note { margin-top: 18rpx; text-align: center; }
 .error-message { margin: 14rpx 0; padding: 14rpx 16rpx; border-left: 5rpx solid #c96f61; background: #fff4f1; color: #873e34; font-size: 23rpx; line-height: 1.55; }
 
-.result-section { margin-top: 34rpx; padding-top: 30rpx; border-top: 1rpx solid #dfe5e1; }
+.result-section { margin-top: 52rpx; padding-top: 42rpx; border-top: 1rpx solid #dfe5e1; }
 .reply-text { width: 100%; height: 224rpx; padding: 20rpx; border: 1rpx solid #9fbbae; border-radius: 14rpx; background: #ffffff; color: #18211d; font-size: 28rpx; line-height: 1.65; box-sizing: border-box; }
 .result-actions { gap: 12rpx; margin-top: 14rpx; }
 .result-actions .primary { flex: 1.65; margin: 0; }
@@ -110,10 +116,12 @@ button { min-height: 44px; }
 .result-note { margin-top: 15rpx; padding-top: 13rpx; border-top: 1rpx solid #e3e8e5; }
 
 @media (max-width: 360px) {
-  .page-shell { padding-right: 22rpx; padding-left: 22rpx; }
+  .page-shell { padding-right: 26rpx; padding-left: 26rpx; }
   .section-heading { align-items: flex-start; flex-direction: column; gap: 4rpx; }
   .section-caption { text-align: left; }
+  .video-entry { align-items: flex-start; flex-direction: column; }
+  .video-entry-button { width: 100%; }
   .source-actions { gap: 7rpx; }
-  .source-action { padding: 0 4rpx; font-size: 20rpx; }
+  .source-action { padding: 0 4rpx; font-size: 23rpx; }
   .attachment-preview.video { width: 148rpx; }
 }

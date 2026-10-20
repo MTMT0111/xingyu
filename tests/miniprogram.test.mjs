@@ -93,6 +93,24 @@ test('mini program exposes the video material entry and consumes the incoming fi
   assert.equal(app.globalData.pendingVideo, null);
 });
 
+test('mini program gives a direct instruction for forwarding a chat video', (t) => {
+  let definition;
+  let modal;
+  globalThis.Page = value => { definition = value; };
+  globalThis.wx = { showModal(options) { modal = options; } };
+  const pagePath = require.resolve('../clients/wechat-miniprogram/pages/index/index.js');
+  delete require.cache[pagePath];
+  require(pagePath);
+  t.after(() => {
+    delete require.cache[pagePath];
+    delete globalThis.Page;
+    delete globalThis.wx;
+  });
+  definition.showVideoShareGuide();
+  assert.match(modal.content, /长按要回复的视频/);
+  assert.match(modal.content, /只有点生成时才会上传/);
+});
+
 test('mini program preserves Unicode limits and the server result contract', () => {
   assert.equal(codepointLength('家人🙂'), 3);
   assert.equal(validateMessage('  在吗？  ', false), '在吗？');

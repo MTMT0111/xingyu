@@ -128,9 +128,9 @@ namespace ZhiyiDesktop
         {
             bubble = owner;
             Text = "知意 · 微信旁边的回复助手";
-            ClientSize = new Size(420, 700);
-            MinimumSize = new Size(420, 640);
-            FormBorderStyle = FormBorderStyle.FixedSingle;
+            ClientSize = new Size(500, 820);
+            MinimumSize = new Size(500, 680);
+            FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             MinimizeBox = false;
             ShowInTaskbar = false;
@@ -138,6 +138,9 @@ namespace ZhiyiDesktop
             BackColor = Theme.Canvas;
             Font = Theme.Font(9, FontStyle.Regular);
             AutoScaleMode = AutoScaleMode.None;
+            AllowDrop = true;
+            DragEnter += AcceptMediaDrop;
+            DragDrop += ReceiveMediaDrop;
             BuildUi();
         }
 
@@ -147,10 +150,12 @@ namespace ZhiyiDesktop
             var title = new Label { Text = "知意", AutoSize = true, Location = new Point(18, 11), Font = Theme.Font(16, FontStyle.Bold), ForeColor = Theme.Ink };
             var sub = new Label { Text = "当前微信，一处完成", AutoSize = true, Location = new Point(19, 39), Font = Theme.Font(8, FontStyle.Regular), ForeColor = Theme.Muted };
             var settingsButton = FlatButton("服务", 58, 34, false);
-            settingsButton.Location = new Point(344, 17);
+            settingsButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            settingsButton.Location = new Point(424, 17);
             settingsButton.Click += delegate { settings.Visible = !settings.Visible; };
             var hideButton = FlatButton("收起", 58, 34, false);
-            hideButton.Location = new Point(280, 17);
+            hideButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            hideButton.Location = new Point(360, 17);
             hideButton.Click += delegate { Hide(); };
             header.Controls.AddRange(new Control[] { title, sub, hideButton, settingsButton });
 
@@ -162,34 +167,40 @@ namespace ZhiyiDesktop
             settings.Controls.Add(new Label { Text = "本机服务地址", AutoSize = true, Location = new Point(17, 9), ForeColor = Theme.Muted });
             service.Text = LoadServiceUrl();
             service.Location = new Point(17, 31);
-            service.Width = 368;
+            service.Width = 448;
+            service.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             service.Height = 28;
             service.BorderStyle = BorderStyle.FixedSingle;
             service.Leave += delegate { SaveServiceUrl(); };
             settings.Controls.Add(service);
 
             var body = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            body.AllowDrop = true;
+            body.DragEnter += AcceptMediaDrop;
+            body.DragDrop += ReceiveMediaDrop;
             int y = 10;
             body.Controls.Add(SectionLabel("当前对象", y));
             recipient.DropDownStyle = ComboBoxStyle.DropDown;
             recipient.Location = new Point(18, y + 24);
-            recipient.Size = new Size(368, 30);
+            recipient.Size = new Size(448, 36);
+            recipient.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             recipient.Font = Theme.Font(10, FontStyle.Regular);
             recipient.Text = "先在微信中打开一个聊天";
             body.Controls.Add(recipient);
             y += 68;
 
-            read.SetBounds(18, y, 179, 42);
+            read.SetBounds(18, y, 218, 46);
             StyleButton(read, "读取当前微信", true);
             read.Click += delegate { CaptureCurrentWindow(); };
-            import.SetBounds(207, y, 179, 42);
-            StyleButton(import, "选择完整视频 / 图片", false);
+            import.SetBounds(248, y, 218, 46);
+            StyleButton(import, "选择聊天视频文件", false);
             import.Click += ImportMedia;
             body.Controls.AddRange(new Control[] { read, import });
             y += 55;
 
             status.Text = "点悬浮球，只读取这一次当前可见内容。";
-            status.SetBounds(18, y, 368, 34);
+            status.SetBounds(18, y, 448, 42);
+            status.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             status.ForeColor = Theme.Muted;
             status.Font = Theme.Font(8, FontStyle.Regular);
             body.Controls.Add(status);
@@ -199,30 +210,34 @@ namespace ZhiyiDesktop
             source.Multiline = true;
             source.ScrollBars = ScrollBars.Vertical;
             source.MaxLength = 6000;
-            source.SetBounds(18, y + 24, 368, 104);
+            source.SetBounds(18, y + 24, 448, 126);
+            source.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             source.BorderStyle = BorderStyle.FixedSingle;
             source.Font = Theme.Font(10, FontStyle.Regular);
             body.Controls.Add(source);
-            y += 140;
+            y += 162;
 
             body.Controls.Add(SectionLabel("补充一句（可选）", y));
-            context.SetBounds(18, y + 24, 368, 54);
+            context.SetBounds(18, y + 24, 448, 64);
+            context.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             context.Multiline = true;
             context.MaxLength = 160;
             context.BorderStyle = BorderStyle.FixedSingle;
             context.Font = Theme.Font(9, FontStyle.Regular);
             context.Text = "回复自然一点，不用复述原文。";
             body.Controls.Add(context);
-            y += 90;
+            y += 100;
 
-            generate.SetBounds(18, y, 368, 46);
+            generate.SetBounds(18, y, 448, 50);
+            generate.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             StyleButton(generate, "帮我回一句", true);
             generate.Click += async delegate { await GenerateReply(); };
             body.Controls.Add(generate);
             y += 62;
 
-            summary.SetBounds(18, y, 368, 40);
-            summary.Text = "分析会显示在这里；当前视频截图只代表这一帧。";
+            summary.SetBounds(18, y, 448, 50);
+            summary.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            summary.Text = "视频卡片可分析封面与可见评论；完整视频请从聊天拖入或先保存再选择。";
             summary.ForeColor = Theme.Muted;
             summary.Font = Theme.Font(8, FontStyle.Regular);
             body.Controls.Add(summary);
@@ -232,7 +247,8 @@ namespace ZhiyiDesktop
             reply.Multiline = true;
             reply.ScrollBars = ScrollBars.Vertical;
             reply.MaxLength = 1000;
-            reply.SetBounds(18, y + 24, 368, 108);
+            reply.SetBounds(18, y + 24, 448, 140);
+            reply.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             reply.BorderStyle = BorderStyle.FixedSingle;
             reply.Font = Theme.Font(10, FontStyle.Regular);
             body.Controls.Add(reply);
@@ -241,7 +257,7 @@ namespace ZhiyiDesktop
             var another = FlatButton("换一句", 96, 42, false);
             another.Location = new Point(18, y);
             another.Click += async delegate { await GenerateReply(); };
-            copy.SetBounds(124, y, 262, 42);
+            copy.SetBounds(124, y, 342, 46);
             StyleButton(copy, "复制并回微信", true);
             copy.Click += CopyAndReturn;
             body.Controls.AddRange(new Control[] { another, copy });
@@ -251,7 +267,8 @@ namespace ZhiyiDesktop
                 Text = "不会自动发送。公众号文章会读取当前窗口暴露的正文和画面；完整视频请使用上方文件入口。",
                 ForeColor = Theme.Muted, Font = Theme.Font(8, FontStyle.Regular), AutoSize = false
             };
-            note.SetBounds(18, y, 368, 46);
+            note.SetBounds(18, y, 448, 58);
+            note.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             body.Controls.Add(note);
             body.AutoScrollMinSize = new Size(0, y + 58);
 
@@ -269,7 +286,9 @@ namespace ZhiyiDesktop
             {
                 int right = window.Bounds.Right + 10;
                 int left = window.Bounds.Left - Width - 10;
-                x = right + Width <= area.Right ? right : Math.Max(area.Left, left);
+                if (right + Width <= area.Right) x = right;
+                else if (left >= area.Left) x = left;
+                else x = Math.Max(area.Left, Math.Min(area.Right - Width, window.Bounds.Right - Width - 16));
                 y = Math.Min(area.Bottom - Height, Math.Max(area.Top, window.Bounds.Top));
             }
             Location = new Point(x, y);
@@ -298,9 +317,9 @@ namespace ZhiyiDesktop
                 source.Text = capture.Text;
                 if (!String.IsNullOrWhiteSpace(capture.Recipient)) AddRecipient(capture.Recipient);
                 status.Text = capture.Text.Length > 0
-                    ? "已读取当前可见文字和一帧画面；尚未上传。"
-                    : "微信没有暴露可见文字，已截取当前一帧画面；尚未上传。";
-                summary.Text = "等待生成。若是视频，当前读取只覆盖这一帧；完整内容请导入视频文件。";
+                    ? "已读取可见文字并截取聊天区域；点击生成后才上传。"
+                    : "微信没有开放聊天文字，已截取聊天区域供画面分析；尚未上传。";
+                summary.Text = "视频卡片可分析封面与可见评论；完整视频请从聊天拖入，或先保存再选择。";
                 variant = 0;
             }
             catch (Exception error) { status.Text = error.Message; }
@@ -314,7 +333,7 @@ namespace ZhiyiDesktop
         private void ImportMedia(object sender, EventArgs args)
         {
             if (busy) return;
-            using (var dialog = new OpenFileDialog { Filter = "图片或短视频|*.jpg;*.jpeg;*.png;*.webp;*.mp4;*.webm;*.mov", Multiselect = false, CheckFileExists = true })
+            using (var dialog = new OpenFileDialog { Filter = "微信视频或截图|*.mp4;*.webm;*.mov;*.jpg;*.jpeg;*.png;*.webp", Multiselect = false, CheckFileExists = true })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 try
@@ -328,6 +347,28 @@ namespace ZhiyiDesktop
                 }
                 catch (Exception error) { status.Text = error.Message; }
             }
+        }
+
+        private void AcceptMediaDrop(object sender, DragEventArgs args)
+        {
+            args.Effect = args.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        }
+
+        private void ReceiveMediaDrop(object sender, DragEventArgs args)
+        {
+            if (busy || !args.Data.GetDataPresent(DataFormats.FileDrop)) return;
+            try
+            {
+                var paths = args.Data.GetData(DataFormats.FileDrop) as string[];
+                if (paths == null || paths.Length != 1) throw new InvalidOperationException("请一次拖入一个微信视频或图片文件。");
+                attachment = ApiClient.FromFile(paths[0]);
+                capture = null;
+                source.Text = "";
+                status.Text = "已从微信窗口接收“" + attachment.Name + "”；点击生成后才会上传分析。";
+                summary.Text = attachment.Kind == "video" ? "将分析视频画面和语音（最多 60 秒）。" : "将分析图片里的画面和文字。";
+                variant = 0;
+            }
+            catch (Exception error) { status.Text = error.Message; }
         }
 
         private async Task GenerateReply()
@@ -467,6 +508,7 @@ namespace ZhiyiDesktop
             {
                 string normalized = WeChatCapture.NormalizeLines(new[] { " 你好  世界 ", "你好 世界", "第二句" }, 20);
                 if (normalized != "你好 世界\r\n第二句") throw new Exception("文字去重失败");
+                if (WeChatCapture.NormalizeLines(new[] { "Weixin", "MMUIRenderSubWindowHW", "这是一条消息" }, 6000) != "这是一条消息") throw new Exception("微信自绘控件噪声过滤失败");
                 var bounds = new Rectangle(100, 100, 1000, 700);
                 var candidates = new List<TextCandidate> {
                     new TextCandidate { Text = "搜索", Bounds = new Rectangle(150, 130, 80, 30) },

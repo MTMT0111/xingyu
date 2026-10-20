@@ -29,11 +29,19 @@
   <view class="composer">
     <view class="section-heading">
       <text class="section-title">对方说了什么</text>
-      <text class="section-caption">文字、文章、图片或视频</text>
+      <text class="section-caption">文字 · 文章 · 视频</text>
+    </view>
+
+    <view class="video-entry">
+      <view class="video-entry-copy">
+        <text class="video-entry-title">聊天里收到一段视频？</text>
+        <text class="video-entry-note">长按视频，选择“用小程序打开”里的知意入口。</text>
+      </view>
+      <button class="video-entry-button" disabled="{{busy}}" bindtap="showVideoShareGuide">查看转入方式</button>
     </view>
 
     <view class="source-box">
-      <textarea class="source-text" value="{{sourceText}}" disabled="{{busy}}" bindinput="onSourceInput" maxlength="6000" auto-height="false" placeholder="粘贴对方发来的消息或公众号链接" />
+      <textarea class="source-text" value="{{sourceText}}" disabled="{{busy}}" bindinput="onSourceInput" maxlength="6000" auto-height="false" placeholder="粘贴消息、公众号链接，或从视频卡片进入" />
       <view class="source-meta">
         <text class="counter">{{sourceCount}} / 6000</text>
         <button wx:if="{{sourceText || attachment}}" class="text-button" disabled="{{busy}}" bindtap="clearInput">清空</button>
@@ -41,8 +49,8 @@
     </view>
 
     <view class="source-actions">
-      <button class="source-action" disabled="{{busy}}" bindtap="pasteClipboard">粘贴文字</button>
       <button class="source-action" disabled="{{busy}}" bindtap="chooseFromChat">选聊天文件</button>
+      <button class="source-action" disabled="{{busy}}" bindtap="pasteClipboard">粘贴文字</button>
       <button class="source-action" disabled="{{busy}}" bindtap="chooseMedia">相册或拍摄</button>
     </view>
 
