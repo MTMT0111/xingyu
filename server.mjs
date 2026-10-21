@@ -119,6 +119,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
   let evidence = cacheKey && !refresh ? cache.get(cacheKey) : null;
   const cacheHit = Boolean(evidence), timings = {};
   let channel;
+  let stage = 'read';
   try {
   if (cacheHit) report('复用已读取的视频和评论，正在调整回复');
   if (source.kind === 'channels' && !evidence) {
@@ -153,6 +154,14 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
     const frames = video ? video.frames : [{ time: 0, dataUrl: `data:${attachment.mime};base64,${attachment.bytes.toString('base64')}` }];
     const pieces = video?.segments || [{ start: 0, end: video?.duration ?? 0, frames, transcript: video?.transcript ?? '' }];
     const segments = [];
+    // Keep acquired text even if a later model response cannot be parsed.
+    evidence = { kind: channel ? 'channels' : attachment.kind, transcript: video?.transcript ?? '',
+      audio_status: video?.audioStatus ?? 'not_applicable', duration: video?.duration ?? null,
+      frame_count: frames.length, segments, read_complete: false,
+      comments: channel?.comments ?? [], comment_status: channel?.commentStatus,
+      comment_stats: channel?.commentStats, description: channel?.description,
+      coverage: '以下是已取得的转写和评论；画面分析尚未完成，不代表完整分析。' };
+    stage = 'visual';
     for (const piece of pieces) {
       report(`正在理解视频内容 · 第 ${segments.length + 1}/${pieces.length} 段`);
       const visionUrl = endpoint(config.llmBaseUrl);
@@ -205,6 +214,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
     }
   }
   if (evidence && !cacheHit) {
+    evidence.read_complete = true;
     evidence.read_at = new Date().toISOString();
     // Keep the actual comment coverage with the evidence; the user can explicitly refresh it.
     if (cacheKey && channel) cache.set(cacheKey, evidence);
@@ -227,9 +237,10 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
   const decisionMs = Math.round(performance.now() - decisionStart);
   const strategy = selectStrategy(decision);
   const generationStart = performance.now();
+  stage = 'generation';
   report('正在对照视频、评论和对象关系，生成分析与回复');
   const generationUrl = endpoint(config.llmBaseUrl);
-  const data = await postModel(fetchImpl, generationUrl, config.llmKey, {
+  const generationBody = {
     model: config.llmModel,
     messages: [
       { role: 'system', content: generationPrompt(strategy, input.tone, input.recipient) },
@@ -238,9 +249,22 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
     // DeepSeek enables thinking by default; short replies need the budget for their JSON answer.
     ...(new URL(generationUrl).hostname === 'api.deepseek.com' ? { thinking: { type: 'disabled' } } : {}),
     response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2400, stream: false
-  }, config.timeoutLlmMs, signal);
-  if (data.choices?.[0]?.finish_reason === 'length') throw new Error('Truncated generation');
-  const result = validateGeneration(JSON.parse(data.choices?.[0]?.message?.content), strategy);
+  };
+  let data, result, repairs = 0;
+  for (;;) {
+    data = await postModel(fetchImpl, generationUrl, config.llmKey, generationBody, config.timeoutLlmMs, signal);
+    try {
+      if (data.choices?.[0]?.finish_reason === 'length') throw new Error('回答超出输出预算');
+      result = validateGeneration(JSON.parse(data.choices?.[0]?.message?.content), strategy);
+      break;
+    } catch (error) {
+      const reason = error instanceof SyntaxError ? '回答不是有效 JSON' : error.message;
+      if (repairs++ || signal.aborted) throw Object.assign(new Error(reason), { responseIssue: reason });
+      report('资料已读取，正在修复回复格式；无需重新读取视频');
+      generationBody.max_tokens = 4200;
+      generationBody.messages.push({ role: 'user', content: '上一轮未通过格式检查：' + reason + '。请依据上面的原始资料重新输出完整 JSON，严格遵守每个字段的字数及可能性要求；不要省略必填字段。' });
+    }
+  }
   const primarySource = evidence?.kind === 'article' ? 'article' : evidence ? 'video' : 'message';
   if (result.analysis) result.analysis = result.analysis.filter(item => item.source === primarySource || evidence?.comments?.some(comment => comment.ref === item.source));
   if (input.recipient === 'elder') result.reply = result.reply.replaceAll('你', '您');
@@ -252,16 +276,22 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
       model: decisionModel, generation_model: typeof data.model === 'string' ? data.model : config.llmModel,
       decision_error: decisionError,
       evidence_cache_hit: cacheHit, stages: timings,
+      format_repairs: repairs,
       usage: { decision: decisionUsage, generation: data.usage ?? null }
     },
     note: decision || !config.typesafeKey ? 'AI 只提供可能的理解，具体想法还需要和家人聊聊。' : '内容判断暂不可用，以下由语言模型保留多种理解，仅供参考。'
   };
+  } catch (error) {
+    error.evidence = evidence;
+    error.stage = stage;
+    throw error;
   } finally { if (channel?.attachment?.dispose) await channel.attachment.dispose(); }
 }
 
 export function createServer({ config = {}, fetchImpl = globalThis.fetch, extractVideoImpl = extractVideo, envPath = fileURLToPath(new URL('.env', import.meta.url)) } = {}) {
   const cfg = { ...settings(), ...config };
   const evidenceCache = new EvidenceCache();
+  let modelVerifiedAt = null;
   const progress = new Map();
   let savingModel = false;
   let publicUrl = null;
@@ -324,24 +354,35 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
     try {
       if (url.pathname === '/api/local/model') {
         if (publicUrl || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress) || req.headers['sec-fetch-site'] === 'cross-site') return json(res, 403, { error: '密钥只能在本机助手设置。', code: 'LOCAL_ONLY' });
-        if (req.method === 'GET') return json(res, 200, { configured: liveAvailable(cfg), model: cfg.llmModel || 'deepseek-flash' });
+        if (req.method === 'GET') return json(res, 200, { configured: liveAvailable(cfg), model: cfg.llmModel || 'deepseek-flash', verified_at: modelVerifiedAt });
         if (req.method !== 'POST') return json(res, 405, { error: '不支持此操作。' });
         if (req.headers['x-zhiyi-local-config'] !== '1' || !(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 403, { error: '请从本机助手的服务设置保存。' });
         if (savingModel || activeLiveRequests) return json(res, 409, { error: '请等待当前分析结束，再更新密钥。' });
         savingModel = true;
+        let writing = false, verifyOnly = false;
         try {
           const body = await readBody(req, 2048);
-          if (typeof body.apiKey !== 'string' || !/^[A-Za-z0-9_-]{16,256}$/.test(body.apiKey)) return json(res, 400, { error: '请输入有效的 DeepSeek API 密钥。' });
-          const verified = await postModel(fetchImpl, 'https://api.deepseek.com/chat/completions', body.apiKey,
-            { model: 'deepseek-flash', messages: [{ role: 'user', content: 'Reply OK.' }], thinking: { type: 'disabled' }, max_tokens: 8, stream: false }, 15000, new AbortController().signal);
+          verifyOnly = body.verifyOnly === true;
+          if (verifyOnly) modelVerifiedAt = null;
+          const key = verifyOnly ? cfg.llmKey : body.apiKey;
+          if (typeof key !== 'string' || !/^[A-Za-z0-9_-]{16,256}$/.test(key)) return json(res, 400, { error: verifyOnly ? '尚无可验证的密钥，请先填入密钥并保存。' : '请输入有效的 DeepSeek API 密钥。' });
+          if (verifyOnly && new URL(cfg.llmBaseUrl).hostname !== 'api.deepseek.com') return json(res, 400, { error: '当前不是 DeepSeek 官方服务，请填入 DeepSeek 密钥并保存。' });
+          const model = verifyOnly ? cfg.llmModel : 'deepseek-flash';
+          const verified = await postModel(fetchImpl, 'https://api.deepseek.com/chat/completions', key,
+            { model, messages: [{ role: 'user', content: 'Reply OK.' }], thinking: { type: 'disabled' }, max_tokens: 16, stream: false }, 15000, new AbortController().signal);
           if (typeof verified.choices?.[0]?.message?.content !== 'string' || !verified.choices[0].message.content.trim()) throw new Error('Empty verification');
-          await saveDeepSeekKey(envPath, body.apiKey);
-          cfg.llmKey = body.apiKey; cfg.llmBaseUrl = 'https://api.deepseek.com'; cfg.llmModel = 'deepseek-flash';
-          evidenceCache.clear();
-          return json(res, 200, { configured: true, model: cfg.llmModel, message: '已验证并保存，本机后续分析立即生效。' });
+          if (!verifyOnly) {
+            writing = true;
+            await saveDeepSeekKey(envPath, key);
+            cfg.llmKey = key; cfg.llmBaseUrl = 'https://api.deepseek.com'; cfg.llmModel = model;
+          }
+          modelVerifiedAt = new Date().toISOString();
+          return json(res, 200, { configured: true, model: cfg.llmModel, verified_at: modelVerifiedAt,
+            message: verifyOnly ? '验证成功 · 已保存的密钥可以使用。' : '验证成功，密钥已保存 · 后续分析立即生效。' });
         } catch (error) {
           const failure = modelFailure(error);
-          return json(res, 400, { error: error.code ? '本机配置文件无法写入，原配置已保留。' : failure.message, code: 'MODEL_NOT_SAVED' });
+          const reasons = { AUTH_FAILED: '密钥认证未通过，请核对 DeepSeek 平台的 API 密钥。', INSUFFICIENT_BALANCE: '密钥已获认证，但 DeepSeek 账户余额不足，验证调用未完成。', TIMEOUT: '连接 DeepSeek 超时，请稍后重试。', NETWORK: '无法连接 DeepSeek，请检查本机网络或代理。', PROVIDER_CONFIG: 'DeepSeek 不接受当前模型或参数。', RATE_LIMITED: 'DeepSeek 请求繁忙，请稍后重试。', PROVIDER_UNAVAILABLE: 'DeepSeek 暂时不可用，请稍后重试。', INVALID_RESPONSE: 'DeepSeek 未返回有效的验证结果。' };
+          return json(res, 400, { error: (writing ? '验证已通过，但本机配置文件写入失败。' : '验证未成功：' + reasons[failure.code]) + ' 原配置未更改。', code: writing ? 'MODEL_SAVE_FAILED' : 'MODEL_VERIFY_FAILED' });
         } finally { savingModel = false; }
       }
       if (req.method === 'GET' && url.pathname === '/api/local/progress') {
@@ -428,7 +469,11 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
         try { return json(res, 200, await replyLive(input, { ...cfg }, fetchImpl, controller.signal, extractVideoImpl, evidenceCache, report, req.headers['x-refresh-evidence'] === '1')); }
         catch (error) {
           const failure = modelFailure(error);
-          return json(res, 502, { error: failure.message, code: 'GENERATION_FAILED', cause: failure.code });
+          const retained = error.evidence;
+          const message = retained ? (error.stage === 'generation' ? '资料已读取，回复尚未生成。' : '分析中断，已读部分可以查看。') + '点「查看已读资料」查看转写和评论，再重试。' : failure.message.replaceAll('已有文字已保留，', '').replaceAll('已有文字已保留。', '');
+          console.error(JSON.stringify({ event: 'reply_failed', stage: error.stage ?? 'read', cause: failure.code, issue: error.responseIssue ?? null }));
+          return json(res, 502, { error: message, code: 'GENERATION_FAILED', cause: failure.code, stage: error.stage,
+            ...(retained ? { evidence: retained } : {}), detail: error.responseIssue ?? null });
         }
         finally { progressItem.done = true; progressItem.updated = Date.now(); activeLiveRequests--; if (input.videoUpload && input.attachment?.dispose) await input.attachment.dispose(); }
       }

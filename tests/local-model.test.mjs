@@ -56,7 +56,30 @@ test('local model setup verifies before saving and never returns keys or upstrea
   const saved = await save('test-key-1234567890'); assert.equal(saved.status, 200);
   assert.doesNotMatch(await saved.text(), /test-key/);
   const state = await (await fetch(base + '/api/local/model')).json();
-  assert.deepEqual(state, { configured: true, model: 'deepseek-flash' });
+  assert.equal(state.configured, true); assert.equal(state.model, 'deepseek-flash');
+  assert.ok(Number.isFinite(Date.parse(state.verified_at)));
+  const beforeVerify = await readFile(path, 'utf8');
+  const checked = await fetch(base + '/api/local/model', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Zhiyi-Local-Config': '1' }, body: JSON.stringify({ verifyOnly: true }) });
+  assert.equal(checked.status, 200); assert.match((await checked.json()).message, /验证成功/);
+  assert.equal(await readFile(path, 'utf8'), beforeVerify);
   assert.match(await readFile(path, 'utf8'), /test-key-1234567890/);
   assert.doesNotMatch(await (await fetch(base + '/api/config')).text(), /test-key/);
+});
+
+test('verification network errors are not disk errors and failed writes keep live config unchanged', async t => {
+  for (const diskFailure of [false, true]) {
+    const directory = await mkdtemp(join(tmpdir(), 'zhiyi-model-error-')); t.after(() => rm(directory, { recursive: true, force: true }));
+    const server = createServer({ envPath: join(directory, 'missing', '.env'), config: { llmKey: '', llmBaseUrl: '', llmModel: '', publicOrigin: '' }, fetchImpl: () => {
+      if (!diskFailure) throw Object.assign(new TypeError('fetch failed with private details'), { code: 'ECONNRESET' });
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' } }] }));
+    } });
+    server.listen(0, '127.0.0.1'); await once(server, 'listening'); t.after(() => { server.close(); server.closeAllConnections(); });
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const response = await fetch(base + '/api/local/model', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Zhiyi-Local-Config': '1' }, body: JSON.stringify({ apiKey: 'test-key-1234567890' }) });
+    const result = await response.json();
+    assert.equal(response.status, 400); assert.equal(result.code, diskFailure ? 'MODEL_SAVE_FAILED' : 'MODEL_VERIFY_FAILED');
+    assert.match(result.error, diskFailure ? /写入失败/ : /网络或代理/);
+    assert.doesNotMatch(JSON.stringify(result), /test-key|private details/);
+    assert.equal((await (await fetch(base + '/api/local/model')).json()).configured, false);
+  }
 });

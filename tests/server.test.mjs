@@ -419,6 +419,20 @@ test('provider failures expose actionable categories without returning upstream 
   }
 });
 
+test('invalid final format is repaired once using original input without accepting unchecked replies', async t => {
+  let calls = 0;
+  const app = await serve(t, { config: { ...liveConfig, typesafeKey: '' }, fetchImpl: (url, options) => {
+    const request = JSON.parse(options.body); calls++;
+    if (calls === 1) return llmResponse({ ...generation, possible_meanings: ['可能在分享生活。', '也许想一起散步。'], reply: '字'.repeat(121) });
+    assert.match(request.messages.at(-1).content, /reply.*120/);
+    assert.equal(JSON.parse(request.messages[1].content).message_text, '分享散步的视频');
+    return llmResponse({ ...generation, possible_meanings: ['可能在分享生活。', '也许想一起散步。'] });
+  } });
+  const response = await app.post(input({ mode: 'live', text: '分享散步的视频' }));
+  assert.equal(response.status, 200); assert.equal(calls, 2);
+  assert.equal((await response.json()).meta.format_repairs, 1);
+});
+
 test('malformed LLM output is an error, with no hidden template fallback', async (t) => {
   for (const badContent of ['not-json', JSON.stringify({ reply: 'missing required fields' }), JSON.stringify({ ...generation, reply: '字'.repeat(121) })]) {
     const app = await serve(t, { config: liveConfig, fetchImpl: async (url) => String(url).includes('typesafe.ai') ? responseJson(decision()) : responseJson({ choices: [{ message: { content: badContent } }] }) });

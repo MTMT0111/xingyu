@@ -130,6 +130,7 @@ namespace ZhiyiDesktop
         private readonly Button paste = new Button();
         private bool linkInput;
         private ReplyResult currentResult;
+        private readonly LinkLabel details = new LinkLabel();
         private readonly Button related = new Button();
         private readonly TableLayoutPanel recommendations = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 1, Visible = false };
         private CancellationTokenSource relatedCancellation;
@@ -198,7 +199,7 @@ namespace ZhiyiDesktop
             service.Leave += delegate { SaveServiceUrl(); }; settings.Controls.Add(service);
             var modelSettings = FlatButton("DeepSeek 密钥 · 配置 / 更换", 274, 32, false);
             modelSettings.Location = new Point(22, 73);
-            modelSettings.Click += delegate { using (var dialog = new ModelSettingsForm(api, service.Text.Trim())) dialog.ShowDialog(this); };
+            modelSettings.Click += delegate { using (var dialog = new ModelSettingsForm(api, service.Text.Trim())) { dialog.ShowDialog(this); if (!String.IsNullOrWhiteSpace(dialog.LastStatus)) status.Text = dialog.LastStatus; } };
             settings.Controls.Add(modelSettings);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 72, Padding = new Padding(22, 10, 22, 12), ColumnCount = 2, BackColor = Theme.Paper };
@@ -227,8 +228,8 @@ namespace ZhiyiDesktop
             preview.Click += delegate { ShowEvidenceImage(); }; preview.AllowDrop = true; preview.DragEnter += AcceptMediaDrop; preview.DragDrop += ReceiveMediaDrop;
             preview.Visible = false; body.Controls.Add(preview);
             coverage.Text = "文章、视频自动分流；点击生成后开始读取。"; coverage.ForeColor = Theme.Muted; coverage.Font = Theme.Font(9, FontStyle.Regular); coverage.Height = 32; coverage.Dock = DockStyle.Top; coverage.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(coverage);
-            var tools = new FlowLayoutPanel { Height = 32, WrapContents = false, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 6) };
-            var details = new LinkLabel { Text = "查看依据", AutoSize = true, LinkColor = Theme.Green, Margin = new Padding(0, 3, 18, 0) };
+            var tools = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 6) };
+            details.Text = "查看依据"; details.AutoSize = true; details.LinkColor = Theme.Green; details.Margin = new Padding(0, 3, 18, 0);
             details.Click += delegate { if (currentResult != null) ShowReadEvidence(); else source.Visible = !source.Visible; }; tools.Controls.Add(details);
             StyleButton(import, "导入视频", false); import.Width = 90; import.Height = 28; import.Font = Theme.Font(9, FontStyle.Regular); import.Click += ImportMedia; tools.Controls.Add(import);
             StyleButton(append, "搜索视频号", false); append.Width = 112; append.Height = 28; append.Font = Theme.Font(9, FontStyle.Regular);
@@ -290,7 +291,7 @@ namespace ZhiyiDesktop
         {
             if (relatedCancellation != null) relatedCancellation.Cancel();
             ClearRecommendations();
-            attachment = value; selectedVideo = null; originWindow = window; captureNote = note; demoCapture = false; linkInput = false; currentResult = null; related.Enabled = false;
+            attachment = value; selectedVideo = null; originWindow = window; captureNote = note; demoCapture = false; linkInput = false; currentResult = null; details.Text = "查看依据"; related.Enabled = false;
             reply.Clear(); summary.Text = "核对内容与对象，再点「生成回复」。"; source.Text = text ?? "";
             variant = 0; another.Enabled = false;
             preview.Visible = value != null;
@@ -622,6 +623,7 @@ namespace ZhiyiDesktop
                 summary.Text = result.Summary;
                 if (String.IsNullOrWhiteSpace(source.Text) && !String.IsNullOrWhiteSpace(result.Evidence)) source.Text = result.Evidence;
                 currentResult = result;
+                details.Text = "查看依据";
                 coverage.Text = result.Coverage.Length > 0 ? "读取范围、原文和 " + result.Comments.Count + " 条评论样本见「查看依据」。" : captureNote;
                 if (linkInput) source.Visible = false;
                 another.Enabled = true;
@@ -629,7 +631,16 @@ namespace ZhiyiDesktop
                 completed = result;
                 try { memory.Save(target, extra); if (target.Length > 0 && !recipient.Items.Contains(target)) recipient.Items.Add(target); } catch { status.Text += " 本次对象备注未能保存。"; }
             }
-            catch (OperationCanceledException) { status.Text = requestCancellation.IsCancellationRequested ? "已停止生成，内容已保留。" : "服务响应超时，内容已保留，可重试。"; }
+            catch (GenerationException error) {
+                status.Text = error.Message;
+                if (error.Retained != null) {
+                    currentResult = error.Retained;
+                    details.Text = "查看已读资料";
+                    coverage.Text = "已保留 " + currentResult.Transcript.Length + " 字转写、" + currentResult.Comments.Count + " 条评论。点「查看已读资料」。";
+                    summary.Text = "回复尚未生成，已读资料可查看；原有回复草稿保留。";
+                }
+            }
+            catch (OperationCanceledException) { status.Text = requestCancellation.IsCancellationRequested ? "已停止生成，原输入和回复草稿保留。" : "服务响应超时，原输入和回复草稿保留，可重试。"; }
             catch (Exception error) { status.Text = error.Message; }
             finally { requestCancellation.Dispose(); requestCancellation = null; SetBusy(false); }
             if (completed != null && demoCapture) DemoWindow.SaveReport(this, completed, attachment, captureNote);
@@ -660,7 +671,7 @@ namespace ZhiyiDesktop
             another.Enabled = copy.Enabled = !value && !String.IsNullOrWhiteSpace(reply.Text);
             related.Enabled = !value && currentResult != null && currentResult.RelatedQueries.Length > 0;
             generate.Enabled = !value || requestCancellation != null;
-            generate.Text = value ? (requestCancellation == null ? "正在读取…" : "停止生成") : "生成回复";
+            generate.Text = value ? (requestCancellation == null ? "正在读取…" : "停止生成") : currentResult != null && currentResult.Partial ? "重试生成回复" : "生成回复";
         }
 
         private static Label SectionLabel(string text, int y)

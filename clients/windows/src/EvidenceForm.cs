@@ -1,5 +1,7 @@
 using System;
 using System.Drawing;
+using System.IO;
+using System.Text;
 using System.Windows.Forms;
 
 namespace ZhiyiDesktop
@@ -18,11 +20,23 @@ namespace ZhiyiDesktop
             AutoScaleMode = AutoScaleMode.None;
             var header = new Panel { Dock = DockStyle.Top, Height = 88, Padding = new Padding(24, 16, 24, 8) };
             header.Controls.Add(new Label { Text = "原文优先，评论提供另一种视角。点赞表示热度，不代表事实正确。", Dock = DockStyle.Bottom, Height = 24, ForeColor = Theme.Muted, Font = small });
-            header.Controls.Add(new Label { Text = "这句回复，从哪里来", Dock = DockStyle.Top, Height = 32, Font = Theme.Font(18, FontStyle.Bold), ForeColor = Theme.Ink });
+            header.Controls.Add(new Label { Text = result.Partial ? "已读资料 · 回复尚未生成" : "这句回复，从哪里来", Dock = DockStyle.Top, Height = 32, Font = Theme.Font(18, FontStyle.Bold), ForeColor = Theme.Ink });
             var close = new Button { Text = "返回编辑回复", Dock = DockStyle.Bottom, Height = 46, FlatStyle = FlatStyle.Flat, BackColor = Theme.Green, ForeColor = Color.White };
             close.Click += delegate { Close(); };
-            Controls.Add(tabs); Controls.Add(close); Controls.Add(header);
+            var save = new Button { Text = "导出这次资料…", Dock = DockStyle.Bottom, Height = 42, FlatStyle = FlatStyle.Flat, ForeColor = Theme.Green, BackColor = Color.White };
+            save.Click += delegate {
+                using (var dialog = new SaveFileDialog { Title = "保存本次已读资料", Filter = "文本文件 (*.txt)|*.txt", FileName = "知意-已读资料-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".txt" }) {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    try {
+                        var text = new StringBuilder();
+                        foreach (TabPage page in tabs.TabPages) text.AppendLine("【" + page.Text + "】").AppendLine(((RichTextBox)page.Controls[0]).Text);
+                        File.WriteAllText(dialog.FileName, text.ToString(), Encoding.UTF8); save.Text = "资料已保存，可继续查看或返回";
+                    } catch { MessageBox.Show(this, "未能保存文件，请换一个可写入的位置。", "知意"); }
+                }
+            };
+            Controls.Add(tabs); Controls.Add(save); Controls.Add(close); Controls.Add(header);
             var overview = Page("概要与判断");
+            if (result.Partial) Section(overview, "本次状态", result.Failure);
             Section(overview, "内容在说什么", result.Summary);
             Section(overview, "进一步分析 · 对照依据", result.Analysis);
             Section(overview, "评论里的分歧", result.CommentAnalysis);
@@ -44,6 +58,7 @@ namespace ZhiyiDesktop
             }
             if (result.Comments.Count == 0) Section(comments, "暂无评论依据", "本次没有取得可展示的评论。回复只依据已读取的正文或视频内容。", true);
             foreach (TabPage page in tabs.TabPages) { var box = (RichTextBox)page.Controls[0]; box.SelectionStart = 0; box.ScrollToCaret(); }
+            if (result.Partial) tabs.SelectedIndex = 1;
             using (var graphics = Graphics.FromHwnd(IntPtr.Zero)) Scale(new SizeF(graphics.DpiX / 96f, graphics.DpiY / 96f));
         }
 

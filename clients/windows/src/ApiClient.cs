@@ -11,6 +11,8 @@ namespace ZhiyiDesktop
 {
     internal sealed class ReplyResult
     {
+        public bool Partial;
+        public string Failure;
         public string Summary;
         public string Reply;
         public string Note;
@@ -24,6 +26,12 @@ namespace ZhiyiDesktop
         public string[] Meanings = new string[0];
         public string[] RelatedQueries = new string[0];
         public readonly List<CommentEvidence> Comments = new List<CommentEvidence>();
+    }
+
+    internal sealed class GenerationException : Exception
+    {
+        internal readonly ReplyResult Retained;
+        internal GenerationException(string message, ReplyResult retained) : base(message) { Retained = retained; }
     }
 
     internal sealed class CommentEvidence
@@ -95,23 +103,34 @@ namespace ZhiyiDesktop
         {
             var parsed = new JavaScriptSerializer().Deserialize<SearchResponse>("{\"items\":[{\"object_id\":\"18446744073709551615\",\"nonce_id\":\"test\",\"title\":\"散步\",\"author\":\"作者\",\"duration\":38}]}");
             if (parsed.items.Length != 1 || parsed.items[0].object_id != "18446744073709551615" || !parsed.items[0].ToString().Contains("作者")) throw new Exception("搜索结果解析失败");
+            var failure = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>("{\"error\":\"回复未生成\",\"evidence\":{\"transcript\":\"已读原文\",\"comments\":[{\"ref\":\"c1\",\"text\":\"已读评论\",\"likes\":12}]}}");
+            try { ParseReply(failure, false); throw new Exception("未报告生成失败"); }
+            catch (GenerationException error) {
+                if (error.Retained == null || !error.Retained.Partial || error.Retained.Transcript != "已读原文" || error.Retained.Comments.Count != 1 || error.Retained.Reply.Length != 0) throw new Exception("失败资料未保留");
+            }
+
         }
 
-        internal async Task<string> ModelSettings(string serviceUrl, string key, CancellationToken cancellation)
+        internal async Task<string> ModelSettings(string serviceUrl, string key, CancellationToken cancellation, bool verifySaved = false)
         {
             var root = ServiceRoot(serviceUrl);
             if (root.Host != "127.0.0.1" && root.Host != "localhost") throw new InvalidOperationException("请连接本机服务后设置密钥。");
             using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(22) })
-            using (var request = new HttpRequestMessage(key == null ? HttpMethod.Get : HttpMethod.Post, new Uri(root, "/api/local/model")))
+            using (var request = new HttpRequestMessage(key == null && !verifySaved ? HttpMethod.Get : HttpMethod.Post, new Uri(root, "/api/local/model")))
             {
-                if (key != null) {
+                if (key != null || verifySaved) {
                     request.Headers.Add("X-Zhiyi-Local-Config", "1");
-                    request.Content = new StringContent(json.Serialize(new { apiKey = key }), Encoding.UTF8, "application/json");
+                    request.Content = new StringContent(json.Serialize(new { apiKey = key, verifyOnly = verifySaved }), Encoding.UTF8, "application/json");
                 }
                 using (var response = await client.SendAsync(request, cancellation)) {
                     var data = json.Deserialize<Dictionary<string, object>>(await response.Content.ReadAsStringAsync());
                     if (!response.IsSuccessStatusCode) throw new InvalidOperationException(GetString(data, "error", "设置失败，原配置保留。"));
-                    return key == null ? (data.ContainsKey("configured") && Object.Equals(data["configured"], true) ? "已配置 · " : "未配置 · ") + GetString(data, "model", "deepseek-flash") : GetString(data, "message", "已保存。");
+                    string model = GetString(data, "model", "deepseek-flash");
+                    DateTime verified;
+                    string when = DateTime.TryParse(GetString(data, "verified_at", ""), out verified) ? verified.ToLocalTime().ToString("MM-dd HH:mm:ss") : "";
+                    if (key != null || verifySaved) return GetString(data, "message", "验证完成。") + "\r\n" + model + " · " + when;
+                    if (when.Length > 0) return "验证成功 · " + model + "\r\n最近验证：" + when;
+                    return (data.ContainsKey("configured") && Object.Equals(data["configured"], true) ? "已配置，本次启动后尚未验证。\r\n可点击下方「验证已保存密钥」。" : "尚未配置密钥。\r\n填入后点击「验证并保存新密钥」。");
                 }
             }
         }
@@ -177,57 +196,67 @@ namespace ZhiyiDesktop
                 Dictionary<string, object> value;
                 try { value = json.Deserialize<Dictionary<string, object>>(raw); }
                 catch { throw new InvalidOperationException("服务返回的内容无法读取。"); }
-                if (!response.IsSuccessStatusCode) throw new InvalidOperationException(GetString(value, "error", "生成失败，请检查本机服务。"));
-                var result = new ReplyResult {
-                    Summary = GetString(value, "content_summary", ""),
-                    Reply = GetString(value, "reply", ""),
-                    Note = GetString(value, "note", "发送前请确认内容。")
-                };
-                result.Tip = GetString(value, "reply_tip", "");
-                result.Meanings = Strings(value, "possible_meanings");
-                result.RelatedQueries = Strings(value, "related_queries");
-                result.CommentAnalysis = GetString(value, "comment_analysis", "");
-                result.Caveats = GetString(value, "caveats", "");
-                object analysisValue;
-                var analysis = value.TryGetValue("analysis", out analysisValue) ? analysisValue as System.Collections.ArrayList : null;
-                if (analysis != null) foreach (var item in analysis) {
-                    var point = item as Dictionary<string, object>;
-                    string reference = GetString(point, "source", "");
-                    result.Analysis += GetString(point, "point", "") + "\r\n依据：" + (reference == "video" ? "视频讲述与采样画面" : reference == "article" ? "公众号正文" : reference == "message" ? "输入的消息" : "评论 " + reference) + "\r\n\r\n";
-                }
-                object metaValue;
-                var meta = value.TryGetValue("meta", out metaValue) ? metaValue as Dictionary<string, object> : null;
-                if (meta != null && meta.ContainsKey("total_ms")) result.Timing = Math.Round(Convert.ToDouble(meta["total_ms"]) / 1000, 1) + " 秒" + (meta.ContainsKey("evidence_cache_hit") && Object.Equals(meta["evidence_cache_hit"], true) ? " · 已复用本次视频资料" : "");
-                object evidenceValue;
-                var evidence = value.TryGetValue("evidence", out evidenceValue) ? evidenceValue as Dictionary<string, object> : null;
-                result.Evidence = GetString(evidence, "visible_text", "");
-                result.Coverage = GetString(evidence, "coverage", "");
-                string transcript = GetString(evidence, "transcript", "");
-                result.Transcript = transcript;
-                result.Visual = GetString(evidence, "visual_summary", "") + "\r\n" + GetString(evidence, "visible_text", "");
-                if (transcript.Length > 0) result.Evidence += "\r\n【视频讲述】\r\n" + transcript;
-                object commentValue;
-                var comments = evidence != null && evidence.TryGetValue("comments", out commentValue) ? commentValue as System.Collections.ArrayList : null;
-                if (comments != null) foreach (var item in comments)
-                {
-                    var comment = item as Dictionary<string, object>;
-                    object likes; string count = comment != null && comment.TryGetValue("likes", out likes) && likes != null ? Convert.ToString(likes) + " 赞" : "未提供点赞数";
-                    string parent = GetString(comment, "reply_to", "");
-                    result.Comments.Add(new CommentEvidence { Text = GetString(comment, "text", ""), Parent = parent, Likes = count, Reference = GetString(comment, "ref", "") });
-                    result.Evidence += "\r\n【" + count + "】" + (parent.Length > 0 ? "回复「" + parent + "」：" : "") + GetString(comment, "text", "");
-                }
-                object parts;
-                var segments = evidence != null && evidence.TryGetValue("segments", out parts) ? parts as System.Collections.ArrayList : null;
-                if (segments != null) foreach (var item in segments) {
-                    var part = item as Dictionary<string, object>;
-                    if (part == null) continue;
-                    result.Evidence += "\r\n\r\n【分段 " + part["start"] + "–" + part["end"] + " 秒】\r\n" + GetString(part, "summary", "");
-                    result.Segments += part["start"] + "–" + part["end"] + " 秒\r\n" + GetString(part, "summary", "") + "\r\n\r\n";
-                }
-                result.Evidence = "依据优先级：原文和视频讲述为主，评论辅助理解。点赞是热度，不是可信度；下面按取得的样本排序。\r\n\r\n" + result.Evidence;
-                if (String.IsNullOrWhiteSpace(result.Reply)) throw new InvalidOperationException("服务没有返回可用回复。");
-                return result;
+                return ParseReply(value, response.IsSuccessStatusCode);
             }
+        }
+
+        internal static ReplyResult ParseReply(Dictionary<string, object> value, bool success)
+        {
+        var result = new ReplyResult {
+            Summary = GetString(value, "content_summary", ""),
+            Reply = GetString(value, "reply", ""),
+            Note = GetString(value, "note", "发送前请确认内容。")
+        };
+        result.Tip = GetString(value, "reply_tip", "");
+        result.Meanings = Strings(value, "possible_meanings");
+        result.RelatedQueries = Strings(value, "related_queries");
+        result.CommentAnalysis = GetString(value, "comment_analysis", "");
+        result.Caveats = GetString(value, "caveats", "");
+        object analysisValue;
+        var analysis = value.TryGetValue("analysis", out analysisValue) ? analysisValue as System.Collections.ArrayList : null;
+        if (analysis != null) foreach (var item in analysis) {
+            var point = item as Dictionary<string, object>;
+            string reference = GetString(point, "source", "");
+            result.Analysis += GetString(point, "point", "") + "\r\n依据：" + (reference == "video" ? "视频讲述与采样画面" : reference == "article" ? "公众号正文" : reference == "message" ? "输入的消息" : "评论 " + reference) + "\r\n\r\n";
+        }
+        object metaValue;
+        var meta = value.TryGetValue("meta", out metaValue) ? metaValue as Dictionary<string, object> : null;
+        if (meta != null && meta.ContainsKey("total_ms")) result.Timing = Math.Round(Convert.ToDouble(meta["total_ms"]) / 1000, 1) + " 秒" + (meta.ContainsKey("evidence_cache_hit") && Object.Equals(meta["evidence_cache_hit"], true) ? " · 已复用本次视频资料" : "");
+        object evidenceValue;
+        var evidence = value.TryGetValue("evidence", out evidenceValue) ? evidenceValue as Dictionary<string, object> : null;
+        result.Evidence = GetString(evidence, "visible_text", "");
+        result.Coverage = GetString(evidence, "coverage", "");
+        string transcript = GetString(evidence, "transcript", "");
+        result.Transcript = transcript;
+        result.Visual = GetString(evidence, "visual_summary", "") + "\r\n" + GetString(evidence, "visible_text", "");
+        if (transcript.Length > 0) result.Evidence += "\r\n【视频讲述】\r\n" + transcript;
+        object commentValue;
+        var comments = evidence != null && evidence.TryGetValue("comments", out commentValue) ? commentValue as System.Collections.ArrayList : null;
+        if (comments != null) foreach (var item in comments)
+        {
+            var comment = item as Dictionary<string, object>;
+            object likes; string count = comment != null && comment.TryGetValue("likes", out likes) && likes != null ? Convert.ToString(likes) + " 赞" : "未提供点赞数";
+            string parent = GetString(comment, "reply_to", "");
+            result.Comments.Add(new CommentEvidence { Text = GetString(comment, "text", ""), Parent = parent, Likes = count, Reference = GetString(comment, "ref", "") });
+            result.Evidence += "\r\n【" + count + "】" + (parent.Length > 0 ? "回复「" + parent + "」：" : "") + GetString(comment, "text", "");
+        }
+        object parts;
+        var segments = evidence != null && evidence.TryGetValue("segments", out parts) ? parts as System.Collections.ArrayList : null;
+        if (segments != null) foreach (var item in segments) {
+            var part = item as Dictionary<string, object>;
+            if (part == null) continue;
+            result.Evidence += "\r\n\r\n【分段 " + part["start"] + "–" + part["end"] + " 秒】\r\n" + GetString(part, "summary", "");
+            result.Segments += part["start"] + "–" + part["end"] + " 秒\r\n" + GetString(part, "summary", "") + "\r\n\r\n";
+        }
+        result.Evidence = "依据优先级：原文和视频讲述为主，评论辅助理解。点赞是热度，不是可信度；下面按取得的样本排序。\r\n\r\n" + result.Evidence;
+
+            if (!success) {
+                result.Partial = true;
+                result.Failure = GetString(value, "error", "生成失败，请检查本机服务。");
+                throw new GenerationException(result.Failure, evidence == null ? null : result);
+            }
+            if (String.IsNullOrWhiteSpace(result.Reply)) throw new InvalidOperationException("服务没有返回可用回复。");
+            return result;
         }
 
         internal static AttachmentData FromFile(string path)

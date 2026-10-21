@@ -206,6 +206,42 @@ test('backend routes link through media and comments before LLM, and keeps signe
   assert.doesNotMatch(JSON.stringify(progress), /走走|nonce|secret/);
 });
 
+test('failed final replies return real evidence and retry without downloading or transcribing again', async t => {
+  let mediaCalls = 0, finalCalls = 0, failing = true;
+  const server = createServer({ config: { ...bridge, llmKey: 'test-secret', llmBaseUrl: 'https://model.example.test', llmModel: 'test', llmVision: true, typesafeKey: '' },
+    extractVideoImpl: async () => { mediaCalls++; return { duration: 5, frames: [{ time: 0, dataUrl: 'data:image/jpeg;base64,eA==' }], transcript: '散步别急着赶路。', audioStatus: 'transcribed' }; },
+    fetchImpl: (url, options) => {
+      if (String(url).startsWith(bridge.channelsBridgeUrl)) return upstream(url, options);
+      const visual = Array.isArray(JSON.parse(options.body).messages[1].content);
+      if (!visual) finalCalls++;
+      const value = visual ? { visual_summary: '户外散步。', visible_text: '' } : failing ? { reply: '未通过检查的文字' } : { content_summary: '慢下来散步。', possible_meanings: ['可能在分享日常。', '也许想出去走走。'], reply_tip: '接具体内容。', reply: '留点时间慢慢走也挺好。' };
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(value) } }] }));
+    }
+  });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening'); t.after(() => { server.close(); server.closeAllConnections(); });
+  const send = () => fetch(`http://127.0.0.1:${server.address().port}/api/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'live', text: share }) });
+  const failed = await send(); const partial = await failed.json();
+  assert.equal(failed.status, 502); assert.equal(finalCalls, 2); assert.equal(partial.stage, 'generation');
+  assert.equal(partial.evidence.transcript, '散步别急着赶路。'); assert.equal(partial.evidence.comments.length, 2);
+  assert.equal(partial.evidence.read_complete, true); assert.equal(partial.reply, undefined);
+  assert.match(partial.error, /查看已读资料/); assert.doesNotMatch(JSON.stringify(partial), /test-secret|exportkey|finder\.video/);
+  failing = false;
+  const retried = await send(); const complete = await retried.json();
+  assert.equal(retried.status, 200); assert.equal(complete.meta.evidence_cache_hit, true); assert.equal(mediaCalls, 1);
+});
+
+test('failed visual parsing still exposes acquired audio and comments as incomplete evidence', async t => {
+  const server = createServer({ config: { ...bridge, llmKey: 'test-secret', llmBaseUrl: 'https://model.example.test', llmModel: 'test', llmVision: true },
+    extractVideoImpl: async () => ({ duration: 5, frames: [{ time: 0, dataUrl: 'data:image/jpeg;base64,eA==' }], transcript: '真实转写', audioStatus: 'transcribed' }),
+    fetchImpl: (url, options) => String(url).startsWith(bridge.channelsBridgeUrl) ? upstream(url, options) : new Response(JSON.stringify({ choices: [{ message: { content: 'invalid json' } }] }))
+  });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening'); t.after(() => { server.close(); server.closeAllConnections(); });
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'live', text: share }) });
+  const body = await response.json();
+  assert.equal(response.status, 502); assert.equal(body.stage, 'visual'); assert.equal(body.evidence.transcript, '真实转写');
+  assert.equal(body.evidence.read_complete, false); assert.equal(body.evidence.comments.length, 2);
+});
+
 test('comment pagination includes more pages and threaded replies with stable references', async () => {
   let mainPages = 0, replyPages = 0;
   const result = await readChannels(share, { config: bridge, fetchImpl: (url, options) => {
