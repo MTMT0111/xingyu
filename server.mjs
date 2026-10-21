@@ -8,7 +8,8 @@ import { storeVideoStream, MAX_VIDEO_BYTES } from './lib/video-file.mjs';
 import { examples, validateInput, questions, validateDecision, selectStrategy, generateLocal, generationPrompt, validateGeneration } from './lib/translate.mjs';
 import { extractVideo, validateVisualEvidence, visionPrompt } from './lib/media.mjs';
 import { readWechatArticle } from './lib/article.mjs';
-import { classifyShare, readChannels, searchChannels } from './lib/channels.mjs';
+import { classifyShare, readChannels, searchChannels, recentChannels } from './lib/channels.mjs';
+import { saveDeepSeekKey, EvidenceCache } from './lib/local-model.mjs';
 
 const publicRoot = fileURLToPath(new URL('./public/', import.meta.url));
 const staticFiles = new Map([
@@ -67,12 +68,12 @@ function json(res, status, value) {
   res.end(JSON.stringify(value));
 }
 
-async function readBody(req) {
+async function readBody(req, limit = 30 * 1024 * 1024) {
   let bytes = 0;
   const chunks = [];
   for await (const chunk of req) {
     bytes += chunk.length;
-    if (bytes > 30 * 1024 * 1024) {
+    if (bytes > limit) {
       const error = new Error('输入过长，请缩短后再试。');
       error.status = 413;
       throw error;
@@ -111,19 +112,32 @@ function modelFailure(error) {
   return { code: 'INVALID_RESPONSE', message: 'AI 返回的内容不完整，已有文字已保留，请重试。' };
 }
 
-async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
+async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cache, report = () => {}, refresh = false) {
   const start = performance.now();
-  let evidence;
   const source = input.channel ? { kind: 'channels' } : input.attachment ? { kind: input.attachment.kind } : classifyShare(input.text);
+  const cacheKey = source.kind === 'channels' ? createHash('sha256').update(JSON.stringify([input.channel ?? source.url, config.llmBaseUrl, config.llmModel, config.whisperModel])).digest('hex') : '';
+  let evidence = cacheKey && !refresh ? cache.get(cacheKey) : null;
+  const cacheHit = Boolean(evidence), timings = {};
   let channel;
   try {
+  if (cacheHit) report('复用已读取的视频和评论，正在调整回复');
+  if (source.kind === 'channels' && !evidence) {
+    channel = await readChannels(input.channel ?? source.url, { config, fetchImpl, signal, onProgress: report, prepareVideo: async attachment => {
+      const mediaStart = performance.now();
+      report('正在转写完整音轨，评论同步读取中；可收起窗口等待');
+      const prepared = await extractVideoImpl(attachment, config, signal);
+      timings.transcription_ms = Math.round(performance.now() - mediaStart);
+      return prepared;
+    } });
+    Object.assign(timings, channel.timings);
+  }
   if (source.kind === 'channels') {
-    channel = await readChannels(input.channel ?? source.url, { config, fetchImpl, signal });
     // Signed share links and media credentials stay on this machine.
-    input = { ...input, text: input.text.replace(/https?:\/\/[^\s<>"'`]+/gi, '[视频号分享链接]'), attachment: channel.attachment };
+    input = { ...input, text: input.text.replace(/https?:\/\/[^\s<>"'`]+/gi, '[视频号分享链接]'), attachment: channel?.attachment };
   }
   const articleUrl = source.kind === 'article' ? source.url : null;
   if (articleUrl) {
+    report('正在读取公众号正文');
     const article = await readWechatArticle(articleUrl, { fetchImpl, signal });
     evidence = { kind: 'article', visual_summary: '文章标题：' + [...article.title].slice(0, 200).join(''), visible_text: article.text,
       transcript: '', audio_status: 'not_applicable', duration: null, frame_count: 0,
@@ -131,11 +145,16 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
   }
   if (input.attachment) {
     const attachment = input.attachment;
-    const video = attachment.kind === 'video' ? await extractVideoImpl(attachment, config, signal) : null;
+    if (!channel?.preparedVideo) report('正在转写完整音轨并提取画面，可收起窗口继续等待');
+    const mediaStart = performance.now();
+    const video = channel?.preparedVideo ?? (attachment.kind === 'video' ? await extractVideoImpl(attachment, config, signal) : null);
+    if (!channel?.preparedVideo) timings.transcription_ms = Math.round(performance.now() - mediaStart);
+    const visualStart = performance.now();
     const frames = video ? video.frames : [{ time: 0, dataUrl: `data:${attachment.mime};base64,${attachment.bytes.toString('base64')}` }];
     const pieces = video?.segments || [{ start: 0, end: video?.duration ?? 0, frames, transcript: video?.transcript ?? '' }];
     const segments = [];
     for (const piece of pieces) {
+      report(`正在理解视频内容 · 第 ${segments.length + 1}/${pieces.length} 段`);
       const visionUrl = endpoint(config.llmBaseUrl);
       const visualResponse = await postModel(fetchImpl, visionUrl, config.llmKey, {
         model: config.llmModel,
@@ -171,14 +190,24 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
       audio_status: video?.audioStatus ?? 'not_applicable', duration: video?.duration ?? null, frame_count: frames.length,
       ...(segments.length > 1 ? { segments: segments.map(({ visible_text, ...part }) => ({ ...part, summary: part.summary + (visible_text ? '\n画面文字：' + visible_text : '') })) } : {}),
       coverage: video ? `完整音轨已分${segments.length}段处理，共抽取${frames.length}帧；画面为采样，可能遗漏短暂片段，语音转写可能有误差。` : '根据上传图片中的可见内容整理，模糊或遮挡文字可能遗漏。' };
+    timings.visual_ms = Math.round(performance.now() - visualStart);
     if (channel) {
       evidence.kind = 'channels';
       evidence.description = channel.description;
       evidence.comments = channel.comments;
       evidence.comment_status = channel.commentStatus;
+      evidence.comment_stats = channel.commentStats;
       evidence.coverage += ` 后台读取视频文件；取得 ${channel.comments.length} 条评论及回复，仅代表返回的样本，非全部评论。`;
-      if (channel.commentStatus !== 'sample') evidence.coverage += ' 部分或全部评论未能取得。';
+      if (channel.commentStats.reported !== null) evidence.coverage += ` 平台报告的评论数为 ${channel.commentStats.reported}（可能不含所有回复）。`;
+      if (channel.commentStatus === 'limited') evidence.coverage += ' 已达到本次分页或数量预算，展开范围以列出的样本为准。';
+      else if (channel.commentStatus === 'time_limited') evidence.coverage += ' 评论读取达到 20 秒预算，保留已取得的样本。';
+      else if (channel.commentStatus !== 'sample') evidence.coverage += ' 部分或全部评论请求未能成功。';
     }
+  }
+  if (evidence && !cacheHit) {
+    evidence.read_at = new Date().toISOString();
+    // Keep the actual comment coverage with the evidence; the user can explicitly refresh it.
+    if (cacheKey && channel) cache.set(cacheKey, evidence);
   }
   const promptEvidence = evidence?.segments ? { ...evidence, segments: undefined, transcript: '完整转写保留在用户依据面板；本次根据覆盖各段的摘要生成。' } : evidence;
   const analyzedText = evidence ? JSON.stringify({ message_text: input.text, source_evidence: promptEvidence }) : input.text;
@@ -198,6 +227,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
   const decisionMs = Math.round(performance.now() - decisionStart);
   const strategy = selectStrategy(decision);
   const generationStart = performance.now();
+  report('正在对照视频、评论和对象关系，生成分析与回复');
   const generationUrl = endpoint(config.llmBaseUrl);
   const data = await postModel(fetchImpl, generationUrl, config.llmKey, {
     model: config.llmModel,
@@ -207,10 +237,12 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
     ],
     // DeepSeek enables thinking by default; short replies need the budget for their JSON answer.
     ...(new URL(generationUrl).hostname === 'api.deepseek.com' ? { thinking: { type: 'disabled' } } : {}),
-    response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 800, stream: false
+    response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2400, stream: false
   }, config.timeoutLlmMs, signal);
   if (data.choices?.[0]?.finish_reason === 'length') throw new Error('Truncated generation');
   const result = validateGeneration(JSON.parse(data.choices?.[0]?.message?.content), strategy);
+  const primarySource = evidence?.kind === 'article' ? 'article' : evidence ? 'video' : 'message';
+  if (result.analysis) result.analysis = result.analysis.filter(item => item.source === primarySource || evidence?.comments?.some(comment => comment.ref === item.source));
   if (input.recipient === 'elder') result.reply = result.reply.replaceAll('你', '您');
   return {
     ...result, ...(evidence ? { evidence } : {}), source_kind: source.kind, strategy, topic: decision?.topic ?? 'unclear',
@@ -219,6 +251,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
       decision_ms: decisionMs, generation_ms: Math.round(performance.now() - generationStart), total_ms: Math.round(performance.now() - start),
       model: decisionModel, generation_model: typeof data.model === 'string' ? data.model : config.llmModel,
       decision_error: decisionError,
+      evidence_cache_hit: cacheHit, stages: timings,
       usage: { decision: decisionUsage, generation: data.usage ?? null }
     },
     note: decision || !config.typesafeKey ? 'AI 只提供可能的理解，具体想法还需要和家人聊聊。' : '内容判断暂不可用，以下由语言模型保留多种理解，仅供参考。'
@@ -226,8 +259,11 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
   } finally { if (channel?.attachment?.dispose) await channel.attachment.dispose(); }
 }
 
-export function createServer({ config = {}, fetchImpl = globalThis.fetch, extractVideoImpl = extractVideo } = {}) {
+export function createServer({ config = {}, fetchImpl = globalThis.fetch, extractVideoImpl = extractVideo, envPath = fileURLToPath(new URL('.env', import.meta.url)) } = {}) {
   const cfg = { ...settings(), ...config };
+  const evidenceCache = new EvidenceCache();
+  const progress = new Map();
+  let savingModel = false;
   let publicUrl = null;
   let trialAuthorization = null;
   let trialAccessToken = null;
@@ -286,18 +322,49 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
       }
     }
     try {
+      if (url.pathname === '/api/local/model') {
+        if (publicUrl || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress) || req.headers['sec-fetch-site'] === 'cross-site') return json(res, 403, { error: '密钥只能在本机助手设置。', code: 'LOCAL_ONLY' });
+        if (req.method === 'GET') return json(res, 200, { configured: liveAvailable(cfg), model: cfg.llmModel || 'deepseek-flash' });
+        if (req.method !== 'POST') return json(res, 405, { error: '不支持此操作。' });
+        if (req.headers['x-zhiyi-local-config'] !== '1' || !(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 403, { error: '请从本机助手的服务设置保存。' });
+        if (savingModel || activeLiveRequests) return json(res, 409, { error: '请等待当前分析结束，再更新密钥。' });
+        savingModel = true;
+        try {
+          const body = await readBody(req, 2048);
+          if (typeof body.apiKey !== 'string' || !/^[A-Za-z0-9_-]{16,256}$/.test(body.apiKey)) return json(res, 400, { error: '请输入有效的 DeepSeek API 密钥。' });
+          const verified = await postModel(fetchImpl, 'https://api.deepseek.com/chat/completions', body.apiKey,
+            { model: 'deepseek-flash', messages: [{ role: 'user', content: 'Reply OK.' }], thinking: { type: 'disabled' }, max_tokens: 8, stream: false }, 15000, new AbortController().signal);
+          if (typeof verified.choices?.[0]?.message?.content !== 'string' || !verified.choices[0].message.content.trim()) throw new Error('Empty verification');
+          await saveDeepSeekKey(envPath, body.apiKey);
+          cfg.llmKey = body.apiKey; cfg.llmBaseUrl = 'https://api.deepseek.com'; cfg.llmModel = 'deepseek-flash';
+          evidenceCache.clear();
+          return json(res, 200, { configured: true, model: cfg.llmModel, message: '已验证并保存，本机后续分析立即生效。' });
+        } catch (error) {
+          const failure = modelFailure(error);
+          return json(res, 400, { error: error.code ? '本机配置文件无法写入，原配置已保留。' : failure.message, code: 'MODEL_NOT_SAVED' });
+        } finally { savingModel = false; }
+      }
+      if (req.method === 'GET' && url.pathname === '/api/local/progress') {
+        if (publicUrl) return json(res, 403, { error: '仅限本机。' });
+        const item = progress.get(url.searchParams.get('id'));
+        if (!item || Date.now() - item.updated > 600000) return json(res, 404, { error: '暂无进度。' });
+        return json(res, 200, { stage: item.stage, done: item.done, elapsed_ms: Date.now() - item.started });
+      }
       if (req.method === 'GET' && url.pathname === '/api/config') {
         const available = liveAvailable(cfg);
         return json(res, 200, { mode: available ? 'live' : 'demo', liveAvailable: available, decisionMode: available ? (cfg.typesafeKey ? 'jev' : 'llm') : 'demo', mediaAvailable: mediaAvailable(cfg), videoAvailable: videoAvailable(cfg), channelsAvailable: Boolean(cfg.channelsBridgeUrl && !publicUrl && available), label: available ? '真实 AI · 在线生成' : '本地体验 · 非实时 AI' });
       }
       if (req.method === 'GET' && url.pathname === '/api/examples') return json(res, 200, examples);
-      if (req.method === 'GET' && url.pathname === '/api/channels/search') {
+      if (req.method === 'GET' && ['/api/channels/search', '/api/channels/recent'].includes(url.pathname)) {
         if (publicUrl) return json(res, 403, { error: '视频号搜索仅在本机已登录微信会话中使用。', code: 'LOCAL_ONLY' });
         if (activeLiveRequests >= 2) return json(res, 429, { error: '正在处理其他请求，请稍后重试。', code: 'BUSY' });
         activeLiveRequests++;
         const controller = new AbortController();
         res.on('close', () => { if (!res.writableEnded) controller.abort(); });
-        try { return json(res, 200, await searchChannels(url.searchParams.get('q'), { config: cfg, fetchImpl, signal: controller.signal })); }
+        try {
+          const options = { config: cfg, fetchImpl, signal: controller.signal };
+          return json(res, 200, url.pathname.endsWith('/recent') ? await recentChannels(options) : await searchChannels(url.searchParams.get('q'), options));
+        }
         catch (error) { const failure = modelFailure(error); return json(res, error.channelsCode === 'INVALID_QUERY' ? 400 : 502, { error: failure.message, code: failure.code }); }
         finally { activeLiveRequests--; }
       }
@@ -333,7 +400,7 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
         if (!liveAvailable(cfg)) return json(res, 503, { error: '真实 AI 尚未配置。可以继续本地体验，或按 README 配置 LLM。', code: 'NOT_CONFIGURED' });
         if (input.attachment && !mediaAvailable(cfg)) return json(res, 503, { error: '图片和视频需要支持视觉的模型，请检查服务配置。', code: 'MEDIA_NOT_CONFIGURED' });
         if ((input.videoUpload || input.attachment?.kind === 'video') && !videoAvailable(cfg)) return json(res, 503, { error: '本地视频语音识别尚未就绪，请检查服务配置。', code: 'VIDEO_NOT_CONFIGURED' });
-        if (activeLiveRequests >= 2) return json(res, 429, { error: '正在生成其他回复，请稍后再试。', code: 'BUSY' });
+        if (savingModel || activeLiveRequests >= 2) return json(res, 429, { error: '正在处理其他请求，请稍后再试。', code: 'BUSY' });
         if (publicUrl) {
           if (performance.now() - trialWindowStart >= 3600000) { trialWindowStart = performance.now(); trialLiveRequests = 0; }
           // shortcut: single-process invitation trial; use durable per-user quotas before an open or multi-instance launch.
@@ -351,12 +418,19 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
         activeLiveRequests++;
         const controller = new AbortController();
         res.on('close', () => { if (!res.writableEnded) controller.abort(); });
-        try { return json(res, 200, await replyLive(input, cfg, fetchImpl, controller.signal, extractVideoImpl)); }
+        const requestId = !publicUrl && /^[a-f0-9]{32}$/.test(req.headers['x-request-id'] ?? '') ? req.headers['x-request-id'] : null;
+        const progressItem = { started: Date.now(), updated: Date.now(), stage: '准备读取内容', done: false };
+        if (requestId) {
+          progress.set(requestId, progressItem);
+          while (progress.size > 32) progress.delete(progress.keys().next().value);
+        }
+        const report = stage => { progressItem.stage = stage; progressItem.updated = Date.now(); };
+        try { return json(res, 200, await replyLive(input, { ...cfg }, fetchImpl, controller.signal, extractVideoImpl, evidenceCache, report, req.headers['x-refresh-evidence'] === '1')); }
         catch (error) {
           const failure = modelFailure(error);
           return json(res, 502, { error: failure.message, code: 'GENERATION_FAILED', cause: failure.code });
         }
-        finally { activeLiveRequests--; if (input.videoUpload && input.attachment?.dispose) await input.attachment.dispose(); }
+        finally { progressItem.done = true; progressItem.updated = Date.now(); activeLiveRequests--; if (input.videoUpload && input.attachment?.dispose) await input.attachment.dispose(); }
       }
       const file = staticFiles.get(url.pathname);
       if (file && ['GET', 'HEAD'].includes(req.method)) {

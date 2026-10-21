@@ -167,6 +167,29 @@ test('valid extra model hypotheses are bounded without relaxing ambiguity or fie
   assert.throws(() => validateGeneration({ ...generation, reply: '', possible_meanings: meanings }, 'uncertain'));
 });
 
+test('related search suggestions remain bounded text, not unverified links', () => {
+  assert.deepEqual(validateGeneration(generation, 'warm').related_queries, []);
+  const proposed = [' 人际关系 ', '人际关系', 'https://fake.test', 'A\nB', 42, '长'.repeat(17), '沟通边界', '第三话题'];
+  assert.deepEqual(validateGeneration({ ...generation, related_queries: proposed }, 'warm').related_queries, ['人际关系', '沟通边界']);
+  assert.equal(proposed.length, 8);
+});
+
+test('deeper analysis accepts bounded points with explicit source references only', () => {
+  const result = validateGeneration({ ...generation, analysis: [{ point: '讲述的前提需要区分。', source: 'video' }, { point: '评论有不同经历。', source: 'c2' }, { point: '假来源', source: 'https://fake.test' }, { point: '过'.repeat(181), source: 'video' }] }, 'warm');
+  assert.equal(result.analysis.length, 2);
+  assert.equal(result.analysis[1].source, 'c2');
+});
+
+test('public deployment never permits local model configuration or progress access', async t => {
+  let called = false;
+  const app = await serve(t, { config: { ...liveConfig, publicOrigin: 'https://trial.example.test', trialPassword: 'test-password-long-enough' }, fetchImpl: () => { called = true; throw new Error(); } });
+  for (const path of ['/api/local/model', '/api/local/progress?id=' + 'a'.repeat(32)]) {
+    const response = await app.get(path, { headers: { host: 'trial.example.test', authorization: 'Basic ' + Buffer.from('trial:test-password-long-enough').toString('base64') } });
+    assert.equal(response.status, 403);
+  }
+  assert.equal(called, false);
+});
+
 test('local generation offers usable variations without inventing the child’s recent life', () => {
   const replies = new Set();
   for (const text of ['这 10 种食物千万别再吃了！', '周末回来吃饭吗？', '什么时候找对象？', '分享给你一个视频，快看看', '你怎么总是不听我的！', '嗯']) {

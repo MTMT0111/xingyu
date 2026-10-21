@@ -25,6 +25,135 @@ index 25104c2..c418d16 100644
  		Handler: mux,
  	}
  
+diff --git a/internal/assets/inject/utils.js b/internal/assets/inject/utils.js
+index 88fad13..24cb344 100644
+--- a/internal/assets/inject/utils.js
++++ b/internal/assets/inject/utils.js
+@@ -330,7 +330,7 @@ var WXU = (() => {
+       console.log("[WXU.set_feed] 发送profile到后端", profile.title);
+       fetch("/__wx_channels_api/profile", {
+         method: "POST",
+-        headers: { "Content-Type": "application/json" },
++        headers: { "Content-Type": "application/json", "X-Local-Auth": window.__WX_LOCAL_TOKEN__ || "" },
+         body: JSON.stringify(profile),
+       });
+       __wx_channels_store__.profile = profile;
+diff --git a/internal/handlers/captured_feeds.go b/internal/handlers/captured_feeds.go
+new file mode 100644
+index 0000000..99d926e
+--- /dev/null
++++ b/internal/handlers/captured_feeds.go
+@@ -0,0 +1,59 @@
++package handlers
++
++import (
++	"net/http"
++	"regexp"
++	"strconv"
++	"sync"
++	"time"
++
++	"wx_channel/internal/response"
++)
++
++type capturedFeed struct {
++	ID         string    `json:"object_id"`
++	Nonce      string    `json:"nonce_id"`
++	Title      string    `json:"title"`
++	Author     string    `json:"author"`
++	Duration   float64   `json:"duration"`
++	CapturedAt time.Time `json:"captured_at"`
++}
++
++var capturedFeeds struct {
++	sync.Mutex
++	items []capturedFeed
++}
++var feedIDPattern = regexp.MustCompile(`^[0-9]{1,20}$`)
++var feedNoncePattern = regexp.MustCompile(`^[A-Za-z0-9_+\-=/]{1,256}$`)
++
++func captureFeed(data map[string]interface{}, title, author string, duration int64) {
++	id, _ := data["id"].(string)
++	nonce, _ := data["nonce_id"].(string)
++	_, err := strconv.ParseUint(id, 10, 64)
++	if err != nil || !feedIDPattern.MatchString(id) || !feedNoncePattern.MatchString(nonce) || data["type"] != "media" {
++		return
++	}
++	item := capturedFeed{id, nonce, title, author, float64(duration) / 1000, time.Now()}
++	capturedFeeds.Lock()
++	defer capturedFeeds.Unlock()
++	next := []capturedFeed{item}
++	for _, old := range capturedFeeds.items {
++		if old.ID != id && len(next) < 20 {
++			next = append(next, old)
++		}
++	}
++	// shortcut: session-only capture history; reopen a card after a connector restart.
++	capturedFeeds.items = next
++}
++
++func HandleCapturedFeeds(w http.ResponseWriter, r *http.Request) {
++	if r.Method != http.MethodGet {
++		response.ErrorWithStatus(w, http.StatusMethodNotAllowed, 405, "GET required")
++		return
++	}
++	capturedFeeds.Lock()
++	items := append([]capturedFeed{}, capturedFeeds.items...)
++	capturedFeeds.Unlock()
++	w.Header().Set("Cache-Control", "no-store")
++	response.Success(w, map[string]interface{}{"items": items})
++}
+diff --git a/internal/handlers/captured_feeds_test.go b/internal/handlers/captured_feeds_test.go
+new file mode 100644
+index 0000000..d7aee8c
+--- /dev/null
++++ b/internal/handlers/captured_feeds_test.go
+@@ -0,0 +1,45 @@
++package handlers
++
++import (
++	"encoding/json"
++	"net/http/httptest"
++	"strconv"
++	"strings"
++	"testing"
++)
++
++func TestCapturedFeedsKeepExactIdentityAndOnlyRecentSanitizedRecords(t *testing.T) {
++	capturedFeeds.items = nil
++	t.Cleanup(func() { capturedFeeds.items = nil })
++	for i := 1; i <= 22; i++ {
++		captureFeed(map[string]interface{}{"id": strconv.Itoa(i), "nonce_id": "opaque-nonce=", "type": "media", "url": "secret-media", "key": "secret-key"}, "title", "author", 23961)
++	}
++	captureFeed(map[string]interface{}{"id": "21", "nonce_id": "updated-nonce", "type": "media"}, "latest", "author", 23000)
++	for _, bad := range []map[string]interface{}{
++		{"id": float64(1), "nonce_id": "a", "type": "media"},
++		{"id": "18446744073709551616", "nonce_id": "a", "type": "media"},
++		{"id": "1", "nonce_id": "", "type": "media"},
++		{"id": "1", "nonce_id": "a", "type": "live"},
++	} {
++		captureFeed(bad, "bad", "bad", 0)
++	}
++	rec := httptest.NewRecorder()
++	HandleCapturedFeeds(rec, httptest.NewRequest("GET", "/api/local/captured-feeds", nil))
++	var got struct {
++		Data struct{ Items []capturedFeed }
++	}
++	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
++		t.Fatal(err)
++	}
++	if len(got.Data.Items) != 20 || got.Data.Items[0].ID != "21" || got.Data.Items[0].Nonce != "updated-nonce" || got.Data.Items[1].Duration != 23.961 {
++		t.Fatalf("wrong capture ordering or identity: %+v", got.Data.Items)
++	}
++	if strings.Contains(rec.Body.String(), "secret") {
++		t.Fatal("media credentials exposed")
++	}
++	rec = httptest.NewRecorder()
++	HandleCapturedFeeds(rec, httptest.NewRequest("POST", "/api/local/captured-feeds", nil))
++	if rec.Code != 405 {
++		t.Fatal("accepted mutation")
++	}
++}
 diff --git a/internal/handlers/script.go b/internal/handlers/script.go
 index b225a90..ff1dd18 100644
 --- a/internal/handlers/script.go
@@ -92,8 +221,25 @@ index 0000000..3149fa4
 +		t.Fatal("token missing, unsafe, or initialized after API client")
 +	}
 +}
+diff --git a/internal/handlers/video_handler.go b/internal/handlers/video_handler.go
+index 67ab0e0..3e01aa2 100644
+--- a/internal/handlers/video_handler.go
++++ b/internal/handlers/video_handler.go
+@@ -215,9 +215,10 @@ func (h *APIHandler) processVideoData(data map[string]interface{}) {
+ 	}
+ 
+ 	pageUrl := h.currentURL
++	captureFeed(data, title, author, duration)
+ 
+-	utils.LogInfo("[视频信息] ID=%s | 标题=%s | 作者=%s | 大小=%.2fMB | URL=%s | Key=%s | 分辨率=%s",
+-		videoID, title, author, sizeMB, url, decryptKey, resolution)
++	utils.LogInfo("[视频信息] 标题=%s | 作者=%s | 大小=%.2fMB | 分辨率=%s",
++		title, author, sizeMB, resolution)
+ 
+ 	// 保存浏览记录到数据库
+ 	h.saveBrowseRecord(videoID, title, author, authorID, duration, size, coverUrl, url, decryptKey, resolution, fileFormat, likeCount, commentCount, favCount, forwardCount, pageUrl)
 diff --git a/internal/router/api_routes.go b/internal/router/api_routes.go
-index 26e0870..9278731 100644
+index 26e0870..6bdbb4b 100644
 --- a/internal/router/api_routes.go
 +++ b/internal/router/api_routes.go
 @@ -66,6 +66,10 @@ func (r *APIRouter) Handle(Conn *SunnyNet.HttpConn) bool {
@@ -107,6 +253,14 @@ index 26e0870..9278731 100644
  	if !strings.HasPrefix(Conn.Request.URL.Path, "/api/") {
  		return false
  	}
+@@ -110,6 +114,7 @@ func NewAPIRouterWithRuntimeDiagnostics(cfg *config.Config, hub *websocket.Hub,
+ func (r *APIRouter) registerRoutes() {
+ 	// 搜索 API (v1)
+ 	r.searchService.RegisterRoutes(r.mux)
++	r.mux.HandleFunc("/api/local/captured-feeds", handlers.HandleCapturedFeeds)
+ 
+ 	// 系统管理 API (v1)
+ 	// 系统管理
 diff --git a/internal/router/local_host_test.go b/internal/router/local_host_test.go
 new file mode 100644
 index 0000000..d88f3c9

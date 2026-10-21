@@ -58,7 +58,8 @@ namespace ZhiyiDesktop
             menu.Font = Theme.Font(11, FontStyle.Regular);
             menu.ShowImageMargin = false;
             menu.Items.Add("粘贴分享链接 / 消息", null, delegate { assistant.PasteShare(); });
-            menu.Items.Add("选取微信视频（免输入）", null, async delegate { await assistant.SelectVideoCard(); });
+            menu.Items.Add("从微信接入原视频", null, delegate { assistant.SearchVideo(null, null, VideoListMode.Recent); });
+            menu.Items.Add("框选卡片查找（备用）", null, async delegate { await assistant.SelectVideoCard(); });
             menu.Items.Add("搜索视频号", null, delegate { assistant.SearchVideo(); });
             menu.Items.Add("读取已打开的分享链接", null, delegate { assistant.ReadCurrentShare(); });
             menu.Items.Add("框选一条文字消息", null, async delegate { await assistant.SelectContent(false); });
@@ -68,7 +69,7 @@ namespace ZhiyiDesktop
             menu.Items.Add("恢复跟随微信", null, delegate { pinned = false; AttachToWeChat(); });
             menu.Items.Add("退出", null, delegate { Close(); });
             ContextMenuStrip = menu;
-            tip.SetToolTip(this, "Ctrl+Alt+R 唤起或收起 · Ctrl+Alt+V 选取微信视频");
+            tip.SetToolTip(this, "Ctrl+Alt+R 唤起或收起 · Ctrl+Alt+V 接入原视频");
             Paint += delegate(object sender, PaintEventArgs e) {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (var bg = new SolidBrush(currentWindow == null ? Theme.Muted : Theme.Green)) e.Graphics.FillEllipse(bg, 0, 0, 57, 57);
@@ -77,7 +78,7 @@ namespace ZhiyiDesktop
             };
             MouseDown += delegate(object sender, MouseEventArgs e) { if (e.Button != MouseButtons.Left) return; moving = true; dragged = false; mouseOrigin = Cursor.Position; startLocation = Location; Capture = true; };
             MouseMove += delegate { if (!moving) return; var delta = new Size(Cursor.Position.X - mouseOrigin.X, Cursor.Position.Y - mouseOrigin.Y); if (Math.Abs(delta.Width) + Math.Abs(delta.Height) > 5) { dragged = true; pinned = true; Location = Point.Add(startLocation, delta); } };
-            MouseUp += delegate(object sender, MouseEventArgs e) { if (!moving) return; moving = false; Capture = false; if (!dragged && e.Button == MouseButtons.Left && !assistant.IsBusy) assistant.ShowBeside(currentWindow); };
+            MouseUp += delegate(object sender, MouseEventArgs e) { if (!moving) return; moving = false; Capture = false; if (!dragged && e.Button == MouseButtons.Left) assistant.ShowBeside(currentWindow); };
             timer.Interval = 1000;
             timer.Tick += delegate { AttachToWeChat(); };
             timer.Start();
@@ -105,7 +106,7 @@ namespace ZhiyiDesktop
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == 0x0312 && m.WParam.ToInt32() == 1) { BeginInvoke(new Action(delegate { if (assistant.Visible) assistant.Hide(); else assistant.ShowBeside(currentWindow); })); return; }
-            if (m.Msg == 0x0312 && m.WParam.ToInt32() == 2) { BeginInvoke(new Action(async delegate { await assistant.SelectVideoCard(); })); return; }
+            if (m.Msg == 0x0312 && m.WParam.ToInt32() == 2) { BeginInvoke(new Action(delegate { assistant.SearchVideo(null, null, VideoListMode.Recent); })); return; }
             base.WndProc(ref m);
         }
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -128,7 +129,10 @@ namespace ZhiyiDesktop
         private readonly Button select = new Button();
         private readonly Button paste = new Button();
         private bool linkInput;
-        private string readEvidence = "";
+        private ReplyResult currentResult;
+        private readonly Button related = new Button();
+        private readonly TableLayoutPanel recommendations = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 1, Visible = false };
+        private CancellationTokenSource relatedCancellation;
         private readonly Button clip = new Button();
         private readonly Button another = new Button();
         private readonly Button append = new Button();
@@ -167,7 +171,7 @@ namespace ZhiyiDesktop
             ShowInTaskbar = true;
             TopMost = true;
             BackColor = Theme.Canvas;
-            Font = Theme.Font(9, FontStyle.Regular);
+            Font = Theme.Font(10.5f, FontStyle.Regular);
             AutoScaleMode = AutoScaleMode.None;
             AllowDrop = true;
             DragEnter += AcceptMediaDrop;
@@ -188,10 +192,14 @@ namespace ZhiyiDesktop
             hide.Location = new Point(345, 21); hide.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             hide.Click += delegate { Hide(); };
             header.Controls.AddRange(new Control[] { hide, settingsButton });
-            settings.Width = ClientSize.Width; settings.Dock = DockStyle.Top; settings.Height = 70; settings.Visible = false; settings.BackColor = Theme.PaleGreen;
+            settings.Width = ClientSize.Width; settings.Dock = DockStyle.Top; settings.Height = 116; settings.Visible = false; settings.BackColor = Theme.PaleGreen;
             settings.Controls.Add(new Label { Text = "分析服务（密钥保存在服务端）", Bounds = new Rectangle(22, 7, 400, 22), ForeColor = Theme.Muted });
             service.Text = LoadServiceUrl(); service.SetBounds(22, 32, 436, 28); service.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             service.Leave += delegate { SaveServiceUrl(); }; settings.Controls.Add(service);
+            var modelSettings = FlatButton("DeepSeek 密钥 · 配置 / 更换", 274, 32, false);
+            modelSettings.Location = new Point(22, 73);
+            modelSettings.Click += delegate { using (var dialog = new ModelSettingsForm(api, service.Text.Trim())) dialog.ShowDialog(this); };
+            settings.Controls.Add(modelSettings);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 72, Padding = new Padding(22, 10, 22, 12), ColumnCount = 2, BackColor = Theme.Paper };
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48)); footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
@@ -206,14 +214,14 @@ namespace ZhiyiDesktop
             body.AllowDrop = true; body.DragEnter += AcceptMediaDrop; body.DragDrop += ReceiveMediaDrop;
             var actions = new TableLayoutPanel { Height = 44, Dock = DockStyle.Top, ColumnCount = 2, Margin = new Padding(0, 0, 0, 14) };
             for (int i = 0; i < 2; i++) actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            StyleButton(paste, "选取微信视频", true); paste.Click += async delegate { await SelectVideoCard(); };
+            StyleButton(paste, "从微信接入", true); paste.Click += delegate { SearchVideo(null, null, VideoListMode.Recent); };
             StyleButton(read, "粘贴链接 / 消息", false); read.Click += delegate { PasteShare(); };
             var actionButtons = new[] { paste, read }; for (int i = 0; i < 2; i++) { actionButtons[i].Dock = DockStyle.Fill; actionButtons[i].Margin = new Padding(i == 0 ? 0 : 7, 0, 0, 0); actions.Controls.Add(actionButtons[i], i, 0); }
             body.Controls.Add(actions);
-            var drop = new Label { Text = "微信视频卡片拖不进？点此框选卡片，自动查找\n此处拖入仅支持视频文件或可复制的原链接", Dock = DockStyle.Top, Height = 54, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Green, BackColor = Theme.PaleGreen, AllowDrop = true, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 0, 10) };
-            drop.Click += async delegate { await SelectVideoCard(); };
+            var drop = new Label { Text = "先在微信点开卡片一次，再接入原视频\n这里也可拖入视频文件或原分享链接", Dock = DockStyle.Top, Height = 54, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Green, BackColor = Theme.PaleGreen, AllowDrop = true, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 0, 10) };
+            drop.Click += delegate { SearchVideo(null, null, VideoListMode.Recent); };
             drop.DragEnter += AcceptMediaDrop; drop.DragDrop += ReceiveMediaDrop; body.Controls.Add(drop);
-            status.Text = "选取聊天里的视频卡片，或粘贴消息 / 链接。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Bold); status.Height = 44; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(status);
+            status.Text = "接入原视频，或粘贴消息 / 链接。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Bold); status.Height = 44; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(status);
             preview.Height = 76; preview.Dock = DockStyle.Top; preview.BackColor = Theme.PaleGreen; preview.SizeMode = PictureBoxSizeMode.Zoom; preview.Cursor = Cursors.Hand; preview.Margin = new Padding(0, 0, 0, 6);
             preview.Paint += delegate(object sender, PaintEventArgs e) { if (preview.Image == null) using (var font = Theme.Font(10, FontStyle.Regular)) TextRenderer.DrawText(e.Graphics, "链接读取正文 · 视频文件分析语音\n也可框选消息或拖入媒体文件", font, preview.ClientRectangle, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter); };
             preview.Click += delegate { ShowEvidenceImage(); }; preview.AllowDrop = true; preview.DragEnter += AcceptMediaDrop; preview.DragDrop += ReceiveMediaDrop;
@@ -221,11 +229,13 @@ namespace ZhiyiDesktop
             coverage.Text = "文章、视频自动分流；点击生成后开始读取。"; coverage.ForeColor = Theme.Muted; coverage.Font = Theme.Font(9, FontStyle.Regular); coverage.Height = 32; coverage.Dock = DockStyle.Top; coverage.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(coverage);
             var tools = new FlowLayoutPanel { Height = 32, WrapContents = false, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 6) };
             var details = new LinkLabel { Text = "查看依据", AutoSize = true, LinkColor = Theme.Green, Margin = new Padding(0, 3, 18, 0) };
-            details.Click += delegate { if (readEvidence.Length > 0) ShowReadEvidence(); else source.Visible = !source.Visible; }; tools.Controls.Add(details);
+            details.Click += delegate { if (currentResult != null) ShowReadEvidence(); else source.Visible = !source.Visible; }; tools.Controls.Add(details);
             StyleButton(import, "导入视频", false); import.Width = 90; import.Height = 28; import.Font = Theme.Font(9, FontStyle.Regular); import.Click += ImportMedia; tools.Controls.Add(import);
             StyleButton(append, "搜索视频号", false); append.Width = 112; append.Height = 28; append.Font = Theme.Font(9, FontStyle.Regular);
             append.Click += delegate { SearchVideo(); }; tools.Controls.Add(append); body.Controls.Add(tools);
-            source.Multiline = true; source.ScrollBars = ScrollBars.Vertical; source.MaxLength = 6000; source.Height = 86; source.Dock = DockStyle.Top; source.Visible = true; source.Margin = new Padding(0, 0, 0, 12); body.Controls.Add(source);
+            var refresh = new LinkLabel { Text = "刷新依据", AutoSize = true, LinkColor = Theme.Green, Margin = new Padding(10, 3, 0, 0) };
+            refresh.Click += async delegate { if (!busy) await GenerateReply(true); }; tools.Controls.Add(refresh);
+            source.Multiline = true; source.ScrollBars = ScrollBars.Vertical; source.MaxLength = 6000; source.Height = 68; source.Dock = DockStyle.Top; source.Visible = false; source.Margin = new Padding(0, 0, 0, 12); body.Controls.Add(source);
             var targetRow = new TableLayoutPanel { ColumnCount = 2, Height = 82, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 8) };
             targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32)); targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
             targetRow.Controls.Add(new Label { Text = "回复对象", AutoSize = true, ForeColor = Theme.Muted }, 0, 0);
@@ -235,11 +245,17 @@ namespace ZhiyiDesktop
             recipient.Dock = DockStyle.Top; recipient.MaxLength = 40; recipient.Margin = new Padding(0, 2, 10, 0); context.Dock = DockStyle.Fill; context.Multiline = true; context.ScrollBars = ScrollBars.Vertical; context.MaxLength = 100; context.Margin = new Padding(0, 2, 0, 0);
             targetRow.Controls.Add(recipient, 0, 1); targetRow.Controls.Add(context, 1, 1); body.Controls.Add(targetRow);
             summary.Text = "读懂内容，再给你一句自然的回复。"; summary.ForeColor = Theme.Ink; summary.Font = Theme.Font(10, FontStyle.Regular); summary.Height = 64; summary.Dock = DockStyle.Top; summary.Margin = new Padding(0, 8, 0, 8); body.Controls.Add(summary);
+            summary.AutoSize = true;
+            body.SizeChanged += delegate { summary.MaximumSize = new Size(Math.Max(200, body.ClientSize.Width), 0); };
             var resultHeader = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, Margin = Padding.Empty };
             resultHeader.Controls.Add(new Label { Text = "回复草稿", AutoSize = true, Font = Theme.Font(11, FontStyle.Bold), Margin = new Padding(0, 4, 20, 0) });
             StyleButton(another, "换一句", false); another.AutoSize = false; another.Size = new Size(94, 34); another.Font = Theme.Font(9, FontStyle.Regular); another.Enabled = false; another.Click += async delegate { await GenerateReply(); }; resultHeader.Controls.Add(another); body.Controls.Add(resultHeader);
+            StyleButton(related, "找相关视频", false); related.Size = new Size(112, 34); related.Enabled = false;
+            related.Click += delegate { if (currentResult != null) SearchVideo(currentResult.RelatedQueries, null, VideoListMode.Related); }; resultHeader.Controls.Add(related);
             reply.Multiline = true; reply.ScrollBars = ScrollBars.Vertical; reply.MaxLength = 1000; reply.Height = 116; reply.Dock = DockStyle.Top; reply.Font = Theme.Font(12, FontStyle.Regular); reply.BackColor = Theme.Paper; reply.BorderStyle = BorderStyle.FixedSingle; reply.Margin = new Padding(0, 4, 0, 8); reply.TextChanged += delegate { copy.Enabled = !busy && !String.IsNullOrWhiteSpace(reply.Text); }; body.Controls.Add(reply);
             body.Controls.Add(new Label { Text = "可直接编辑。复制后回到原窗口，由你粘贴、确认发送。", AutoSize = true, ForeColor = Theme.Muted, Font = Theme.Font(9, FontStyle.Regular), Margin = new Padding(0, 0, 0, 8) });
+            recommendations.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            body.Controls.Add(recommendations);
             scroll.Controls.Add(body); Controls.Add(scroll); Controls.Add(footer); Controls.Add(settings); Controls.Add(header);
             tips.SetToolTip(preview, "点击放大查看将要分析的画面"); tips.SetToolTip(clip, "框选正在播放的视频，约 10 秒采样 6 帧；不录声音");
         }
@@ -251,7 +267,7 @@ namespace ZhiyiDesktop
         }
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { if (preview.Image != null) preview.Image.Dispose(); tips.Dispose(); }
+            if (disposing) { if (relatedCancellation != null) relatedCancellation.Cancel(); if (requestCancellation != null) requestCancellation.Cancel(); if (preview.Image != null) preview.Image.Dispose(); tips.Dispose(); }
             base.Dispose(disposing);
         }
         private void SetPreview(byte[] bytes)
@@ -272,7 +288,9 @@ namespace ZhiyiDesktop
         }
         private void ResetMaterial(AttachmentData value, WeChatWindow window, string note, string text)
         {
-            attachment = value; selectedVideo = null; originWindow = window; captureNote = note; demoCapture = false; linkInput = false; readEvidence = "";
+            if (relatedCancellation != null) relatedCancellation.Cancel();
+            ClearRecommendations();
+            attachment = value; selectedVideo = null; originWindow = window; captureNote = note; demoCapture = false; linkInput = false; currentResult = null; related.Enabled = false;
             reply.Clear(); summary.Text = "核对内容与对象，再点「生成回复」。"; source.Text = text ?? "";
             variant = 0; another.Enabled = false;
             preview.Visible = value != null;
@@ -287,7 +305,7 @@ namespace ZhiyiDesktop
             try
             {
                 string text = Clipboard.ContainsText() ? Clipboard.GetText().Trim() : "";
-                if (text.Length == 0 || text.Length > 6000) throw new InvalidOperationException("请先复制分享链接或消息文字（最多 6000 字）。微信卡片若不能复制链接，目前不能直接导入。");
+                if (text.Length == 0 || text.Length > 6000) { source.Visible = true; source.Focus(); throw new InvalidOperationException("请在输入框填写消息，或先复制分享链接（最多 6000 字）。视频卡片请用「从微信接入」。"); }
                 string target = recipient.Text;
                 ResetMaterial(null, bubble.CurrentWindow, "后台自动识别文章或视频链接；不会启动录屏。", text);
                 recipient.Text = target; linkInput = true; source.Visible = true;
@@ -321,19 +339,74 @@ namespace ZhiyiDesktop
             if (hints != null) SearchVideo(hints, window);
         }
 
-        internal void SearchVideo(string[] hints = null, WeChatWindow origin = null)
+        internal void SearchVideo(string[] hints = null, WeChatWindow origin = null, VideoListMode mode = VideoListMode.Search)
         {
             if (busy) return;
             var window = origin ?? bubble.CurrentWindow;
             ShowBeside(window);
-            using (var dialog = new VideoSearchForm(api, service.Text.Trim(), hints))
+            using (var dialog = new VideoSearchForm(api, service.Text.Trim(), hints, mode, mode == VideoListMode.Related && selectedVideo != null ? selectedVideo.object_id : null))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 var video = dialog.Selection;
-                ResetMaterial(null, window, "已选：" + video.author + " · " + video.duration + " 秒", video.title);
-                selectedVideo = video; linkInput = true; source.Visible = true;
-                status.Text = "视频已选好 · 生成后后台读取讲述与评论";
+                SelectVideo(video, window);
             }
+        }
+
+        private void SelectVideo(VideoChoice video, WeChatWindow window)
+        {
+            ResetMaterial(null, window, "已选：" + video.author + " · " + video.duration + " 秒", video.title);
+            selectedVideo = video; linkInput = true; source.Visible = false;
+            summary.Text = video.author + " · " + video.title;
+            status.Text = "视频已选好 · 生成后后台读取讲述与评论";
+        }
+
+        private void ClearRecommendations()
+        {
+            while (recommendations.Controls.Count > 0) { var control = recommendations.Controls[0]; recommendations.Controls.Remove(control); control.Dispose(); }
+            recommendations.Visible = false;
+        }
+
+        private async Task LoadRecommendations(ReplyResult result, string originalId)
+        {
+            if (result.RelatedQueries.Length == 0) return;
+            if (relatedCancellation != null) relatedCancellation.Cancel();
+            var cancellation = new CancellationTokenSource(); relatedCancellation = cancellation;
+            ClearRecommendations(); recommendations.Visible = true;
+            var label = new Label { Text = "相关视频 · 正在微信中查找…", AutoSize = true, Dock = DockStyle.Top, ForeColor = Theme.Green, Margin = new Padding(0, 14, 0, 12) };
+            recommendations.Controls.Add(label);
+            var seen = new HashSet<string>(); if (originalId != null) seen.Add(originalId);
+            int count = 0; string failure = "";
+            try {
+                foreach (var query in result.RelatedQueries.Take(2)) {
+                    VideoChoice[] candidates;
+                    try { candidates = await api.Search(service.Text.Trim(), query, cancellation.Token); }
+                    catch (OperationCanceledException) { return; }
+                    catch (Exception error) { failure = error.Message; continue; }
+                    if (IsDisposed || cancellation.IsCancellationRequested || currentResult != result) return;
+                    foreach (var video in candidates.Where(v => seen.Add(v.object_id)).Take(3)) {
+                        count++;
+                        var card = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Top, ColumnCount = 1, BackColor = Theme.Paper, Padding = new Padding(12), Margin = new Padding(0, 0, 0, 10) };
+                        card.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                        card.Controls.Add(new Label { Text = video.author + " · " + video.duration + " 秒", AutoSize = true, Dock = DockStyle.Top, ForeColor = Theme.Green });
+                        card.Controls.Add(new Label { Text = video.title, AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0, 8, 0, 8), MaximumSize = new Size(Math.Max(200, recommendations.Width - 36), 0) });
+                        card.Controls.Add(new Label { Text = "检索词：" + query + " · 此候选尚未分析", AutoSize = true, Dock = DockStyle.Top, ForeColor = Theme.Muted });
+                        var actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true };
+                        var analyze = new Button { Text = "分析这条", AutoSize = true, FlatStyle = FlatStyle.Flat, ForeColor = Theme.Green };
+                        analyze.Click += async delegate {
+                            if (busy || MessageBox.Show(this, "分析这条视频会替换当前草稿，继续吗？", "分析相关视频", MessageBoxButtons.OKCancel) != DialogResult.OK) return;
+                            SelectVideo(video, originWindow ?? bubble.CurrentWindow); await GenerateReply();
+                        };
+                        var share = new Button { Text = String.IsNullOrWhiteSpace(video.share_url) ? "复制标题找原视频" : "复制分享链接", AutoSize = true, FlatStyle = FlatStyle.Flat };
+                        share.Click += delegate {
+                            try { Clipboard.SetText(String.IsNullOrWhiteSpace(video.share_url) ? video.author + " " + video.title : video.share_url); status.Text = String.IsNullOrWhiteSpace(video.share_url) ? "已复制作者和标题，可在微信搜索原视频再分享。" : "已复制原视频链接，可回到微信粘贴。"; }
+                            catch { status.Text = "复制失败，请稍后再试。"; }
+                        };
+                        actions.Controls.Add(analyze); actions.Controls.Add(share); card.Controls.Add(actions); recommendations.Controls.Add(card);
+                    }
+                    label.Text = "相关视频 · 已找到 " + count + " 条，下面可直接选取";
+                }
+                if (!IsDisposed && currentResult == result && !cancellation.IsCancellationRequested) label.Text = count > 0 ? "相关视频 · " + count + " 条候选（未核查内容）" + (failure.Length > 0 ? " · 部分检索未成功" : "") : "相关视频暂未取得 · " + (failure.Length > 0 ? failure : "可点「找相关视频」换一个词重试。");
+            } finally { if (relatedCancellation == cancellation) relatedCancellation = null; cancellation.Dispose(); }
         }
 
         internal void ReadCurrentShare()
@@ -354,11 +427,7 @@ namespace ZhiyiDesktop
 
         private void ShowReadEvidence()
         {
-            using (var dialog = new Form { Text = "实际读取的依据", Size = new Size(720, 620), StartPosition = FormStartPosition.CenterParent, TopMost = true })
-            {
-                dialog.Controls.Add(new TextBox { Text = coverage.Text + "\r\n\r\n" + readEvidence, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, Font = Theme.Font(11, FontStyle.Regular) });
-                dialog.ShowDialog(this);
-            }
+            if (currentResult != null) using (var dialog = new EvidenceForm(currentResult)) dialog.ShowDialog(this);
         }
 
         internal void ShowBeside(WeChatWindow window)
@@ -501,7 +570,7 @@ namespace ZhiyiDesktop
         internal void AcceptMediaDrop(object sender, DragEventArgs args)
         {
             args.Effect = !busy && DropInput.Accepts(args.Data) ? (args.AllowedEffect & DragDropEffects.Copy) : DragDropEffects.None;
-            if (!busy && args.Effect == DragDropEffects.None) status.Text = "此卡片没有可拖入的文件或原链接，请点「选取微信视频」。";
+            if (!busy && args.Effect == DragDropEffects.None) status.Text = "微信未交出原链接。请在微信点开卡片一次，再点「从微信接入」。";
         }
 
         internal void ReceiveMediaDrop(object sender, DragEventArgs args)
@@ -527,12 +596,12 @@ namespace ZhiyiDesktop
             catch (Exception error) { status.Text = error.Message; }
         }
 
-        private async Task GenerateReply()
+        private async Task GenerateReply(bool refresh = false)
         {
             if (busy) { if (requestCancellation != null) requestCancellation.Cancel(); return; }
             if (String.IsNullOrWhiteSpace(source.Text) && attachment == null && selectedVideo == null)
             {
-                status.Text = "请先搜索并选择视频，或粘贴分享链接 / 消息。";
+                status.Text = "请先从微信接入视频，或粘贴分享链接 / 消息。";
                 return;
             }
             string target = recipient.Text.Trim();
@@ -546,16 +615,17 @@ namespace ZhiyiDesktop
             try
             {
                 int nextVariant = String.IsNullOrWhiteSpace(reply.Text) ? variant : (variant + 1) % 3;
-                var result = await api.Generate(service.Text.Trim(), source.Text.Trim(), combined, nextVariant, attachment, selectedVideo, requestCancellation.Token);
+                var progress = new Progress<string>(message => { if (!IsDisposed && busy) status.Text = message; });
+                var result = await api.Generate(service.Text.Trim(), source.Text.Trim(), combined, nextVariant, attachment, selectedVideo, requestCancellation.Token, progress, refresh);
                 variant = nextVariant;
                 reply.Text = result.Reply;
                 summary.Text = result.Summary;
                 if (String.IsNullOrWhiteSpace(source.Text) && !String.IsNullOrWhiteSpace(result.Evidence)) source.Text = result.Evidence;
-                readEvidence = result.Evidence;
-                coverage.Text = result.Coverage.Length > 0 ? result.Coverage : captureNote;
+                currentResult = result;
+                coverage.Text = result.Coverage.Length > 0 ? "读取范围、原文和 " + result.Comments.Count + " 条评论样本见「查看依据」。" : captureNote;
                 if (linkInput) source.Visible = false;
                 another.Enabled = true;
-                status.Text = "回复已生成，可直接修改；发送前由你确认。";
+                status.Text = "回复已生成 · " + result.Timing + "。详细分析见「查看依据」。";
                 completed = result;
                 try { memory.Save(target, extra); if (target.Length > 0 && !recipient.Items.Contains(target)) recipient.Items.Add(target); } catch { status.Text += " 本次对象备注未能保存。"; }
             }
@@ -563,6 +633,7 @@ namespace ZhiyiDesktop
             catch (Exception error) { status.Text = error.Message; }
             finally { requestCancellation.Dispose(); requestCancellation = null; SetBusy(false); }
             if (completed != null && demoCapture) DemoWindow.SaveReport(this, completed, attachment, captureNote);
+            if (completed != null) await LoadRecommendations(completed, selectedVideo == null ? null : selectedVideo.object_id);
         }
 
         private void CopyAndReturn(object sender, EventArgs args)
@@ -581,10 +652,13 @@ namespace ZhiyiDesktop
 
         private void SetBusy(bool value)
         {
+            if (value && relatedCancellation != null) relatedCancellation.Cancel();
+            recommendations.Enabled = !value;
             busy = value;
             append.Enabled = paste.Enabled = read.Enabled = select.Enabled = clip.Enabled = import.Enabled = generate.Enabled = recipient.Enabled = source.Enabled = context.Enabled = !value;
             reply.ReadOnly = value;
             another.Enabled = copy.Enabled = !value && !String.IsNullOrWhiteSpace(reply.Text);
+            related.Enabled = !value && currentResult != null && currentResult.RelatedQueries.Length > 0;
             generate.Enabled = !value || requestCancellation != null;
             generate.Text = value ? (requestCancellation == null ? "正在读取…" : "停止生成") : "生成回复";
         }
@@ -610,7 +684,7 @@ namespace ZhiyiDesktop
             button.FlatAppearance.BorderColor = primary ? Theme.Green : Theme.Line;
             button.BackColor = primary ? Theme.Green : Theme.Paper;
             button.ForeColor = primary ? Color.White : Theme.Green;
-            button.Font = Theme.Font(9, primary ? FontStyle.Bold : FontStyle.Regular);
+            button.Font = Theme.Font(10, primary ? FontStyle.Bold : FontStyle.Regular);
             button.Cursor = Cursors.Hand;
         }
 

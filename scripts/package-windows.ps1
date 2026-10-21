@@ -16,7 +16,7 @@ foreach ($entry in @('setup','start-local','stop-local','enable-wechat')) {
 $connector = Join-Path $stage 'optional\connector'
 New-Item -ItemType Directory -Path $connector -Force | Out-Null
 $binary = Join-Path $project 'work\wx-channel\wx_channel-local.exe'
-if ((Get-FileHash -LiteralPath $binary).Hash -ne '9A1CB40330D12CD7A4059702A991CDBFE6B26AE92EF576831F6E8ADBDBB07730') { throw 'Unexpected connector binary.' }
+if ((Get-FileHash -LiteralPath $binary).Hash -ne '0EA35164B9149DAB145FDAD8E58EA8D3B1A98692E9CB766CC512909575E7F3CB') { throw 'Unexpected connector binary.' }
 Copy-Item -LiteralPath $binary -Destination $connector
 Get-ChildItem -LiteralPath (Join-Path $project 'integrations\wx-channel') -File | Copy-Item -Destination $connector
 Compress-Archive -LiteralPath $app -DestinationPath (Join-Path $stage 'zhiyi-windows-local.zip') -CompressionLevel Optimal

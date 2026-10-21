@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $connectorDir = Join-Path $PSScriptRoot 'connector'
 $exe = Join-Path $connectorDir 'wx_channel-local.exe'
 if (-not (Test-Path -LiteralPath $exe)) { throw 'Download zhiyi-wechat-connector.zip and extract its connector folder next to this script.' }
-if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -ne '9A1CB40330D12CD7A4059702A991CDBFE6B26AE92EF576831F6E8ADBDBB07730') { throw 'Connector checksum mismatch. Download the original release again.' }
+if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -ne '0EA35164B9149DAB145FDAD8E58EA8D3B1A98692E9CB766CC512909575E7F3CB') { throw 'Connector checksum mismatch. Download the original release again.' }
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if ($Elevated -and -not $isAdmin) { throw 'Windows administrator approval was not granted.' }
 if (-not $Elevated) {

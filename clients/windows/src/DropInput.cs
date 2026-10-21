@@ -30,7 +30,7 @@ namespace ZhiyiDesktop
                     if (WeChatCapture.IsShareLink(url)) return url;
                 }
             }
-            throw new InvalidOperationException("此卡片没有交出视频文件或原链接。请点「选取微信视频」，框住卡片自动查找，再核对原视频。");
+            throw new InvalidOperationException("微信没有交出卡片的原链接。请在微信点开卡片一次，再点「从微信接入」；不用等视频播完。");
         }
         internal static void SelfTest() {
             var data = new DataObject(); data.SetData(DataFormats.Html, "<a href=\"https://mp.weixin.qq.com/s/test?a=1&amp;b=2\">文章</a>");
