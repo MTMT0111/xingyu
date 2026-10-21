@@ -18,8 +18,6 @@
 
 > **只记住一个仓库：[MTMT0111/xingyu](https://github.com/MTMT0111/xingyu)。** 客户端、后端、演示网页、安装脚本和文档都在这里；安装包在本仓库 Releases。`xingyu` 是历史工程名，现在产品叫“知意”。
 
-> **发布状态：** 本仓库仍为私有，下面的新 Pages 地址待所有者确认公开后启用。迁移期间可用的[演示入口在这里](https://mtmt0111.github.io/haohaohui-demo/)。共创者只需克隆本仓库；新功能不再维护第二份源码。详见[发布状态](docs/仓库与交付.md)。
-
 ## 先看效果
 
 <a href="https://mtmt0111.github.io/xingyu/"><img src="screenshots/readme/overview.png" width="760" alt="知意演示页：视频内容、分段依据、评论说明与可编辑回复"></a>
