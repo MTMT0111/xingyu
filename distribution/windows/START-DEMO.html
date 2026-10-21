@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>知意 · 开始体验</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f6f7f3;color:#1c3028;font:16px/1.75 "Segoe UI","Microsoft YaHei",sans-serif}main{max-width:800px;margin:64px auto;padding:0 24px}h1{margin:0;font-size:38px;letter-spacing:-1px}h2{margin:0 0 12px;font-size:22px}.lead{color:#61746b;margin:12px 0 32px}.card{background:#fff;border:1px solid #dce4de;border-radius:20px;padding:32px;margin:20px 0}.actions{display:flex;gap:14px;flex-wrap:wrap;margin:24px 0 16px}a{color:#286b54;text-underline-offset:4px}.button{display:inline-block;border:1px solid #286b54;border-radius:10px;padding:12px 22px;text-decoration:none;min-height:48px}.primary{background:#286b54;color:white}.note{color:#61746b;font-size:14px;margin:8px 0}ol{padding-left:24px}li{margin:10px 0}code{font-size:14px;background:#f0f4f0;padding:3px 6px;border-radius:4px}a:focus-visible{outline:3px solid #d8ba63;outline-offset:4px}@media(max-width:500px){main{margin:32px auto;padding:0 18px}.card{padding:24px}h1{font-size:32px}.actions{display:grid}}
+  </style>
+</head>
+<body><main>
+  <h1>知意</h1><p class="lead">先读懂分享，再好好回一句。</p>
+  <section class="card" aria-labelledby="offline-title">
+    <h2 id="offline-title">先体验，无需安装</h2>
+    <p>这份展示包可以直接在浏览器打开，断网也能看实测结果、核对分段依据、编辑和复制回复。</p>
+    <div class="actions"><a class="button primary" href="./offline-demo/index.html">看一次真实分析记录</a><a class="button" href="./offline-demo/text-demo.html">试试文字回复示例</a></div>
+    <p class="note">展示的是已完成的运行记录；文字示例按规则匹配，不调用 AI，也不会连接或读取你的微信。复制受浏览器限制时，可选中文字后按 Ctrl+C。</p>
+  </section>
+  <section class="card" aria-labelledby="local-title">
+    <h2 id="local-title">在自己的微信旁使用</h2>
+    <p>需要实时分析时，使用完整的 Windows 本机包。悬浮客户端免安装；后台需要单独配置一次。</p>
+    <ol><li>完整解压 Windows 本机包，先读 <strong>START-HERE.md</strong>。</li><li>准备 Node.js 22+，运行 <code>setup.cmd</code>；视频分析另需 Python 3.11 / 3.12 与语音模型。</li><li>运行 <code>start-local.cmd</code>，在悬浮窗「服务」中验证并保存自己的密钥。微信视频号读取按指南启用可选连接器。</li></ol>
+    <p class="note">独立的免安装展示包不含后台程序。真实分析使用自己的模型密钥和已登录微信会话，不提供共享密钥；回复由你确认发送。</p>
+    <a href="https://github.com/MTMT0111/xingyu/releases/latest">下载完整本机包与使用说明 ↗</a>
+  </section>
+  <p class="note">本地展示不上传内容。项目源码、使用指南和最新版本统一保存在 <a href="https://github.com/MTMT0111/xingyu">MTMT0111/xingyu</a>。</p>
+</main></body></html>

@@ -1,10 +1,12 @@
 # Kiro 接续与实际使用记录
 
-核验日期：2026-10-20。
+核验日期：2026-10-22。
 
 ## 当前事实
 
-2026-10-20 最新实际调用：从 Kiro 官方 Windows MSI 安装并运行 Kiro CLI 2.32.0，确认 Builder ID 仍为登录状态；随后对当前 Android 悬浮球、微信内网页和比赛材料发起仅授权 `read,grep` 的只读审阅。KAS 0.66.43 启动后仍返回 `403 / TEMPORARILY_SUSPENDED`，未产生模型输出、工具调用或文件编辑；不能将本轮 Codex 实现计为 Kiro 开发。
+2026-10-22 最新实际调用：Windows 原生 Kiro CLI 2.32.0 对当前 Windows 悬浮助手、密钥验证、失败恢复与提交材料发起只读审阅，仅授权 `read,grep`，设定 180 秒上限。CLI 在提示阶段返回 `TemporarilySuspendedError`，账号仍被临时锁定，退出码 1；0 个模型回答、0 个工具调用、0 个文件编辑。日志在忽略目录 `work/kiro/submission-20261022.jsonl`，不随发布包上传。
+
+前一天 2026-10-21 的尝试返回 `ModelRegistryUnavailableError` / `SERVER_ERROR`（模型列表加载失败），与此前和本次账号锁定不同。该次失败不能证明账号已恢复。两次都没有完成实际模型任务，不能将 Codex 实现计为 Kiro 开发。
 
 本轮 `.kiro/` 是 Codex 根据 Kiro 官方文档准备的项目配置。已下载、验证并实际启动 Kiro CLI，用户也已完成登录；实际项目审阅会话加载了 Steering，但被 Kiro 服务端的账号临时锁定错误阻断，**尚无 Kiro 模型审阅或生成结果**。环境启动和配置加载证据不能替代比赛中“Kiro 已实际开发”的证明。
 
@@ -18,10 +20,10 @@
 
 | 文件 | 用途 | 本轮验证 |
 | --- | --- | --- |
-| `.kiro/steering/project.md` | 美术、业务、工程与真实性约定 | 已由真实 Kiro V3 会话加载 |
-| `.kiro/specs/oil-letter-redesign/requirements.md` | 可验收需求 | 已写入，待 Kiro 审阅 |
-| `.kiro/specs/oil-letter-redesign/design.md` | 交互与架构方案 | 已写入，待 Kiro 审阅 |
-| `.kiro/specs/oil-letter-redesign/tasks.md` | 实际 Kiro 接续任务 | 保留未勾选 |
+| `.kiro/steering/project.md` | 当前 Windows 主线、业务、工程与真实性约定 | 历史真实 Kiro V3 会话加载过；最新内容待成功审阅 |
+| `.kiro/specs/oil-letter-redesign/` | 早期需求、设计和任务，保留追溯 | 历史方案；不能据此恢复已取消的油画导航 |
+| `.kiro/specs/wechat-link-reader/` | 微信内容读取规格 | 由 Codex 准备，待 Kiro 实际审阅 |
+| `.kiro/specs/wechat-miniprogram/`、`android-share-plugin/` | 后续平台规格 | 由 Codex 准备，不是 Kiro 产出 |
 | `.kiro/hooks/backend-check.json` | IDE 保存服务端/测试后运行 `npm test` | 本地 JSON/匹配规则检查；未在 Kiro 触发 |
 
 Hooks 使用当前文档的 `version: v1` JSON 格式。官方触发器表说明文件保存事件适用于 IDE 和 CLI V3；headless 文档说明 CLI 2.27.1 起 V3 引擎加载现版 hooks。当前 2.32.0 已实际接受 `chat --v3`，仍需账号恢复后在成功会话中验证 hook 触发。
@@ -32,13 +34,13 @@ Hooks 使用当前文档的 `version: v1` JSON 格式。官方触发器表说明
 
 在 Kiro 新会话中使用下面这段任务，可以产生一份真实、可核对的参与记录：
 
-> 阅读 `.kiro/steering/project.md` 和 `.kiro/specs/oil-letter-redesign/`。只读审阅 `public/`、`server.mjs`、`lib/translate.mjs` 与 `tests/`，核查油画 UI、阶段导航保留草稿、键盘焦点、未知视频不假装看过、Jev+LLM 失败处理和微信 H5 边界。先不要改代码，不要读取 `.env`。只列可复现缺口，给出文件与检查方法；没有缺口就说明范围。把本次实际 Kiro 版本和结论写入 `KIRO.md` 的后续执行记录；不得把 Codex 的工作记成 Kiro 执行。对实际缺口再单独完成修复及现有测试。
+> 阅读 `.kiro/steering/project.md`，只读审阅 `clients/windows/src/Program.cs`、`ApiClient.cs`、`ModelSettingsForm.cs`、`lib/translate.mjs`、`tests/local-model.test.mjs` 与 `SUBMISSION.md`。核查失败保留已读资料与草稿、验证成功后保存密钥、重复启动唤起现有窗口是否有可复现缺口。禁止读取 `.env`、日志、work、models、聊天数据和凭据；禁止执行 shell 或修改文件。至多列三项具体文件位置和检查方法，没有问题则说明范围。不恢复历史油画导航。审阅成功后，再给真实缺口分配一个明确的修复任务并验证；只有实际完成的工作才能写入 Kiro 记录。
 
 CLI 在完成认证后可使用有界只读审阅，不要为了省事全局信任所有工具：
 
 ```powershell
 kiro-cli --version
-kiro-cli chat --v3 --no-interactive --trust-tools=read,grep '只读审阅 .kiro/specs/oil-letter-redesign、public、server.mjs、lib/translate.mjs 和 tests。不要读取 .env，不要修改文件。检查导航状态、回复事实边界与 API 错误处理，仅报告可复现问题和文件位置。'
+kiro-cli chat --v3 --no-interactive --trust-tools=read,grep '只读审阅 .kiro/steering/project.md、clients/windows/src/Program.cs、clients/windows/src/ApiClient.cs、clients/windows/src/ModelSettingsForm.cs、lib/translate.mjs、tests/local-model.test.mjs。禁止读取 .env、日志、work、models、用户文件和凭据，禁止 shell 与写入。核查草稿保留、密钥验证保存与重复启动唤醒，只报告可复现问题和位置。'
 ```
 
 新机器需先按官方说明安装 CLI 并加入 PATH。PowerShell 可解析已安装的命令，再用 `& $xingyuKiro` 替换示例中的 `kiro-cli`：
@@ -50,7 +52,7 @@ $xingyuKiro = (Get-Command kiro-cli -ErrorAction Stop).Source
 
 这条命令使用 AWS Builder ID，在浏览器确认 CLI 本次显示的代码并登录。也可根据 `login --help` 使用 `--social google` 或 `--social github` 登录已有账号；不要把一次性设备码或访问令牌写入仓库。
 
-Headless 需要单独配置 `KIRO_API_KEY`；如使用 IDE 交互登录，则在 IDE 内完成上述审阅即可。真实执行后再追加日期、版本、任务、结论、改动文件及检查结果，并勾选对应任务。
+本机 CLI 已使用现有登录启动非交互会话；不要为了重试公开或复制账号令牌。独立 Headless 环境的认证按官方文档配置；已有可用 IDE 时也可以在 IDE 内完成上述任务。真实执行后再追加日期、版本、任务、结论、改动文件及检查结果，并勾选对应任务。
 
 ## 官方依据
 
@@ -116,3 +118,11 @@ Kiro Agent Server 0.66.26 启动，会话 `sess_fe94c8a9-dd17-4246-9e0c-cb5a80be
 重新读取官方活动页后，使用 Kiro 官方发布清单和 MSI 安装 Windows x64 CLI 2.32.0。安装包大小为 267,739,136 字节，SHA-256 与官方清单完全一致；`whoami` 确认 Builder ID 登录仍有效。随后运行 `chat --v3 --no-interactive --trust-tools=read,grep`，提示仅允许读取当前 Steering、Android 分享规格、悬浮球实现、微信内网页、比赛材料及测试，明确禁止读取 `.env`、密钥、口令、日志和用户数据，也禁止修改文件或执行 shell。
 
 Kiro Agent Server 0.66.43 成功启动，但在模型与工具执行前，KRS 返回 HTTP 403、`TEMPORARILY_SUSPENDED`。KRS 请求 ID 为 `60569381-fb8b-4e15-b02c-0348aa85f51b`，最终请求 ID 为 `58660bd4-f971-41ca-9546-6370a3c2ec4c`，退出码 1。结果仍为 **0 个模型输出、0 个工具调用、0 个文件修改**；因此 Kiro 使用深度的比赛硬条件截至 2026-10-20 仍未满足，只能由账号本人通过 [Kiro 官方支持](https://support.aws.amazon.com/#/contacts/kiro) 完成身份验证后重跑。
+
+## 2026-10-21 / 22 Windows 提交前重试
+
+10 月 21 日：CLI 2.32.0 运行当前 Windows 窗口、API 客户端、密钥设置、依据查看与提交材料的受限只读审阅。解析日志得到 1 个 `runStarted`、5 个 `sessionUpdate` 和 1 个 `runError`；错误为 `ModelRegistryUnavailableError` / `SERVER_ERROR`，即可用模型列表加载失败，退出码 1。0 个模型回答、0 个工具调用；不是一次成功审阅，也不能据此证明原账号限制已经解除。
+
+10 月 22 日：仅重试一次，设置 180 秒上限。范围为当前 Steering、`Program.cs`、`ApiClient.cs`、`ModelSettingsForm.cs`、`lib/translate.mjs`、`tests/local-model.test.mjs` 和 `SUBMISSION.md`；只授权 `read,grep`，明确禁止 `.env`、日志、work、models、用户数据与凭据，禁止 shell 和写文件。实际在超时前结束，退出码 1。日志包含 1 个 `runStarted`、14 个 `sessionUpdate` 和 1 个 `runError`，错误为 `TemporarilySuspendedError` / `CLIENT_ERROR`，提示账号被临时锁定并要求官方支持验证身份。仍为 **0 个模型回答、0 个工具调用、0 个文件修改**。
+
+原始日志在忽略目录 `work/kiro/submission-20261021.jsonl`、`work/kiro/submission-20261022.jsonl`，不随发布包分发。没有更改登录或绕过账号限制，没有发送支持请求。下一步需账号本人经 [官方支持](https://support.aws.amazon.com/#/contacts/kiro) 恢复服务，或在已有可用且获准的 Kiro 环境中完成真实项目任务；成功之后再更新参赛说明。

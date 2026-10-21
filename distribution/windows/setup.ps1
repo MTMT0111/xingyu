@@ -15,7 +15,7 @@ if ([int]($nodeVersion.Split('.')[0]) -lt 22) { throw 'Node.js 22 or newer is re
 Check-Exit 'Installing the server'
 if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
 if (-not (Select-String -LiteralPath '.env' -Pattern '^LLM_API_KEY=.+$' -Quiet)) {
-    Write-Host 'Enter your own DeepSeek API key. Leave blank for the offline text example.'
+    Write-Host 'Optional: enter your own DeepSeek API key, or leave blank to validate and save it later in the assistant Service settings.'
     $secret = Read-Host 'API key (hidden)' -AsSecureString
     $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
     try {
@@ -23,6 +23,7 @@ if (-not (Select-String -LiteralPath '.env' -Pattern '^LLM_API_KEY=.+$' -Quiet))
         if ($plain) {
             if ($plain -notmatch '^[A-Za-z0-9_-]{16,256}$') { throw 'Invalid API key format.' }
             Set-LocalSetting 'LLM_API_KEY' $plain
+            Write-Host 'Key saved locally, but NOT verified. Verify it in the assistant Service settings before real analysis.'
         }
     } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer); $plain = $null }
 }

@@ -40,8 +40,7 @@ namespace ZhiyiDesktop
         internal WeChatWindow CurrentWindow { get { return currentWindow; } }
         protected override bool ShowWithoutActivation { get { return true; } }
 
-        internal BubbleForm() : this(null) { }
-        internal BubbleForm(Form demonstration)
+        internal BubbleForm(Form demonstration = null, EventWaitHandle activation = null)
         {
             demo = demonstration;
             Text = "知意 · 悬浮助手";
@@ -74,13 +73,18 @@ namespace ZhiyiDesktop
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (var bg = new SolidBrush(currentWindow == null ? Theme.Muted : Theme.Green)) e.Graphics.FillEllipse(bg, 0, 0, 57, 57);
                 using (var pen = new Pen(Color.FromArgb(180, 255, 255, 255), 2)) e.Graphics.DrawEllipse(pen, 2, 2, 53, 53);
-                using (var font = Theme.Font(17, FontStyle.Bold)) TextRenderer.DrawText(e.Graphics, "回", font, ClientRectangle, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                using (var font = Theme.Font(17, FontStyle.Bold))
+                using (var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                    e.Graphics.DrawString("回", font, Brushes.White, ClientRectangle, format);
             };
             MouseDown += delegate(object sender, MouseEventArgs e) { if (e.Button != MouseButtons.Left) return; moving = true; dragged = false; mouseOrigin = Cursor.Position; startLocation = Location; Capture = true; };
             MouseMove += delegate { if (!moving) return; var delta = new Size(Cursor.Position.X - mouseOrigin.X, Cursor.Position.Y - mouseOrigin.Y); if (Math.Abs(delta.Width) + Math.Abs(delta.Height) > 5) { dragged = true; pinned = true; Location = Point.Add(startLocation, delta); } };
             MouseUp += delegate(object sender, MouseEventArgs e) { if (!moving) return; moving = false; Capture = false; if (!dragged && e.Button == MouseButtons.Left) assistant.ShowBeside(currentWindow); };
             timer.Interval = 1000;
-            timer.Tick += delegate { AttachToWeChat(); };
+            timer.Tick += delegate {
+                AttachToWeChat();
+                if (activation != null && activation.WaitOne(0)) assistant.ShowBeside(currentWindow);
+            };
             timer.Start();
             AttachToWeChat();
             Shown += delegate { NativeMethods.RegisterHotKey(Handle, 1, 0x4003, (uint)Keys.R); NativeMethods.RegisterHotKey(Handle, 2, 0x4003, (uint)Keys.V); };
@@ -164,8 +168,8 @@ namespace ZhiyiDesktop
         {
             bubble = owner;
             Text = "知意 · 微信旁边的回复助手";
-            ClientSize = new Size(480, 650);
-            MinimumSize = new Size(450, 570);
+            ClientSize = new Size(500, 710);
+            MinimumSize = new Size(460, 580);
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -183,14 +187,14 @@ namespace ZhiyiDesktop
 
         private void BuildUi()
         {
-            var header = new Panel { Dock = DockStyle.Top, Width = ClientSize.Width, Height = 72, BackColor = Theme.Paper };
-            header.Controls.Add(new Label { Text = "知意", Bounds = new Rectangle(22, 12, 160, 30), Font = Theme.Font(17, FontStyle.Bold), ForeColor = Theme.Ink });
-            header.Controls.Add(new Label { Text = bubble.IsDemo ? "演示模式 · 合成聊天素材" : "在当前对话旁，把话回好", Bounds = new Rectangle(23, 44, 280, 20), Font = Theme.Font(9, FontStyle.Regular), ForeColor = Theme.Muted });
+            var header = new Panel { Dock = DockStyle.Top, Width = ClientSize.Width, Height = 86, BackColor = Theme.Paper };
+            header.Controls.Add(new Label { Text = "知意", Bounds = new Rectangle(28, 18, 160, 30), Font = Theme.Font(17, FontStyle.Bold), ForeColor = Theme.Ink });
+            header.Controls.Add(new Label { Text = bubble.IsDemo ? "演示模式 · 合成聊天素材" : "在当前对话旁，把话回好", Bounds = new Rectangle(29, 51, 280, 20), Font = Theme.Font(9, FontStyle.Regular), ForeColor = Theme.Muted });
             var settingsButton = FlatButton("服务", 54, 32, false);
-            settingsButton.Location = new Point(405, 21); settingsButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            settingsButton.Location = new Point(ClientSize.Width - 82, 26); settingsButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             settingsButton.Click += delegate { settings.Visible = !settings.Visible; };
             var hide = FlatButton("收起", 54, 32, false);
-            hide.Location = new Point(345, 21); hide.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            hide.Location = new Point(ClientSize.Width - 146, 26); hide.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             hide.Click += delegate { Hide(); };
             header.Controls.AddRange(new Control[] { hide, settingsButton });
             settings.Width = ClientSize.Width; settings.Dock = DockStyle.Top; settings.Height = 116; settings.Visible = false; settings.BackColor = Theme.PaleGreen;
@@ -202,58 +206,69 @@ namespace ZhiyiDesktop
             modelSettings.Click += delegate { using (var dialog = new ModelSettingsForm(api, service.Text.Trim())) { dialog.ShowDialog(this); if (!String.IsNullOrWhiteSpace(dialog.LastStatus)) status.Text = dialog.LastStatus; } };
             settings.Controls.Add(modelSettings);
 
-            var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 72, Padding = new Padding(22, 10, 22, 12), ColumnCount = 2, BackColor = Theme.Paper };
+            var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 82, Padding = new Padding(28, 16, 28, 16), ColumnCount = 2, BackColor = Theme.Paper };
             footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48)); footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
             StyleButton(generate, "生成回复", true); generate.Dock = DockStyle.Fill; generate.Margin = new Padding(0, 0, 8, 0);
             generate.Click += async delegate { await GenerateReply(); };
             StyleButton(copy, "复制 · 回到微信", false); copy.Dock = DockStyle.Fill; copy.Margin = Padding.Empty; copy.Enabled = false;
             copy.Click += CopyAndReturn; footer.Controls.Add(generate, 0, 0); footer.Controls.Add(copy, 1, 0);
 
-            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(22, 14, 22, 14) };
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(28, 24, 28, 24) };
             var body = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = Padding.Empty, Margin = Padding.Empty };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             body.AllowDrop = true; body.DragEnter += AcceptMediaDrop; body.DragDrop += ReceiveMediaDrop;
-            var actions = new TableLayoutPanel { Height = 44, Dock = DockStyle.Top, ColumnCount = 2, Margin = new Padding(0, 0, 0, 14) };
+            body.Controls.Add(new Label { Text = "分享内容", AutoSize = true, Font = Theme.Font(11, FontStyle.Bold), ForeColor = Theme.Ink, Margin = new Padding(0, 0, 0, 12) });
+            var actions = new TableLayoutPanel { Height = 42, Dock = DockStyle.Top, ColumnCount = 2, Margin = new Padding(0, 0, 0, 12) };
             for (int i = 0; i < 2; i++) actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            StyleButton(paste, "从微信接入", true); paste.Click += delegate { SearchVideo(null, null, VideoListMode.Recent); };
+            StyleButton(paste, "从微信接入", false); paste.Click += delegate { SearchVideo(null, null, VideoListMode.Recent); };
             StyleButton(read, "粘贴链接 / 消息", false); read.Click += delegate { PasteShare(); };
             var actionButtons = new[] { paste, read }; for (int i = 0; i < 2; i++) { actionButtons[i].Dock = DockStyle.Fill; actionButtons[i].Margin = new Padding(i == 0 ? 0 : 7, 0, 0, 0); actions.Controls.Add(actionButtons[i], i, 0); }
             body.Controls.Add(actions);
-            var drop = new Label { Text = "先在微信点开卡片一次，再接入原视频\n这里也可拖入视频文件或原分享链接", Dock = DockStyle.Top, Height = 54, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Green, BackColor = Theme.PaleGreen, AllowDrop = true, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 0, 10) };
+            var drop = new Label { Text = "先在微信点开卡片一次，再接入原视频\n也可拖入视频文件或分享链接", Font = Theme.Font(9, FontStyle.Regular), Dock = DockStyle.Top, Height = 60, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Muted, BackColor = Theme.PaleGreen, AllowDrop = true, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 0, 16) };
             drop.Click += delegate { SearchVideo(null, null, VideoListMode.Recent); };
             drop.DragEnter += AcceptMediaDrop; drop.DragDrop += ReceiveMediaDrop; body.Controls.Add(drop);
-            status.Text = "接入原视频，或粘贴消息 / 链接。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Bold); status.Height = 44; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(status);
+            source.TextChanged += delegate { drop.Visible = String.IsNullOrWhiteSpace(source.Text) && attachment == null; };
+            status.Text = "接入原视频，或粘贴消息 / 链接。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Regular); status.AutoSize = true; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 10); body.Controls.Add(status);
             preview.Height = 76; preview.Dock = DockStyle.Top; preview.BackColor = Theme.PaleGreen; preview.SizeMode = PictureBoxSizeMode.Zoom; preview.Cursor = Cursors.Hand; preview.Margin = new Padding(0, 0, 0, 6);
             preview.Paint += delegate(object sender, PaintEventArgs e) { if (preview.Image == null) using (var font = Theme.Font(10, FontStyle.Regular)) TextRenderer.DrawText(e.Graphics, "链接读取正文 · 视频文件分析语音\n也可框选消息或拖入媒体文件", font, preview.ClientRectangle, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter); };
             preview.Click += delegate { ShowEvidenceImage(); }; preview.AllowDrop = true; preview.DragEnter += AcceptMediaDrop; preview.DragDrop += ReceiveMediaDrop;
             preview.Visible = false; body.Controls.Add(preview);
-            coverage.Text = "文章、视频自动分流；点击生成后开始读取。"; coverage.ForeColor = Theme.Muted; coverage.Font = Theme.Font(9, FontStyle.Regular); coverage.Height = 32; coverage.Dock = DockStyle.Top; coverage.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(coverage);
-            var tools = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 6) };
+            coverage.Text = "点击生成后，读取内容并整理回复。"; coverage.ForeColor = Theme.Muted; coverage.Font = Theme.Font(9, FontStyle.Regular); coverage.AutoSize = true; coverage.Dock = DockStyle.Top; coverage.Margin = new Padding(0, 0, 0, 12); body.Controls.Add(coverage);
+            var tools = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 22) };
             details.Text = "查看依据"; details.AutoSize = true; details.LinkColor = Theme.Green; details.Margin = new Padding(0, 3, 18, 0);
             details.Click += delegate { if (currentResult != null) ShowReadEvidence(); else source.Visible = !source.Visible; }; tools.Controls.Add(details);
-            StyleButton(import, "导入视频", false); import.Width = 90; import.Height = 28; import.Font = Theme.Font(9, FontStyle.Regular); import.Click += ImportMedia; tools.Controls.Add(import);
+            details.LinkBehavior = LinkBehavior.HoverUnderline;
+            var extraTools = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Dock = DockStyle.Top, Visible = false, Margin = new Padding(0, 0, 0, 16) };
+            var moreTools = new LinkLabel { Text = "导入与搜索", AutoSize = true, LinkColor = Theme.Green, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(0, 3, 0, 0) };
+            moreTools.Click += delegate { extraTools.Visible = !extraTools.Visible; moreTools.Text = extraTools.Visible ? "收起其他方式" : "导入与搜索"; }; tools.Controls.Add(moreTools);
+            StyleButton(import, "导入视频", false); import.Width = 90; import.Height = 32; import.Font = Theme.Font(9, FontStyle.Regular); import.Click += ImportMedia; extraTools.Controls.Add(import);
             StyleButton(append, "搜索视频号", false); append.Width = 112; append.Height = 28; append.Font = Theme.Font(9, FontStyle.Regular);
-            append.Click += delegate { SearchVideo(); }; tools.Controls.Add(append); body.Controls.Add(tools);
+            append.Click += delegate { SearchVideo(); }; extraTools.Controls.Add(append); body.Controls.Add(tools); body.Controls.Add(extraTools);
             var refresh = new LinkLabel { Text = "刷新依据", AutoSize = true, LinkColor = Theme.Green, Margin = new Padding(10, 3, 0, 0) };
-            refresh.Click += async delegate { if (!busy) await GenerateReply(true); }; tools.Controls.Add(refresh);
+            refresh.Click += async delegate { if (!busy) await GenerateReply(true); }; extraTools.Controls.Add(refresh);
             source.Multiline = true; source.ScrollBars = ScrollBars.Vertical; source.MaxLength = 6000; source.Height = 68; source.Dock = DockStyle.Top; source.Visible = false; source.Margin = new Padding(0, 0, 0, 12); body.Controls.Add(source);
-            var targetRow = new TableLayoutPanel { ColumnCount = 2, Height = 82, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 8) };
-            targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32)); targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
-            targetRow.Controls.Add(new Label { Text = "回复对象", AutoSize = true, ForeColor = Theme.Muted }, 0, 0);
-            targetRow.Controls.Add(new Label { Text = "关系与习惯（本机记住）", AutoSize = true, ForeColor = Theme.Muted }, 1, 0);
+            var targetRow = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 22) };
+            targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            targetRow.Controls.Add(new Label { Text = "回复给谁", AutoSize = true, Font = Theme.Font(11, FontStyle.Bold), ForeColor = Theme.Ink, Margin = new Padding(0, 0, 0, 10) }, 0, 0);
+            var noteToggle = new LinkLabel { Text = "关系备注（可选）", AutoSize = true, LinkColor = Theme.Green, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(12, 2, 0, 10) };
+            targetRow.Controls.Add(noteToggle, 1, 0);
+            noteToggle.Click += delegate { context.Visible = !context.Visible; noteToggle.Text = context.Visible ? "收起备注" : "关系备注（可选）"; };
             foreach (var name in memory.Notes.Keys) recipient.Items.Add(name);
             recipient.TextChanged += delegate { string note; context.Text = memory.Notes.TryGetValue(recipient.Text, out note) ? note : ""; };
-            recipient.Dock = DockStyle.Top; recipient.MaxLength = 40; recipient.Margin = new Padding(0, 2, 10, 0); context.Dock = DockStyle.Fill; context.Multiline = true; context.ScrollBars = ScrollBars.Vertical; context.MaxLength = 100; context.Margin = new Padding(0, 2, 0, 0);
-            targetRow.Controls.Add(recipient, 0, 1); targetRow.Controls.Add(context, 1, 1); body.Controls.Add(targetRow);
+            recipient.Dock = DockStyle.Top; recipient.MaxLength = 40; recipient.Margin = Padding.Empty;
+            context.Dock = DockStyle.Top; context.Height = 62; context.Multiline = true; context.ScrollBars = ScrollBars.Vertical; context.MaxLength = 100; context.Margin = new Padding(0, 12, 0, 0); context.Visible = false;
+            context.TextChanged += delegate { if (!context.Visible) noteToggle.Text = String.IsNullOrWhiteSpace(context.Text) ? "关系备注（可选）" : "已有关系备注 · 展开"; };
+            targetRow.Controls.Add(recipient, 0, 1); targetRow.SetColumnSpan(recipient, 2); targetRow.Controls.Add(context, 0, 2); targetRow.SetColumnSpan(context, 2); body.Controls.Add(targetRow);
             summary.Text = "读懂内容，再给你一句自然的回复。"; summary.ForeColor = Theme.Ink; summary.Font = Theme.Font(10, FontStyle.Regular); summary.Height = 64; summary.Dock = DockStyle.Top; summary.Margin = new Padding(0, 8, 0, 8); body.Controls.Add(summary);
             summary.AutoSize = true;
-            body.SizeChanged += delegate { summary.MaximumSize = new Size(Math.Max(200, body.ClientSize.Width), 0); };
-            var resultHeader = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, Margin = Padding.Empty };
+            body.SizeChanged += delegate { foreach (var label in new[] { summary, status, coverage }) label.MaximumSize = new Size(Math.Max(200, body.ClientSize.Width), 0); };
+            var resultHeader = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Margin = new Padding(0, 12, 0, 12) };
             resultHeader.Controls.Add(new Label { Text = "回复草稿", AutoSize = true, Font = Theme.Font(11, FontStyle.Bold), Margin = new Padding(0, 4, 20, 0) });
             StyleButton(another, "换一句", false); another.AutoSize = false; another.Size = new Size(94, 34); another.Font = Theme.Font(9, FontStyle.Regular); another.Enabled = false; another.Click += async delegate { await GenerateReply(); }; resultHeader.Controls.Add(another); body.Controls.Add(resultHeader);
             StyleButton(related, "找相关视频", false); related.Size = new Size(112, 34); related.Enabled = false;
             related.Click += delegate { if (currentResult != null) SearchVideo(currentResult.RelatedQueries, null, VideoListMode.Related); }; resultHeader.Controls.Add(related);
-            reply.Multiline = true; reply.ScrollBars = ScrollBars.Vertical; reply.MaxLength = 1000; reply.Height = 116; reply.Dock = DockStyle.Top; reply.Font = Theme.Font(12, FontStyle.Regular); reply.BackColor = Theme.Paper; reply.BorderStyle = BorderStyle.FixedSingle; reply.Margin = new Padding(0, 4, 0, 8); reply.TextChanged += delegate { copy.Enabled = !busy && !String.IsNullOrWhiteSpace(reply.Text); }; body.Controls.Add(reply);
+            reply.Multiline = true; reply.ScrollBars = ScrollBars.Vertical; reply.MaxLength = 1000; reply.Height = 112; reply.Dock = DockStyle.Fill; reply.Font = Theme.Font(11, FontStyle.Regular); reply.BackColor = Theme.Paper; reply.BorderStyle = BorderStyle.None; reply.Margin = Padding.Empty; reply.TextChanged += delegate { copy.Enabled = !busy && !String.IsNullOrWhiteSpace(reply.Text); };
+            var replyPaper = new Panel { Dock = DockStyle.Top, Height = 140, BackColor = Theme.Paper, Padding = new Padding(14), Margin = new Padding(0, 0, 0, 12) }; replyPaper.Controls.Add(reply); body.Controls.Add(replyPaper);
             body.Controls.Add(new Label { Text = "可直接编辑。复制后回到原窗口，由你粘贴、确认发送。", AutoSize = true, ForeColor = Theme.Muted, Font = Theme.Font(9, FontStyle.Regular), Margin = new Padding(0, 0, 0, 8) });
             recommendations.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             body.Controls.Add(recommendations);
@@ -756,10 +771,12 @@ namespace ZhiyiDesktop
                 return 0;
             }
             bool created;
+            using (var activation = new EventWaitHandle(false, EventResetMode.AutoReset, "Local\\ZhiyiDesktopCompanion.Activate"))
             using (var mutex = new Mutex(true, "Local\\ZhiyiDesktopCompanion", out created))
             {
-                if (!created) return 0;
-                Application.Run(new BubbleForm());
+                // Keep the signal until the first instance's UI timer is ready.
+                if (!created) { activation.Set(); return 0; }
+                Application.Run(new BubbleForm(null, activation));
             }
             return 0;
         }
@@ -771,6 +788,12 @@ namespace ZhiyiDesktop
                 ApiClient.SelfTest();
                 DropInput.SelfTest();
                 CardLookup.SelfTest();
+                string signalName = "Local\\ZhiyiActivationTest." + Guid.NewGuid().ToString("N");
+                using (var listener = new EventWaitHandle(false, EventResetMode.AutoReset, signalName))
+                using (var launcher = EventWaitHandle.OpenExisting(signalName)) {
+                    launcher.Set();
+                    if (!listener.WaitOne(0) || listener.WaitOne(0)) throw new Exception("重复启动唤醒信号未保留或重复消费");
+                }
                 string memoryFile = Path.Combine(Path.GetTempPath(), "zhiyi-memory-" + Guid.NewGuid().ToString("N"), "notes.json");
                 try {
                     var memory = new RecipientMemory(memoryFile); memory.Save("妈妈", "关系亲近，简短自然");
