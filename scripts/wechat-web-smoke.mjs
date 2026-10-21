@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const demoUrl = process.env.WECHAT_DEMO_URL || 'https://mtmt0111.github.io/haohaohui-demo/';
+const demoUrl = process.env.WECHAT_DEMO_URL || 'https://mtmt0111.github.io/xingyu/text-demo.html';
 const output = fileURLToPath(new URL('../wechat-web-test-results.json', import.meta.url));
 const screenshotDir = fileURLToPath(new URL('../screenshots/core/', import.meta.url));
 const profiles = [

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f6f7f3">
+  <meta name="description" content="知意本机微信回复助手：视频、语音与评论一起理解，依据可以核对，回复由你决定。真实运行记录与 Windows 体验包。">
+  <title>知意 · 少一点切换，多一点理解</title>
+  <link rel="stylesheet" href="./showcase.css"><script src="./showcase.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#try">跳到演示</a>
+<header><a href="./index.html" class="brand"><span class="mark" aria-hidden="true">知</span>知意</a><nav aria-label="主导航"><a href="https://github.com/MTMT0111/xingyu">项目与使用说明</a><a href="#try">看效果</a><a href="#install">本机使用 <span aria-hidden="true">↗</span></a></nav></header>
+<main>
+  <section class="hero">
+    <p class="eyebrow"><span class="dot"></span> 微信旁边，一个轻巧的入口</p>
+    <h1>先读懂分享，<br>再好好回一句。</h1>
+    <p class="lead">视频说了什么，评论在争论什么，对方为什么发给你。<br class="desktop">把依据整理在一起，让回复有内容，也像你自己。</p>
+    <div class="hero-actions"><a class="button" href="#install">获取 Windows 体验包 <span aria-hidden="true">↓</span></a><a class="text-link" href="#try">先看一次真实结果 <span aria-hidden="true">↘</span></a></div>
+    <p class="fine">本页为真实运行记录与编辑演示。实时分析在你自己的电脑运行。</p>
+  </section>
+  <section class="demo" id="try" aria-labelledby="demo-title">
+    <div class="section-title"><div><p class="eyebrow">一次真实分析 · 2026.10.21</p><h2 id="demo-title">6 分 16 秒，不只看开头。</h2></div><span class="record-badge">已完成的实测记录</span></div>
+    <div class="demo-grid">
+      <article class="source">
+        <span class="small-label">来自视频号 · 刘震云演讲剪辑</span>
+        <h3>一句话，为什么有这么大的分量？</h3>
+        <p>通过已登录的本机微信会话，在后台读取视频文件与评论。测试时没有打开或播放这条目标视频。</p>
+        <div class="metrics"><div><b>3 <small>段</small></b><span>完整音轨</span></div><div><b>18 <small>帧</small></b><span>画面采样</span></div><div><b>60 <small>条</small></b><span>评论及回复样本</span></div></div>
+        <details open><summary>这次理解到的内容</summary><p>演讲从《水浒传》的郓哥说起，讲几句话如何改变人的处境，再聊朋友的婚姻和沟通，最后落到《一句顶一万句》。完整音轨已处理；影视混剪画面只做采样，转写中仍有同音字误差。</p></details>
+        <details><summary>分段依据 · 一直处理到结尾</summary><ol class="segments"><li><time>00:00 — 03:00</time><span>从郓哥的故事转到初中朋友；语音转写 594 字。</span></li><li><time>03:00 — 06:00</time><span>继续讲朋友的婚姻与沟通；语音转写 668 字。</span></li><li><time>06:00 — 06:16</time><span>结尾提及《一句顶一万句》；语音转写 78 字。</span></li></ol></details>
+        <details><summary>评论如何参与判断</summary><p>本次取得 60 条评论及回复，最高 25 赞。本机结果保留原文、实际点赞数与已返回的回复关系，按点赞数排序。公开页不展示用户昵称和整段评论原文。</p><p class="callout">视频原文是主要依据；评论补充不同看法。点赞表示热度，不代表正确，也不是“可信度权重”。</p></details>
+        <p class="run-note">本机耗时 66.3 秒 · DeepSeek Flash · 非通用速度承诺</p>
+      </article>
+      <article class="reply-panel">
+        <div class="reply-heading"><span class="small-label">可编辑回复</span><span class="plain-badge">实测原始输出</span></div>
+        <label for="demo-reply">先有想法，再用自己的语气说。</label>
+        <textarea id="demo-reply" rows="7">刘震云讲郓哥那两句话牵出几条人命，这个例子挺抓人的。一句话的分量有时候真比一堆道理重，不过那句让人动心的话，估计谁也说不准。</textarea>
+        <div class="reply-actions"><button type="button" id="copy">复制这段回复</button><button type="button" id="reset" class="quiet">恢复原文</button></div><p id="copy-status" class="status" role="status" aria-live="polite">可以在这里修改，不会发送或上传。</p>
+        <div class="person-note"><span aria-hidden="true">↳</span><div><strong>同一段内容，回给不同的人。</strong><p>本机助手可以记住你填写的称呼和关系习惯。它们是你的备注，不会自动读取好友名单或给人贴标签。</p></div></div>
+        <div class="bubble-preview"><span class="mini-ball" aria-hidden="true">知</span><div><strong>需要时唤醒，用完就收起。</strong><p>点击悬浮球，或按 <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>R</kbd>。<br>点开微信卡片一次 → 从微信接入 → 查看依据 → 编辑复制。</p></div></div>
+      </article>
+    </div>
+  </section>
+  <section class="install" id="install" aria-labelledby="install-title">
+    <div><p class="eyebrow">把体验带回自己的电脑</p><h2 id="install-title">一个本机包，按需启用。</h2><p>悬浮客户端约 114 KiB，使用 Windows 系统组件。<br>语音模型首次下载后留在本机，微信连接器单独安装。</p></div>
+    <div class="install-card"><ol><li><b>01</b><span><strong>解压本机体验包</strong>准备 Node.js 22+；视频另需 Python 3.11 / 3.12。</span></li><li><b>02</b><span><strong>运行 setup.cmd</strong>安装视频依赖与语音模型。密钥可在悬浮窗“服务 → DeepSeek 密钥”中验证并保存。</span></li><li><b>03</b><span><strong>运行 start-local.cmd</strong>打开悬浮球。视频号评论功能另装连接器并登录自己的微信。</span></li></ol><a class="button wide" href="https://github.com/MTMT0111/xingyu/releases/download/desktop-2026.10.21/zhiyi-windows-local.zip">下载 Windows 本机包 <span aria-hidden="true">↓</span></a><div class="download-links"><a href="https://github.com/MTMT0111/xingyu/releases/tag/desktop-2026.10.21">可选连接器、校验值与说明 ↗</a><a href="./text-demo.html">只体验文字示例 ↗</a></div></div>
+  </section>
+  <section class="faq" aria-label="使用前说明"><details open><summary>本轮更新：更快换一句，更多可核对的依据</summary><p>相同视频资料在本机复用十分钟。真实约24秒视频首次分析19.6秒，换一句4.9秒；9分53秒视频完整处理4段、2305字转写、52条评论，首次96.6秒，换一句4.4秒。速度取决于本机转写和网络，不承诺所有视频相同。</p><p>新增阶段进度、DeepSeek密钥设置、最多200条评论与回复的分页读取、带来源编号的分析，以及回复下方自动显示的真实相关视频候选。候选未核查，评论只代表实际返回样本。本页仍是已完成实测的展示，不是在线实时AI。</p></details><details><summary>把这个链接发给朋友，朋友能直接用吗？</summary><p>可以随时打开本页、编辑复制实测回复和使用文字示例；这些不调用实时 AI。要分析自己的视频和微信内容，需要下载本机包、配置自己的模型密钥，视频号功能还需要本人登录的微信会话。公开页不会借用作者的微信或 API 密钥。</p></details><details><summary>微信卡片能直接拖入吗？</summary><p>微信私有视频号卡片不能直接当作文件拖入。请先在微信点开原卡片一次，再点“从微信接入”或按 Ctrl+Alt+V，核对标题、作者和时间后选择原视频，不用看完。连接器使用真实视频标识，主流程不依赖 OCR；视频号会话需保持连接。视频文件和可复制的原分享链接仍可拖入，视频文件本身不包含评论身份。</p></details><details><summary>多长的视频都能分析吗？</summary><p>已移除 60 秒限制，按每 3 分钟一段处理完整音轨并取 6 帧。真实验证通过 6 分 16 秒的视频。当前文件上限 512 MiB / 4K，处理时限 90 分钟，另有证据容量限制；不能保证任意时长、编码和权限的视频都成功，超限会报错，不截断后冒充完整分析。</p></details><details><summary>微信连接器会改变什么？</summary><p>可选连接器基于开源 wx_channel，需要本人确认安装 SunnyRoot 根证书并启用微信进程代理，仅使用本机登录会话。微信升级、权限或会话过期可能影响可用性。文件分析不需要安装它；安装步骤和退出说明随包提供。</p></details></section>
+</main>
+<footer><span>知意 · 理解在前，回复由你。</span><span>Windows 实测 · 手机端尚待实体设备验收</span></footer>
+</body></html>

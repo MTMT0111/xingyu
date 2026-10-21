@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f8f8f4">
+  <meta name="description" content="从微信分享文字、文章、图片或短视频，读懂内容，再写一段自然、有分寸的回复。">
+  <title>知意 · 微信沟通助手</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23286b54'/%3E%3Cpath d='M8 9h24v17H19l-8 6v-6H8Z' fill='white'/%3E%3Cpath d='M13 14h14v2H13Zm0 6h9v2H13Z' fill='%23286b54'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./demo.js"></script>
+  <script src="./history.js"></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#source-text">跳到内容输入</a>
+  <main class="container">
+    <section class="plugin-header" aria-labelledby="hero-title">
+      <div class="brand">
+        <div><h1 id="hero-title">知意</h1><p>读懂话外的关心</p></div>
+      </div>
+      <span id="mode-label"><i aria-hidden="true"></i>本地示例 · 非实时 AI</span>
+    </section>
+    <p class="plugin-lead">把对方发来的内容放进来，一起想一句合适的回复。 <a href="./showcase.html">查看真实视频分析与本机体验包 →</a></p>
+
+    <ol class="workflow sr-only" aria-label="回复的三个步骤">
+      <li id="step-input" aria-current="step"><span>1</span>放入内容</li>
+      <li id="step-understand"><span>2</span>读懂重点</li>
+      <li id="step-reply"><span>3</span>编辑发送</li>
+    </ol>
+
+    <section id="inbound-share" class="inbound-share" aria-labelledby="inbound-share-title" hidden>
+      <div class="inbound-copy">
+        <span class="inbound-kicker">来自系统分享</span>
+        <h2 id="inbound-share-title">收到一段内容</h2>
+        <p id="inbound-share-preview" class="inbound-preview"></p>
+        <p id="inbound-share-note" class="inbound-note" role="status" aria-live="polite">尚未上传，也不会自动分析。</p>
+      </div>
+      <div class="inbound-actions">
+        <button id="inbound-dismiss" type="button">保留当前内容</button>
+        <button id="inbound-return" type="button">返回原应用</button>
+        <button id="inbound-accept" class="inbound-primary" type="button">放入编辑区</button>
+      </div>
+    </section>
+
+    <section class="workbench" aria-label="微信内容回复助手">
+      <form id="translate-form" class="input-panel" novalidate>
+        <div class="panel-heading">
+          <div><span class="section-number">01</span><h2>对方说了什么</h2></div>
+          <span class="tiny-label">不会自动发送</span>
+        </div>
+
+        <label for="source-text" class="sr-only">微信中的文字、公众号正文或链接</label>
+        <div class="source-wrap">
+          <textarea id="source-text" rows="5" placeholder="粘贴一条消息、公众号链接，或添加对方分享的图片和视频…" aria-describedby="source-counter"></textarea>
+          <span id="source-counter" class="counter">0 / 6000</span>
+        </div>
+        <div class="draft-row"><span id="draft-status" role="status">草稿仅在当前标签页暂存</span><button id="clear-draft" type="button" disabled>清空</button></div>
+
+        <div class="attachment-tools">
+          <div><strong>图片或短视频</strong><span>截图 ≤4 MB · 视频 ≤20 MB / 60 秒</span></div>
+          <button class="file-button" id="choose-attachment" type="button">添加附件</button>
+          <input id="attachment-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mov" aria-describedby="attachment-help">
+          <p id="attachment-help" class="sr-only">可以选择一张图片，或一段 20 MB、60 秒以内的短视频。</p>
+        </div>
+        <div id="attachment-preview" class="attachment-preview" hidden>
+          <div class="attachment-heading"><span id="attachment-name"></span><button id="remove-attachment" type="button" aria-label="移除附件">移除</button></div>
+          <img id="attachment-image" alt="已选图片的本地预览" hidden>
+          <video id="attachment-video" controls playsinline preload="metadata" aria-label="已选视频的本地预览" hidden></video>
+          <p id="attachment-detail"></p>
+        </div>
+        <p id="media-note" class="media-note" role="status" hidden></p>
+
+        <details id="context-panel" class="context-panel">
+          <summary>补充一句<span>可选</span></summary>
+          <label class="sr-only" for="reply-context">补充关系、近况或表达偏好</label>
+          <textarea id="reply-context" rows="2" maxlength="400" placeholder="比如：这是妈妈发来的，回短一点。或：这周没空，想婉拒。" aria-describedby="context-help context-counter"></textarea>
+          <div class="context-footer"><p id="context-help">不用选分类，直接说你的想法。</p><span id="context-counter">0 / 200</span></div>
+        </details>
+
+        <div class="example-row"><span>想先看看效果？</span><button id="try-example" type="button">放入一条示例</button></div>
+        <div id="form-error" class="error-message" role="alert" hidden></div>
+        <div class="generation-actions">
+          <button id="translate-button" class="primary-button" type="submit"><span id="translate-button-text">帮我回一句</span><span aria-hidden="true">→</span></button>
+          <button id="cancel-request" type="button" hidden>取消</button>
+        </div>
+        <p id="privacy-note" class="privacy-note">本地示例：按关键词匹配文案，未调用 AI。</p>
+        <div id="mode-controls" class="mode-controls" hidden><label for="mode-select">生成方式</label><select id="mode-select"><option value="demo">本地示例</option><option value="live">真实 AI</option></select></div>
+        <div id="init-error" class="connection-note" role="status" hidden><span>服务连接暂时不稳定。</span><button id="retry-init" type="button">重新连接</button></div>
+      </form>
+
+      <section id="result-card" class="output-panel" aria-labelledby="result-title" aria-busy="false">
+        <div class="panel-heading">
+          <div><span class="section-number">02</span><h2 id="result-title" tabindex="-1">回复建议</h2></div>
+          <span id="result-status" class="tiny-label">等待内容</span>
+        </div>
+        <div id="empty-state" class="empty-state">
+          <p>不必想好怎么回。<br><span>先读懂对方，再用自己的话回应。</span></p>
+        </div>
+        <div id="loading-state" class="loading-state" role="status" hidden><span class="loading-dot" aria-hidden="true"></span><span id="loading-text">正在想一句合适的回应…</span></div>
+        <div id="result-content" hidden>
+          <details id="analysis-panel" class="analysis-panel"><summary>看看为什么这样回</summary>
+          <div class="content-block"><h3>这段内容在说什么</h3><p id="content-summary"></p></div>
+          <details id="content-evidence" class="content-evidence" hidden><summary>核对识别到的原文与画面</summary><div id="visual-evidence"><h4 id="visual-evidence-title">画面与文字</h4><p id="visual-summary"></p></div><div id="audio-evidence"><h4>视频中的话</h4><p id="audio-status"></p><p id="audio-transcript"></p></div><p id="evidence-coverage"></p></details>
+          <div class="meaning-block"><h3>可能想和你聊什么</h3><ul id="possible-meanings"></ul><p class="tip-label">值得继续聊的方向</p><p id="reply-tip-text" class="reply-tip"></p></div>
+          </details>
+          <div class="reply-label"><label for="reply-text">可以这样回</label><span>先改成自己的话</span></div>
+          <textarea id="reply-text" rows="4" aria-label="可编辑的回复"></textarea>
+          <p id="result-error" class="error-message" role="alert" hidden></p>
+          <div class="copy-row">
+            <span id="copy-status" role="status"></span>
+            <button id="regenerate-reply" type="button">换一句</button>
+            <button id="wechat-reply" class="primary-button" type="button" aria-describedby="share-note" disabled hidden><span id="wechat-reply-text">去微信选人</span><span aria-hidden="true">↗</span></button>
+            <button id="return-source" class="primary-button" type="button" hidden><span>复制并返回</span><span aria-hidden="true">↩</span></button>
+            <button id="copy-reply" type="button" disabled><svg viewBox="0 0 18 18" aria-hidden="true"><rect x="6" y="5" width="9" height="11" rx="2"/><path d="M11 3H5a2 2 0 0 0-2 2v6"/></svg>复制回复</button>
+            <button id="share-reply" type="button" aria-describedby="share-note" disabled hidden><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M9 11V2m-3 3 3-3 3 3M4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1"/></svg><span id="share-reply-text">系统分享</span></button>
+          </div>
+          <p id="share-note" class="share-note">当前浏览器不能直接选择微信联系人，可复制后回原聊天发送。</p>
+          <p id="result-note" class="result-note"></p>
+        </div>
+        <div id="result-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+      </section>
+    </section>
+
+    <details id="history-panel" class="history-panel">
+      <summary><span><strong>最近记录</strong><small>仅保存在这台设备</small></span><span id="history-count">0 条</span></summary>
+      <p id="history-empty" class="history-empty">生成回复后会保留最近 20 条；不保存附件、截图或识别全文。</p>
+      <ol id="history-list" class="history-list"></ol>
+      <button id="clear-history" class="clear-history" type="button" disabled>清空记录</button>
+    </details>
+
+    <details id="wechat-guide" class="plugin-guide"><summary>微信里怎么用</summary><p>安卓可从微信的系统分享菜单或“处理所选文字”进入；也可粘贴文字、公众号正文，或选择保存的截图和短视频。生成后先确认和编辑，再复制返回原聊天。网页与个人主体不能自动读取好友、视频号卡片或代你发送。</p></details>
+  </main>
+</body>
+</html>

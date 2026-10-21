@@ -1,6 +1,6 @@
 # 知意 · Windows 本机体验
 
-公开展示页：https://mtmt0111.github.io/haohaohui-demo/showcase.html
+公开展示页：https://mtmt0111.github.io/xingyu/showcase.html
 
 ## 第一次使用
 
