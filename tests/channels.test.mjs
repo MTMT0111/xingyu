@@ -24,8 +24,8 @@ function upstream(url, options) {
     assert.ok(u.searchParams.get('url').endsWith('token=a+b'));
     return new Response(video);
   }
-  if (u.searchParams.get('comment_id')) return envelope({ commentInfo: [{ commentId: 'reply', content: '慢慢走才有意思' }], lastBuffer: '' });
-  return envelope({ commentInfo: [{ commentId: 'first', content: '不是打卡越多越好', expandCommentCount: 1, nickname: '不传模型的昵称', headUrl: 'private' }], lastBuffer: '' });
+  if (u.searchParams.get('comment_id')) return envelope({ commentInfo: [{ commentId: 'reply', content: '慢慢走才有意思', likeCount: 79 }], lastBuffer: '' });
+  return envelope({ commentInfo: [{ commentId: 'first', content: '不是打卡越多越好', likeCount: 444, expandCommentCount: 1, nickname: '不传模型的昵称', headUrl: 'private' }], lastBuffer: '' });
 }
 
 test('share routing accepts exact WeChat links and rejects ambiguity and unsafe URLs', () => {
@@ -63,12 +63,13 @@ test('selected search result fetches media by ID without opening its page', asyn
     return upstream(url, options);
   } });
   assert.ok(queried);
-  assert.deepEqual(result.attachment.bytes, video);
+  assert.deepEqual(await readFile(result.attachment.path), video);
+  await result.attachment.dispose();
 });
 
 test('feed URLs decode unsigned 64-bit IDs locally without the missing page helper', async () => {
   const page = 'https://channels.weixin.qq.com/web/pages/feed?oid=__________8&nid=gAAAAAAAAAA';
-  await readChannels(page, { config: bridge, fetchImpl: (url, options) => {
+  const result = await readChannels(page, { config: bridge, fetchImpl: (url, options) => {
     const u = new URL(url);
     if (u.pathname.endsWith('/profile')) {
       assert.equal(u.searchParams.get('object_id'), '18446744073709551615');
@@ -77,12 +78,15 @@ test('feed URLs decode unsigned 64-bit IDs locally without the missing page help
     }
     return upstream(url, options);
   } });
+  await result.attachment.dispose();
 });
 
 test('local connector returns actual media plus anonymized comments and reply relationship', async () => {
   const result = await readChannels(share, { config: bridge, fetchImpl: upstream });
-  assert.deepEqual(result.attachment.bytes, video);
+  assert.deepEqual(await readFile(result.attachment.path), video);
+  await result.attachment.dispose();
   assert.equal(result.comments.length, 2);
+  assert.deepEqual(result.comments.map(c => c.likes), [444, 79]);
   assert.equal(result.comments[1].reply_to, '不是打卡越多越好');
   assert.equal(result.commentStatus, 'sample');
   assert.doesNotMatch(JSON.stringify(result.comments), /nickname|headUrl|private|first|不传模型/);
@@ -107,7 +111,8 @@ test('failed comments are labeled unavailable while verified video remains avail
   const result = await readChannels(share, { config: bridge, fetchImpl: (url, options) => String(url).includes('comment/list') ? new Response('failed', { status: 503 }) : upstream(url, options) });
   assert.equal(result.commentStatus, 'unavailable');
   assert.equal(result.comments.length, 0);
-  assert.deepEqual(result.attachment.bytes, video);
+  assert.deepEqual(await readFile(result.attachment.path), video);
+  await result.attachment.dispose();
 });
 
 test('stalled response cancels promptly and oversized payloads are rejected', async () => {
@@ -123,7 +128,7 @@ test('backend routes link through media and comments before LLM, and keeps signe
   let llmCalls = 0;
   const generation = { content_summary: '视频讲散步，评论反对赶路打卡。', possible_meanings: ['可能是在分享放慢节奏的想法。', '也许想约着出去走走。'], reply_tip: '只根据已读内容接话。', reply: '赶着打卡挺累的，留点时间随便走走也挺好。' };
   const server = createServer({ config, extractVideoImpl: async attachment => {
-    assert.deepEqual(attachment.bytes, video);
+    assert.deepEqual(await readFile(attachment.path), video);
     return { duration: 5, frames: [{ time: 0, dataUrl: 'data:image/jpeg;base64,eA==' }], transcript: '出去走走，不必急着赶路。', audioStatus: 'transcribed' };
   }, fetchImpl: (url, options) => {
     if (String(url).startsWith('http://127.0.0.1:2026/')) return upstream(url, options);

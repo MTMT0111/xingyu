@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f8f8f4">
-  <meta name="description" content="从微信分享文字、文章、图片或短视频，读懂内容，再写一段自然、有分寸的回复。">
+  <meta name="description" content="从微信分享文字、文章、图片或视频，读懂内容，再写一段自然、有分寸的回复。">
   <title>知意 · 微信沟通助手</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23286b54'/%3E%3Cpath d='M8 9h24v17H19l-8 6v-6H8Z' fill='white'/%3E%3Cpath d='M13 14h14v2H13Zm0 6h9v2H13Z' fill='%23286b54'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
@@ -66,10 +66,10 @@
         <div class="draft-row"><span id="draft-status" role="status">草稿仅在当前标签页暂存</span><button id="clear-draft" type="button" disabled>清空</button></div>
 
         <div class="attachment-tools">
-          <div><strong>图片或短视频</strong><span>截图 ≤4 MB · 视频 ≤20 MB / 60 秒</span></div>
+          <div><strong>图片或视频</strong><span>可直接拖入 · 图片 ≤4 MB · 视频 ≤512 MB，长视频分段处理</span></div>
           <button class="file-button" id="choose-attachment" type="button">添加附件</button>
           <input id="attachment-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mov" aria-describedby="attachment-help">
-          <p id="attachment-help" class="sr-only">可以选择一张图片，或一段 20 MB、60 秒以内的短视频。</p>
+          <p id="attachment-help" class="sr-only">可以直接拖入或选择一个视频，最多512 MB；长视频分段分析，没有60秒限制。</p>
         </div>
         <div id="attachment-preview" class="attachment-preview" hidden>
           <div class="attachment-heading"><span id="attachment-name"></span><button id="remove-attachment" type="button" aria-label="移除附件">移除</button></div>
@@ -109,7 +109,7 @@
         <div id="result-content" hidden>
           <details id="analysis-panel" class="analysis-panel"><summary>看看为什么这样回</summary>
           <div class="content-block"><h3>这段内容在说什么</h3><p id="content-summary"></p></div>
-          <details id="content-evidence" class="content-evidence" hidden><summary>核对识别到的原文与画面</summary><div id="visual-evidence"><h4 id="visual-evidence-title">画面与文字</h4><p id="visual-summary"></p></div><div id="audio-evidence"><h4>视频中的话</h4><p id="audio-status"></p><p id="audio-transcript"></p></div><p id="evidence-coverage"></p></details>
+          <details id="content-evidence" class="content-evidence" hidden><summary>查看原文、视频分段与高赞评论</summary><p>先依据原文和视频讲述，评论用于补充不同看法。点赞表示热度，不代表事实正确；不编造权重百分比。</p><div id="visual-evidence"><h4 id="visual-evidence-title">画面与文字</h4><p id="visual-summary"></p></div><div id="video-segments"></div><div id="comment-evidence" hidden><h4>高赞评论 · 已取得的样本</h4><ol id="comment-list"></ol></div><div id="audio-evidence"><h4>视频中的话</h4><p id="audio-status"></p><p id="audio-transcript"></p></div><p id="evidence-coverage"></p></details>
           <div class="meaning-block"><h3>可能想和你聊什么</h3><ul id="possible-meanings"></ul><p class="tip-label">值得继续聊的方向</p><p id="reply-tip-text" class="reply-tip"></p></div>
           </details>
           <div class="reply-label"><label for="reply-text">可以这样回</label><span>先改成自己的话</span></div>

@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-21T03:54:21.101Z",
+  "realWeChat": true,
+  "model": "deepseek-flash",
+  "duration": 376.605,
+  "segments": [
+    {
+      "start": 0,
+      "end": 180,
+      "transcriptCharacters": 594
+    },
+    {
+      "start": 180,
+      "end": 360,
+      "transcriptCharacters": 668
+    },
+    {
+      "start": 360,
+      "end": 376.605,
+      "transcriptCharacters": 78
+    }
+  ],
+  "frames": 18,
+  "transcriptCharacters": 1342,
+  "comments": 60,
+  "highestLikes": 25,
+  "seconds": 66.345,
+  "reply": "刘震云讲郓哥那两句话牵出几条人命，这个例子挺抓人的。一句话的分量有时候真比一堆道理重，不过那句让人动心的话，估计谁也说不准。",
+  "limits": [
+    "One real Windows WeChat session and one 376.605-second video, not an arbitrary-length guarantee.",
+    "18 frames are sampled visuals; speech was processed through the final segment.",
+    "60 returned comments/replies are a sample, not all comments."
+  ],
+  "package": {
+    "privateConfiguration": false,
+    "stop": true,
+    "offlineReply": true,
+    "duplicateStart": true,
+    "cleanInstall": true,
+    "pathContainsSpaces": true
+  },
+  "showcase": {
+    "checks": [
+      {
+        "width": 1280,
+        "overflow": false,
+        "editable": true,
+        "copyOrSelection": true,
+        "reset": true,
+        "downloadLink": true
+      },
+      {
+        "width": 390,
+        "overflow": false,
+        "editable": true,
+        "copyOrSelection": true,
+        "reset": true,
+        "downloadLink": true
+      },
+      {
+        "width": 320,
+        "overflow": false,
+        "editable": true,
+        "copyOrSelection": true,
+        "reset": true,
+        "downloadLink": true
+      }
+    ],
+    "errors": []
+  }
+}

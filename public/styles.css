@@ -290,3 +290,10 @@ body[data-host="android"] .history-panel { margin: 8px 0 0; }
 .channel-results { display: grid; gap: 8px; max-height: 300px; overflow-y: auto; }
 .channel-results button { text-align: left; white-space: pre-line; overflow-wrap: anywhere; }
 #channel-search-status { font-size: 13px; line-height: 1.6; color: #65756d; }
+
+.drop-active { outline: 2px dashed #286b54; outline-offset: -6px; background: #f1f7f3; }
+#comment-list { padding: 0; list-style: none; max-height: 380px; overflow: auto; }
+#comment-list li { padding: 12px 0; border-bottom: 1px solid #dbe4df; }
+#comment-list strong { color: #286b54; font-size: 13px; }
+#comment-list p, #video-segments p { white-space: pre-wrap; overflow-wrap: anywhere; }
+#video-segments summary { min-height: 44px; padding: 12px 0; cursor: pointer; }

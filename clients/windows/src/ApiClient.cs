@@ -24,6 +24,7 @@ namespace ZhiyiDesktop
         public string Name;
         public string Mime;
         public byte[] Bytes;
+        public string FilePath;
     }
 
     internal sealed class VideoChoice
@@ -75,13 +76,25 @@ namespace ZhiyiDesktop
             };
             if (!String.IsNullOrWhiteSpace(context)) payload["context"] = context;
             if (channel != null) payload["channel"] = new Dictionary<string, object> { { "object_id", channel.object_id }, { "nonce_id", channel.nonce_id } };
-            if (attachment != null)
+            if (attachment != null && attachment.FilePath != null)
+            {
+                using (var upload = new HttpClient { Timeout = TimeSpan.FromMinutes(15) })
+                using (var file = File.OpenRead(attachment.FilePath))
+                using (var content = new StreamContent(file))
+                using (var response = await upload.PostAsync(new Uri(root, "/api/video?name=" + Uri.EscapeDataString(attachment.Name)), content, cancellation))
+                {
+                    var uploaded = json.Deserialize<Dictionary<string, object>>(await response.Content.ReadAsStringAsync());
+                    if (!response.IsSuccessStatusCode) throw new InvalidOperationException(GetString(uploaded, "error", "视频上传失败。"));
+                    payload["videoUpload"] = GetString(uploaded, "id", "");
+                }
+            }
+            else if (attachment != null)
             {
                 payload["attachment"] = new Dictionary<string, object> {
                     { "kind", attachment.Kind }, { "name", attachment.Name }, { "mime", attachment.Mime }, { "data", Convert.ToBase64String(attachment.Bytes) }
                 };
             }
-            using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(3) })
+            using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(95) })
             using (var body = new StringContent(json.Serialize(payload), Encoding.UTF8, "application/json"))
             using (var response = await client.PostAsync(new Uri(root, "/api/reply"), body, cancellation))
             {
@@ -106,8 +119,18 @@ namespace ZhiyiDesktop
                 if (comments != null) foreach (var item in comments)
                 {
                     var comment = item as Dictionary<string, object>;
-                    result.Evidence += "\r\n【评论】" + GetString(comment, "text", "");
+                    object likes; string count = comment != null && comment.TryGetValue("likes", out likes) && likes != null ? Convert.ToString(likes) + " 赞" : "未提供点赞数";
+                    string parent = GetString(comment, "reply_to", "");
+                    result.Evidence += "\r\n【" + count + "】" + (parent.Length > 0 ? "回复「" + parent + "」：" : "") + GetString(comment, "text", "");
                 }
+                object parts;
+                var segments = evidence != null && evidence.TryGetValue("segments", out parts) ? parts as System.Collections.ArrayList : null;
+                if (segments != null) foreach (var item in segments) {
+                    var part = item as Dictionary<string, object>;
+                    if (part == null) continue;
+                    result.Evidence += "\r\n\r\n【分段 " + part["start"] + "–" + part["end"] + " 秒】\r\n" + GetString(part, "summary", "");
+                }
+                result.Evidence = "依据优先级：原文和视频讲述为主，评论辅助理解。点赞是热度，不是可信度；下面按取得的样本排序。\r\n\r\n" + result.Evidence;
                 if (String.IsNullOrWhiteSpace(result.Reply)) throw new InvalidOperationException("服务没有返回可用回复。");
                 return result;
             }
@@ -124,9 +147,9 @@ namespace ZhiyiDesktop
             if (!types.TryGetValue(extension, out mime)) throw new InvalidOperationException("请选择 JPG、PNG、WebP、MP4、WebM 或 MOV 文件。");
             var info = new FileInfo(path);
             bool video = mime.StartsWith("video/", StringComparison.Ordinal);
-            long limit = video ? 20L * 1024 * 1024 : 4L * 1024 * 1024;
-            if (info.Length < 1 || info.Length > limit) throw new InvalidOperationException(video ? "视频需小于 20 MB，且不超过 60 秒。" : "图片需小于 4 MB。");
-            return new AttachmentData { Kind = video ? "video" : "image", Name = info.Name, Mime = mime, Bytes = File.ReadAllBytes(path) };
+            long limit = video ? 512L * 1024 * 1024 : 4L * 1024 * 1024;
+            if (info.Length < 1 || info.Length > limit) throw new InvalidOperationException(video ? "视频需小于 512 MB，长视频会分段处理。" : "图片需小于 4 MB。");
+            return new AttachmentData { Kind = video ? "video" : "image", Name = info.Name, Mime = mime, FilePath = video ? path : null, Bytes = video ? null : File.ReadAllBytes(path) };
         }
 
         private static string GetString(Dictionary<string, object> data, string key, string fallback)

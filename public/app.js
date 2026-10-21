@@ -426,7 +426,6 @@ async function acceptInboundShare() {
       if (nextAttachment.kind === 'video') {
         const controller = new AbortController();
         nextAttachment.duration = await videoDuration(nextAttachment.url, controller.signal);
-        if (nextAttachment.duration > 60) throw new Error('请先截取 60 秒以内的视频，再分享给知意。');
       }
     }
     if (pendingInboundShare !== inbound) {
@@ -653,16 +652,16 @@ function videoDuration(url, signal) {
   });
 }
 
-async function chooseAttachment() {
+async function chooseAttachment(dropped) {
   if (state.busy || state.sharing) return;
-  const file = $('attachment-input').files[0];
+  const file = dropped instanceof File ? dropped : $('attachment-input').files[0];
   if (!file) return;
   clearError();
   const mimeByExtension = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' };
   const mime = file.type.toLowerCase() || mimeByExtension[file.name.split('.').pop().toLowerCase()];
   const kind = ['image/jpeg', 'image/png', 'image/webp'].includes(mime) ? 'image' : ['video/mp4', 'video/webm', 'video/quicktime'].includes(mime) ? 'video' : null;
-  if (!kind || !file.size || file.size > (kind === 'image' ? 4 : 20) * 1024 * 1024) {
-    showError(!kind ? '请选择 JPG、PNG、WebP 图片，或 MP4、WebM、MOV 视频。' : !file.size ? '这个文件是空的，请重新选择。' : kind === 'image' ? '图片不能超过 4 MB，请缩小后再添加。' : '视频不能超过 20 MB，请压缩后再添加。');
+  if (!kind || !file.size || file.size > (kind === 'image' ? 4 : 512) * 1024 * 1024) {
+    showError(!kind ? '请选择 JPG、PNG、WebP 图片，或 MP4、WebM、MOV 视频。' : !file.size ? '这个文件是空的，请重新选择。' : kind === 'image' ? '图片不能超过 4 MB，请缩小后再添加。' : '视频不能超过 512 MB，请选择较低清晰度版本。');
     $('attachment-input').value = '';
     return;
   }
@@ -671,7 +670,6 @@ async function chooseAttachment() {
   setBusy(true, 'prepare');
   try {
     if (kind === 'video') attachment.duration = await videoDuration(attachment.url, state.controller.signal);
-    if (attachment.duration > 60) throw new Error('请截取 60 秒以内的视频后再添加。');
     if (state.controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
     updateAttachment(attachment);
   } catch (error) {
@@ -712,7 +710,7 @@ function validateResult(data, attachmentKind) {
   }
   const evidence = data.evidence;
   if (evidence !== undefined && (!evidence || !['image', 'video', 'article', 'channels'].includes(evidence.kind) ||
-      !shortText(evidence.visual_summary, 12000) || (evidence.visible_text !== undefined && (typeof evidence.visible_text !== 'string' || evidence.visible_text.length > 12000)) || typeof evidence.transcript !== 'string' || evidence.transcript.length > 20000 ||
+      !shortText(evidence.visual_summary, 12000) || (evidence.visible_text !== undefined && (typeof evidence.visible_text !== 'string' || evidence.visible_text.length > 12000)) || typeof evidence.transcript !== 'string' || evidence.transcript.length > 1000000 ||
       !['not_applicable', 'transcribed', 'silent'].includes(evidence.audio_status) || !shortText(evidence.coverage, 1000))) {
     throw new Error('识别内容不完整，输入和已有回复已保留，请重试。');
   }
@@ -720,6 +718,12 @@ function validateResult(data, attachmentKind) {
       attachmentKind === 'video' && !['transcribed', 'silent'].includes(evidence.audio_status))) {
     throw new Error(attachmentKind === 'article' ? '这次没有读取到文章正文，输入和已有回复已保留，请重试。' : '这次没有完成附件分析，输入和已有回复已保留，请重试。');
   }
+  if (evidence && evidence.comments !== undefined && (!Array.isArray(evidence.comments) || evidence.comments.length > 100 || !evidence.comments.every(item =>
+      item && shortText(item.text, 2000) && (item.likes === null || item.likes === undefined || Number.isSafeInteger(item.likes) && item.likes >= 0) &&
+      (item.reply_to === undefined || shortText(item.reply_to, 2000))))) throw new Error('评论依据格式不完整，请重试。');
+  if (evidence && evidence.segments !== undefined && (!Array.isArray(evidence.segments) || evidence.segments.length > 2000 || !evidence.segments.every(part =>
+      part && Number.isFinite(part.start) && Number.isFinite(part.end) && part.start >= 0 && part.end > part.start &&
+      shortText(part.summary, 12000) && typeof part.transcript === 'string' && part.transcript.length <= 1000000))) throw new Error('分段依据格式不完整，请重试。');
 }
 
 function renderResult(data) {
@@ -732,7 +736,21 @@ function renderResult(data) {
     const evidence = data.evidence;
     $('visual-evidence-title').textContent = evidence.kind === 'article' ? '文章标题与正文' : evidence.kind === 'channels' ? '视频内容与评论依据' : '画面与文字';
     $('visual-summary').textContent = evidence.visual_summary + (evidence.visible_text ? (evidence.kind === 'article' ? '\n\n读取到的正文：\n' : '\n\n识别到的文字：\n') + evidence.visible_text : '');
-    if (evidence.kind === 'channels') $('visual-summary').textContent += '\n\n发布说明：' + (evidence.description || '') + '\n\n评论样本：\n' + (Array.isArray(evidence.comments) ? evidence.comments.map(item => (item.reply_to ? '回复「' + item.reply_to + '」：' : '') + item.text).join('\n') : '未取得');
+    if (evidence.kind === 'channels') $('visual-summary').textContent += '\n\n发布说明：' + (evidence.description || '');
+    $('comment-evidence').hidden = evidence.kind !== 'channels';
+    $('comment-list').textContent = '';
+    for (const item of Array.isArray(evidence.comments) ? evidence.comments : []) {
+      const li = document.createElement('li');
+      const count = document.createElement('strong'); count.textContent = Number.isSafeInteger(item.likes) ? item.likes + ' 赞' : '未提供点赞数';
+      const content = document.createElement('p'); content.textContent = (item.reply_to ? '回复「' + item.reply_to + '」：\n' : '') + item.text;
+      li.append(count, content); $('comment-list').append(li);
+    }
+    $('video-segments').textContent = '';
+    for (const segment of evidence.segments || []) {
+      const part = document.createElement('details'); const title = document.createElement('summary');
+      title.textContent = Math.floor(segment.start / 60) + ':' + String(Math.floor(segment.start % 60)).padStart(2, '0') + ' — ' + Math.floor(segment.end / 60) + ':' + String(Math.floor(segment.end % 60)).padStart(2, '0');
+      const text = document.createElement('p'); text.textContent = segment.summary + '\n\n' + (segment.transcript || '本段未识别到语音'); part.append(title, text); $('video-segments').append(part);
+    }
     $('audio-evidence').hidden = !['video', 'channels'].includes(evidence.kind);
     $('audio-transcript').textContent = evidence.transcript;
     $('audio-status').textContent = evidence.audio_status === 'silent' ? '未识别到可用语音，分析依据为画面内容。' : '已识别视频中的语音，转写可能存在误差。';
@@ -787,8 +805,11 @@ async function generateReply() {
   state.controller = controller;
   setBusy(true, attachment || channels ? 'media' : article ? 'article' : 'text');
   try {
-    if (attachment) payload.attachment = { kind: attachment.kind, name: attachment.file.name, mime: attachment.mime, data: await readAttachment(attachment.file, controller.signal) };
-    const data = await requestJSON('/api/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, { timeout: attachment || channels ? 180000 : article ? 60000 : 32000, signal: controller.signal });
+    if (attachment && attachment.kind === 'video' && attachment.file.size > 20 * 1024 * 1024) {
+      const uploaded = await requestJSON('/api/video?name=' + encodeURIComponent(attachment.file.name), { method: 'POST', body: attachment.file }, { timeout: 900000, signal: controller.signal });
+      payload.videoUpload = uploaded.id;
+    } else if (attachment) payload.attachment = { kind: attachment.kind, name: attachment.file.name, mime: attachment.mime, data: await readAttachment(attachment.file, controller.signal) };
+    const data = await requestJSON('/api/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, { timeout: (attachment && attachment.kind === 'video') || channels ? 5700000 : attachment ? 180000 : article ? 60000 : 32000, signal: controller.signal });
     if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
     validateResult(data, attachment && attachment.kind || (article ? 'article' : channels ? 'channels' : undefined));
     renderResult(data);
@@ -959,6 +980,19 @@ $('try-example').addEventListener('click', () => {
 $('mode-select').addEventListener('change', () => { state.modeSettled = true; setMode(); saveDraft(); });
 $('clear-draft').addEventListener('click', clearDraft);
 $('attachment-input').addEventListener('change', chooseAttachment);
+const dropZone = document.querySelector('.input-panel');
+dropZone.addEventListener('dragover', event => { event.preventDefault(); if (!state.busy) dropZone.classList.add('drop-active'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drop-active'));
+dropZone.addEventListener('drop', async event => {
+  event.preventDefault(); dropZone.classList.remove('drop-active');
+  if (state.busy || state.sharing) return;
+  const files = event.dataTransfer.files;
+  if (files.length > 1) return showError('一次只放入一个视频或图片。');
+  if (files.length === 1) return chooseAttachment(files[0]);
+  const text = (event.dataTransfer.getData('text/uri-list').split('\n').filter(line => !line.startsWith('#')).join('\n') || event.dataTransfer.getData('text/plain')).trim();
+  if (!text || Array.from(text).length > 6000) return showError('这个卡片没有提供可读取的文件或链接；可复制分享链接后粘贴。');
+  updateAttachment(null); $('source-text').value = text; inputChanged();
+});
 $('inbound-accept').addEventListener('click', acceptInboundShare);
 $('inbound-dismiss').addEventListener('click', () => dismissInboundShare(false));
 $('inbound-return').addEventListener('click', () => dismissInboundShare(true));

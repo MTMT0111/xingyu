@@ -53,6 +53,8 @@ namespace ZhiyiDesktop
             BackColor = Theme.Green;
             using (var path = new GraphicsPath()) { path.AddEllipse(0, 0, 58, 58); Region = new Region(path); }
             assistant = new AssistantForm(this);
+            AllowDrop = true; DragEnter += assistant.AcceptMediaDrop;
+            DragDrop += delegate(object sender, DragEventArgs e) { assistant.ShowBeside(currentWindow); assistant.ReceiveMediaDrop(sender, e); };
             menu.Font = Theme.Font(11, FontStyle.Regular);
             menu.ShowImageMargin = false;
             menu.Items.Add("粘贴分享链接 / 消息", null, delegate { assistant.PasteShare(); });
@@ -205,6 +207,8 @@ namespace ZhiyiDesktop
             StyleButton(read, "粘贴链接 / 消息", false); read.Click += delegate { PasteShare(); };
             var actionButtons = new[] { paste, read }; for (int i = 0; i < 2; i++) { actionButtons[i].Dock = DockStyle.Fill; actionButtons[i].Margin = new Padding(i == 0 ? 0 : 7, 0, 0, 0); actions.Controls.Add(actionButtons[i], i, 0); }
             body.Controls.Add(actions);
+            var drop = new Label { Text = "把视频文件或分享链接拖到这里，也可直接拖到悬浮球", Dock = DockStyle.Top, Height = 48, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Green, BackColor = Theme.PaleGreen, AllowDrop = true, Margin = new Padding(0, 0, 0, 10) };
+            drop.DragEnter += AcceptMediaDrop; drop.DragDrop += ReceiveMediaDrop; body.Controls.Add(drop);
             status.Text = "粘贴消息或分享链接，自动判断内容类型。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Bold); status.Height = 44; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(status);
             preview.Height = 76; preview.Dock = DockStyle.Top; preview.BackColor = Theme.PaleGreen; preview.SizeMode = PictureBoxSizeMode.Zoom; preview.Cursor = Cursors.Hand; preview.Margin = new Padding(0, 0, 0, 6);
             preview.Paint += delegate(object sender, PaintEventArgs e) { if (preview.Image == null) using (var font = Theme.Font(10, FontStyle.Regular)) TextRenderer.DrawText(e.Graphics, "链接读取正文 · 视频文件分析语音\n也可框选消息或拖入媒体文件", font, preview.ClientRectangle, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter); };
@@ -218,13 +222,13 @@ namespace ZhiyiDesktop
             StyleButton(append, "读取分享链接", false); append.Width = 112; append.Height = 28; append.Font = Theme.Font(9, FontStyle.Regular);
             append.Click += delegate { ReadCurrentShare(); }; tools.Controls.Add(append); body.Controls.Add(tools);
             source.Multiline = true; source.ScrollBars = ScrollBars.Vertical; source.MaxLength = 6000; source.Height = 86; source.Dock = DockStyle.Top; source.Visible = true; source.Margin = new Padding(0, 0, 0, 12); body.Controls.Add(source);
-            var targetRow = new TableLayoutPanel { ColumnCount = 2, Height = 54, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 8) };
+            var targetRow = new TableLayoutPanel { ColumnCount = 2, Height = 82, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 8) };
             targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32)); targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
             targetRow.Controls.Add(new Label { Text = "回复对象", AutoSize = true, ForeColor = Theme.Muted }, 0, 0);
             targetRow.Controls.Add(new Label { Text = "关系与习惯（本机记住）", AutoSize = true, ForeColor = Theme.Muted }, 1, 0);
             foreach (var name in memory.Notes.Keys) recipient.Items.Add(name);
-            recipient.SelectedIndexChanged += delegate { string note; if (memory.Notes.TryGetValue(recipient.Text, out note)) context.Text = note; };
-            recipient.Dock = DockStyle.Fill; recipient.MaxLength = 40; recipient.Margin = new Padding(0, 2, 10, 0); context.Dock = DockStyle.Fill; context.MaxLength = 100; context.Margin = new Padding(0, 2, 0, 0);
+            recipient.TextChanged += delegate { string note; context.Text = memory.Notes.TryGetValue(recipient.Text, out note) ? note : ""; };
+            recipient.Dock = DockStyle.Top; recipient.MaxLength = 40; recipient.Margin = new Padding(0, 2, 10, 0); context.Dock = DockStyle.Fill; context.Multiline = true; context.ScrollBars = ScrollBars.Vertical; context.MaxLength = 100; context.Margin = new Padding(0, 2, 0, 0);
             targetRow.Controls.Add(recipient, 0, 1); targetRow.Controls.Add(context, 1, 1); body.Controls.Add(targetRow);
             summary.Text = "读懂内容，再给你一句自然的回复。"; summary.ForeColor = Theme.Ink; summary.Font = Theme.Font(10, FontStyle.Regular); summary.Height = 64; summary.Dock = DockStyle.Top; summary.Margin = new Padding(0, 8, 0, 8); body.Controls.Add(summary);
             var resultHeader = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, Margin = Padding.Empty };
@@ -454,33 +458,39 @@ namespace ZhiyiDesktop
                 try
                 {
                     var imported = ApiClient.FromFile(dialog.FileName);
-                    ResetMaterial(imported, bubble.CurrentWindow, imported.Kind == "video" ? "完整视频文件 · 最多 60 秒，分析画面和语音。" : "所选图片 · 分析画面和文字。", "");
+                    ResetMaterial(imported, bubble.CurrentWindow, imported.Kind == "video" ? "完整视频文件 · 长视频自动分段，分析画面和语音。" : "所选图片 · 分析画面和文字。", "");
                     capture = null;
                     status.Text = "已选择“" + attachment.Name + "”，点击生成后才会上传分析。";
-                    summary.Text = attachment.Kind == "video" ? "将分析完整视频画面和语音（最多 60 秒）。" : "将分析图片里的画面和文字。";
+                    summary.Text = attachment.Kind == "video" ? "将分段分析完整视频的画面和语音。" : "将分析图片里的画面和文字。";
                     variant = 0;
                 }
                 catch (Exception error) { status.Text = error.Message; }
             }
         }
 
-        private void AcceptMediaDrop(object sender, DragEventArgs args)
+        internal void AcceptMediaDrop(object sender, DragEventArgs args)
         {
-            args.Effect = args.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+            args.Effect = DropInput.Accepts(args.Data) ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
-        private void ReceiveMediaDrop(object sender, DragEventArgs args)
+        internal void ReceiveMediaDrop(object sender, DragEventArgs args)
         {
-            if (busy || !args.Data.GetDataPresent(DataFormats.FileDrop)) return;
+            if (busy) return;
             try
             {
+                if (!args.Data.GetDataPresent(DataFormats.FileDrop)) {
+                    var text = DropInput.Text(args.Data);
+                    ResetMaterial(null, bubble.CurrentWindow, "已接收拖入内容；生成后按链接读取正文、视频和评论。", text);
+                    linkInput = true; ShowBeside(bubble.CurrentWindow);
+                    return;
+                }
                 var paths = args.Data.GetData(DataFormats.FileDrop) as string[];
                 if (paths == null || paths.Length != 1) throw new InvalidOperationException("请一次拖入一个微信视频或图片文件。");
                 var imported = ApiClient.FromFile(paths[0]);
-                ResetMaterial(imported, bubble.CurrentWindow, imported.Kind == "video" ? "完整视频文件 · 最多 60 秒，分析画面和语音。" : "所选图片 · 分析画面和文字。", "");
+                ResetMaterial(imported, bubble.CurrentWindow, imported.Kind == "video" ? "完整视频文件 · 长视频自动分段，分析画面和语音。" : "所选图片 · 分析画面和文字。", "");
                 capture = null;
                 status.Text = "已接收“" + attachment.Name + "”；点击生成后才会上传分析。";
-                summary.Text = attachment.Kind == "video" ? "将分析视频画面和语音（最多 60 秒）。" : "将分析图片里的画面和文字。";
+                summary.Text = attachment.Kind == "video" ? "将分段分析完整视频的画面和语音。" : "将分析图片里的画面和文字。";
                 variant = 0;
             }
             catch (Exception error) { status.Text = error.Message; }
@@ -597,6 +607,7 @@ namespace ZhiyiDesktop
         internal void PreparePreview()
         {
             recipient.Text = "妈妈";
+            context.Text = "关系亲近，简短自然。";
             source.Text = "你最近是不是又忙到很晚？天凉了，多穿点，也要记得吃饭。";
             source.Visible = false;
             status.Text = "界面示例 · 合成文字，未调用模型";
@@ -642,6 +653,7 @@ namespace ZhiyiDesktop
             try
             {
                 ApiClient.SelfTest();
+                DropInput.SelfTest();
                 string memoryFile = Path.Combine(Path.GetTempPath(), "zhiyi-memory-" + Guid.NewGuid().ToString("N"), "notes.json");
                 try {
                     var memory = new RecipientMemory(memoryFile); memory.Save("妈妈", "关系亲近，简短自然");

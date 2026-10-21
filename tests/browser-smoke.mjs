@@ -519,7 +519,7 @@ try {
     const original = window.setTimeout.bind(window);
     window.__requestTimers = [];
     window.setTimeout = (handler, delay, ...args) => {
-      if ([32000, 60000, 180000].includes(delay)) window.__requestTimers.push(delay);
+      if ([32000, 60000, 180000, 5700000].includes(delay)) window.__requestTimers.push(delay);
       return original(handler, delay, ...args);
     };
   });
@@ -592,20 +592,33 @@ try {
   assert.equal(await articlePage.locator('#content-evidence').isVisible(), false);
   check('article fetch failure, missing body evidence and cancellation preserve drafts; arbitrary URLs are not presented as fetched articles');
 
-  const channelFixture = { ...resultFixture, evidence: { kind: 'channels', visual_summary: '真实读取流程的界面测试材料', visible_text: '', transcript: '视频语音测试文本', audio_status: 'transcribed', coverage: '取得 2 条评论样本，非全部评论。', description: '发布说明', comments: [{ text: '<b>评论原文</b>' }, { text: '回复内容', reply_to: '评论原文' }] } };
+  const channelFixture = { ...resultFixture, evidence: { kind: 'channels', visual_summary: '真实读取流程的界面测试材料', visible_text: '', transcript: '视频语音测试文本', audio_status: 'transcribed', coverage: '取得 2 条评论样本，非全部评论。', description: '发布说明', comments: [{ text: '<b>评论原文</b>', likes: 444 }, { text: '回复内容', likes: 79, reply_to: '评论原文' }] } };
   await articlePage.unroute('**/api/reply');
   await articlePage.route('**/api/reply', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(channelFixture) }));
   await articlePage.locator('#source-text').fill('https://weixin.qq.com/sph/test-video-share');
   await generate(articlePage);
-  assert.equal(await articlePage.evaluate(() => window.__requestTimers.at(-1)), 180000);
+  assert.equal(await articlePage.evaluate(() => window.__requestTimers.at(-1)), 5700000);
   if (!(await articlePage.locator('#analysis-panel').evaluate(el => el.open))) await articlePage.locator('#analysis-panel > summary').click();
   await articlePage.locator('#content-evidence summary').click();
   assert.match(await articlePage.locator('#visual-evidence-title').innerText(), /视频内容与评论依据/);
-  assert.match(await articlePage.locator('#visual-summary').innerText(), /回复「评论原文」：回复内容/);
-  assert.equal(await articlePage.locator('#visual-summary b').count(), 0);
+  assert.match(await articlePage.locator('#comment-list').innerText(), /444 赞[\s\S]*79 赞[\s\S]*回复「评论原文」：[\s\S]*回复内容/);
+  assert.equal(await articlePage.locator('#comment-list b').count(), 0);
   assert.equal(await articlePage.locator('#audio-evidence').isVisible(), true);
   assert.match(await articlePage.locator('#audio-transcript').innerText(), /视频语音测试文本/);
   check('Channels links use the video timeout and render transcript plus comment relationships as plain text (mocked connector/model)');
+  await articlePage.locator('.input-panel').evaluate(el => {
+    const dataTransfer = new DataTransfer(); dataTransfer.setData('text/uri-list', 'https://weixin.qq.com/sph/dropped-link');
+    el.dispatchEvent(new DragEvent('drop', { dataTransfer, bubbles: true, cancelable: true }));
+  });
+  assert.equal(await articlePage.locator('#source-text').inputValue(), 'https://weixin.qq.com/sph/dropped-link');
+  channelFixture.evidence.segments = [{ start: 0, end: 180, summary: '前段依据', transcript: '前段语音' }, { start: 180, end: 376.605, summary: '最后一段依据', transcript: '末段语音' }];
+  await generate(articlePage);
+  if (!(await articlePage.locator('#analysis-panel').evaluate(el => el.open))) await articlePage.locator('#analysis-panel > summary').click();
+  await articlePage.locator('#content-evidence > summary').click();
+  assert.equal(await articlePage.locator('#video-segments details').count(), 2);
+  await articlePage.locator('#video-segments summary').last().click();
+  assert.match(await articlePage.locator('#video-segments').innerText(), /3:00 — 6:16[\s\S]*最后一段依据[\s\S]*末段语音/);
+  check('dropping a share URL replaces the material without typing; the last long-video segment remains inspectable (mocked model)');
 
   const searchPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   observe(searchPage);
@@ -673,14 +686,13 @@ try {
   assert.match(await unavailableMedia.locator('#form-error').innerText(), /JPG.*PNG.*视频/);
   await unavailableMedia.locator('#attachment-input').setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
   assert.match(await unavailableMedia.locator('#form-error').innerText(), /4 MB/);
-  await unavailableMedia.locator('#attachment-input').setInputFiles({ name: 'large.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(20 * 1024 * 1024 + 1) });
-  assert.match(await unavailableMedia.locator('#form-error').innerText(), /20 MB/);
   await unavailableMedia.locator('#attachment-input').setInputFiles(longVideoFile);
   await settled(unavailableMedia);
-  assert.match(await unavailableMedia.locator('#form-error').innerText(), /60 秒/);
-  assert.equal(await unavailableMedia.locator('#attachment-preview').isVisible(), false);
+  assert.equal(await unavailableMedia.locator('#attachment-preview').isVisible(), true);
+  assert.equal(await unavailableMedia.locator('#form-error').isVisible(), false);
   assert.equal(unavailableRequests, 0);
-  check('attachments stay local until submit; missing media config, unsupported files, 4/20 MiB limits and actual >60s video are rejected without uploading');
+  check('attachments remain local; missing media configuration and image size/type checks still apply, while a real >60s video is accepted for preview');
+
 
   const mediaPage = await context.newPage();
   observe(mediaPage);
@@ -688,8 +700,8 @@ try {
     const original = window.setTimeout.bind(window);
     window.__requestTimers = [];
     window.setTimeout = (handler, delay, ...args) => {
-      if (delay === 32000 || delay === 180000) window.__requestTimers.push(delay);
-      return original(handler, window.__expireMediaRequests && delay === 180000 ? 25 : delay, ...args);
+      if (delay === 32000 || delay === 180000 || delay === 5700000) window.__requestTimers.push(delay);
+      return original(handler, window.__expireMediaRequests && (delay === 180000 || delay === 5700000) ? 25 : delay, ...args);
     };
   });
   await mediaPage.route('**/api/config', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(mediaConfig) }));
