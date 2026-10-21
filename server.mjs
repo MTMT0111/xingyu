@@ -250,7 +250,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
     ...(new URL(generationUrl).hostname === 'api.deepseek.com' ? { thinking: { type: 'disabled' } } : {}),
     response_format: { type: 'json_object' }, temperature: 0.2, max_tokens: 2400, stream: false
   };
-  let data, result, repairs = 0;
+  let data, result, repairs = 0, formatIssue = null;
   for (;;) {
     data = await postModel(fetchImpl, generationUrl, config.llmKey, generationBody, config.timeoutLlmMs, signal);
     try {
@@ -259,6 +259,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
       break;
     } catch (error) {
       const reason = error instanceof SyntaxError ? '回答不是有效 JSON' : error.message;
+      formatIssue = reason;
       if (repairs++ || signal.aborted) throw Object.assign(new Error(reason), { responseIssue: reason });
       report('资料已读取，正在修复回复格式；无需重新读取视频');
       generationBody.max_tokens = 4200;
@@ -277,6 +278,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl, cac
       decision_error: decisionError,
       evidence_cache_hit: cacheHit, stages: timings,
       format_repairs: repairs,
+      format_issue: formatIssue,
       usage: { decision: decisionUsage, generation: data.usage ?? null }
     },
     note: decision || !config.typesafeKey ? 'AI 只提供可能的理解，具体想法还需要和家人聊聊。' : '内容判断暂不可用，以下由语言模型保留多种理解，仅供参考。'
@@ -470,7 +472,8 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
         catch (error) {
           const failure = modelFailure(error);
           const retained = error.evidence;
-          const message = retained ? (error.stage === 'generation' ? '资料已读取，回复尚未生成。' : '分析中断，已读部分可以查看。') + '点「查看已读资料」查看转写和评论，再重试。' : failure.message.replaceAll('已有文字已保留，', '').replaceAll('已有文字已保留。', '');
+          const reason = failure.message.replaceAll('已有文字已保留，', '').replaceAll('已有文字已保留。', '');
+          const message = retained ? (error.stage === 'generation' ? '资料已读取，回复尚未生成。' : '分析中断，已读部分可以查看。') + reason + '点「查看已读资料」查看转写和评论。' : reason;
           console.error(JSON.stringify({ event: 'reply_failed', stage: error.stage ?? 'read', cause: failure.code, issue: error.responseIssue ?? null }));
           return json(res, 502, { error: message, code: 'GENERATION_FAILED', cause: failure.code, stage: error.stage,
             ...(retained ? { evidence: retained } : {}), detail: error.responseIssue ?? null });

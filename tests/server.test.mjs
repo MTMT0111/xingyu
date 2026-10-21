@@ -433,6 +433,20 @@ test('invalid final format is repaired once using original input without accepti
   assert.equal((await response.json()).meta.format_repairs, 1);
 });
 
+test('ambiguous intent repair names the missing hypothesis requirement', async t => {
+  let calls = 0;
+  const app = await serve(t, { config: { ...liveConfig, typesafeKey: '' }, fetchImpl: (url, options) => {
+    const request = JSON.parse(options.body); calls++;
+    assert.match(request.messages[0].content, /必须恰好2条/);
+    if (calls === 1) return llmResponse(generation);
+    assert.match(request.messages.at(-1).content, /possible_meanings.*两条/);
+    return llmResponse({ ...generation, possible_meanings: ['可能在分享生活。', '也许想一起散步。'] });
+  } });
+  const response = await app.post(input({ mode: 'live' }));
+  assert.equal(response.status, 200); assert.equal(calls, 2);
+  assert.match((await response.json()).meta.format_issue, /possible_meanings/);
+});
+
 test('malformed LLM output is an error, with no hidden template fallback', async (t) => {
   for (const badContent of ['not-json', JSON.stringify({ reply: 'missing required fields' }), JSON.stringify({ ...generation, reply: '字'.repeat(121) })]) {
     const app = await serve(t, { config: liveConfig, fetchImpl: async (url) => String(url).includes('typesafe.ai') ? responseJson(decision()) : responseJson({ choices: [{ message: { content: badContent } }] }) });
