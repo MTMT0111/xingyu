@@ -15,7 +15,7 @@ namespace ZhiyiDesktop
         private readonly string instruction;
         internal Rectangle SelectedArea { get { return new Rectangle(Left + selection.Left, Top + selection.Top, selection.Width, selection.Height); } }
 
-        internal ScreenSelection(Rectangle windowBounds, bool clip)
+        internal ScreenSelection(Rectangle windowBounds, bool clip, string prompt = null)
         {
             Text = "知意 · 框选内容";
             Bounds = Rectangle.Intersect(windowBounds, SystemInformation.VirtualScreen);
@@ -27,7 +27,7 @@ namespace ZhiyiDesktop
             Cursor = Cursors.Cross;
             KeyPreview = true;
             snapshot = WeChatCapture.Snapshot(Bounds);
-            instruction = clip ? "框住正在播放的视频 · 连续采样约 10 秒画面，不录声音 · Esc 取消" : "拖动框住要回复的消息或文章 · 松手确认 · Esc 取消";
+            instruction = prompt ?? (clip ? "框住正在播放的视频 · 连续采样约 10 秒画面，不录声音 · Esc 取消" : "拖动框住要回复的消息或文章 · 松手确认 · Esc 取消");
             KeyDown += delegate(object sender, KeyEventArgs e) { if (e.KeyCode == Keys.Escape) { DialogResult = DialogResult.Cancel; Close(); } };
             MouseDown += delegate(object sender, MouseEventArgs e) { if (e.Button == MouseButtons.Right) { DialogResult = DialogResult.Cancel; Close(); return; } origin = e.Location; drawing = true; };
             MouseMove += delegate(object sender, MouseEventArgs e) { if (!drawing) return; selection = NormalizeSelection(origin, e.Location, ClientRectangle); Invalidate(); };

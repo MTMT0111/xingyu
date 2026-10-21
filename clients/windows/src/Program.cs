@@ -58,6 +58,7 @@ namespace ZhiyiDesktop
             menu.Font = Theme.Font(11, FontStyle.Regular);
             menu.ShowImageMargin = false;
             menu.Items.Add("粘贴分享链接 / 消息", null, delegate { assistant.PasteShare(); });
+            menu.Items.Add("选取微信视频（免输入）", null, async delegate { await assistant.SelectVideoCard(); });
             menu.Items.Add("搜索视频号", null, delegate { assistant.SearchVideo(); });
             menu.Items.Add("读取已打开的分享链接", null, delegate { assistant.ReadCurrentShare(); });
             menu.Items.Add("框选一条文字消息", null, async delegate { await assistant.SelectContent(false); });
@@ -67,7 +68,7 @@ namespace ZhiyiDesktop
             menu.Items.Add("恢复跟随微信", null, delegate { pinned = false; AttachToWeChat(); });
             menu.Items.Add("退出", null, delegate { Close(); });
             ContextMenuStrip = menu;
-            tip.SetToolTip(this, "点击唤起 · Ctrl+Alt+R 唤起或收起 · 右键更多操作");
+            tip.SetToolTip(this, "Ctrl+Alt+R 唤起或收起 · Ctrl+Alt+V 选取微信视频");
             Paint += delegate(object sender, PaintEventArgs e) {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (var bg = new SolidBrush(currentWindow == null ? Theme.Muted : Theme.Green)) e.Graphics.FillEllipse(bg, 0, 0, 57, 57);
@@ -81,7 +82,7 @@ namespace ZhiyiDesktop
             timer.Tick += delegate { AttachToWeChat(); };
             timer.Start();
             AttachToWeChat();
-            Shown += delegate { NativeMethods.RegisterHotKey(Handle, 1, 0x4003, (uint)Keys.R); };
+            Shown += delegate { NativeMethods.RegisterHotKey(Handle, 1, 0x4003, (uint)Keys.R); NativeMethods.RegisterHotKey(Handle, 2, 0x4003, (uint)Keys.V); };
         }
         internal void Suspend(bool value) { suspended = value; if (value) { menu.Hide(); Hide(); } else { Show(); AttachToWeChat(); } }
         private void AttachToWeChat()
@@ -104,11 +105,13 @@ namespace ZhiyiDesktop
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == 0x0312 && m.WParam.ToInt32() == 1) { BeginInvoke(new Action(delegate { if (assistant.Visible) assistant.Hide(); else assistant.ShowBeside(currentWindow); })); return; }
+            if (m.Msg == 0x0312 && m.WParam.ToInt32() == 2) { BeginInvoke(new Action(async delegate { await assistant.SelectVideoCard(); })); return; }
             base.WndProc(ref m);
         }
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
             NativeMethods.UnregisterHotKey(Handle, 1);
+            NativeMethods.UnregisterHotKey(Handle, 2);
             timer.Dispose(); tip.Dispose(); menu.Dispose(); assistant.Dispose();
             base.OnFormClosed(e);
         }
@@ -203,13 +206,14 @@ namespace ZhiyiDesktop
             body.AllowDrop = true; body.DragEnter += AcceptMediaDrop; body.DragDrop += ReceiveMediaDrop;
             var actions = new TableLayoutPanel { Height = 44, Dock = DockStyle.Top, ColumnCount = 2, Margin = new Padding(0, 0, 0, 14) };
             for (int i = 0; i < 2; i++) actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            StyleButton(paste, "搜索视频号", true); paste.Click += delegate { SearchVideo(); };
+            StyleButton(paste, "选取微信视频", true); paste.Click += async delegate { await SelectVideoCard(); };
             StyleButton(read, "粘贴链接 / 消息", false); read.Click += delegate { PasteShare(); };
             var actionButtons = new[] { paste, read }; for (int i = 0; i < 2; i++) { actionButtons[i].Dock = DockStyle.Fill; actionButtons[i].Margin = new Padding(i == 0 ? 0 : 7, 0, 0, 0); actions.Controls.Add(actionButtons[i], i, 0); }
             body.Controls.Add(actions);
-            var drop = new Label { Text = "把视频文件或分享链接拖到这里，也可直接拖到悬浮球", Dock = DockStyle.Top, Height = 48, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Green, BackColor = Theme.PaleGreen, AllowDrop = true, Margin = new Padding(0, 0, 0, 10) };
+            var drop = new Label { Text = "微信视频卡片拖不进？点此框选卡片，自动查找\n此处拖入仅支持视频文件或可复制的原链接", Dock = DockStyle.Top, Height = 54, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Green, BackColor = Theme.PaleGreen, AllowDrop = true, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 0, 10) };
+            drop.Click += async delegate { await SelectVideoCard(); };
             drop.DragEnter += AcceptMediaDrop; drop.DragDrop += ReceiveMediaDrop; body.Controls.Add(drop);
-            status.Text = "粘贴消息或分享链接，自动判断内容类型。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Bold); status.Height = 44; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(status);
+            status.Text = "选取聊天里的视频卡片，或粘贴消息 / 链接。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Bold); status.Height = 44; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 8); body.Controls.Add(status);
             preview.Height = 76; preview.Dock = DockStyle.Top; preview.BackColor = Theme.PaleGreen; preview.SizeMode = PictureBoxSizeMode.Zoom; preview.Cursor = Cursors.Hand; preview.Margin = new Padding(0, 0, 0, 6);
             preview.Paint += delegate(object sender, PaintEventArgs e) { if (preview.Image == null) using (var font = Theme.Font(10, FontStyle.Regular)) TextRenderer.DrawText(e.Graphics, "链接读取正文 · 视频文件分析语音\n也可框选消息或拖入媒体文件", font, preview.ClientRectangle, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter); };
             preview.Click += delegate { ShowEvidenceImage(); }; preview.AllowDrop = true; preview.DragEnter += AcceptMediaDrop; preview.DragDrop += ReceiveMediaDrop;
@@ -219,8 +223,8 @@ namespace ZhiyiDesktop
             var details = new LinkLabel { Text = "查看依据", AutoSize = true, LinkColor = Theme.Green, Margin = new Padding(0, 3, 18, 0) };
             details.Click += delegate { if (readEvidence.Length > 0) ShowReadEvidence(); else source.Visible = !source.Visible; }; tools.Controls.Add(details);
             StyleButton(import, "导入视频", false); import.Width = 90; import.Height = 28; import.Font = Theme.Font(9, FontStyle.Regular); import.Click += ImportMedia; tools.Controls.Add(import);
-            StyleButton(append, "读取分享链接", false); append.Width = 112; append.Height = 28; append.Font = Theme.Font(9, FontStyle.Regular);
-            append.Click += delegate { ReadCurrentShare(); }; tools.Controls.Add(append); body.Controls.Add(tools);
+            StyleButton(append, "搜索视频号", false); append.Width = 112; append.Height = 28; append.Font = Theme.Font(9, FontStyle.Regular);
+            append.Click += delegate { SearchVideo(); }; tools.Controls.Add(append); body.Controls.Add(tools);
             source.Multiline = true; source.ScrollBars = ScrollBars.Vertical; source.MaxLength = 6000; source.Height = 86; source.Dock = DockStyle.Top; source.Visible = true; source.Margin = new Padding(0, 0, 0, 12); body.Controls.Add(source);
             var targetRow = new TableLayoutPanel { ColumnCount = 2, Height = 82, Dock = DockStyle.Top, Margin = new Padding(0, 0, 0, 8) };
             targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32)); targetRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
@@ -292,15 +296,41 @@ namespace ZhiyiDesktop
             catch (Exception error) { status.Text = error.Message; }
         }
 
-        internal void SearchVideo()
+        internal async Task SelectVideoCard()
         {
             if (busy) return;
-            ShowBeside(bubble.CurrentWindow);
-            using (var dialog = new VideoSearchForm(api, service.Text.Trim()))
+            var window = bubble.CurrentWindow;
+            if (window == null) { status.Text = "请先打开含视频卡片的微信聊天，不用播放视频。"; ShowBeside(null); return; }
+            string[] hints = null;
+            SetBusy(true);
+            try
+            {
+                Hide(); bubble.Suspend(true); NativeMethods.SetForegroundWindow(window.Handle); await Task.Delay(220);
+                if (!WeChatCapture.IsUnchangedAndForeground(window)) throw new InvalidOperationException("微信窗口已变化，请重新选取。");
+                byte[] image;
+                using (var picker = new ScreenSelection(window.Bounds, false, "框住一张视频卡片（标题和作者）· 不用播放 · Esc 取消"))
+                {
+                    if (picker.ShowDialog() != DialogResult.OK) { status.Text = "已取消选取，原内容保留。"; return; }
+                    image = picker.SelectedImage();
+                }
+                hints = CardLookup.Queries(await LocalOcr.Read(image));
+                if (hints.Length == 0) throw new InvalidOperationException("没识别到标题或作者。请框住卡片上的文字，或粘贴原分享链接。");
+            }
+            catch (Exception error) { status.Text = error.Message; hints = null; }
+            finally { SetBusy(false); bubble.Suspend(false); ShowBeside(window); }
+            if (hints != null) SearchVideo(hints, window);
+        }
+
+        internal void SearchVideo(string[] hints = null, WeChatWindow origin = null)
+        {
+            if (busy) return;
+            var window = origin ?? bubble.CurrentWindow;
+            ShowBeside(window);
+            using (var dialog = new VideoSearchForm(api, service.Text.Trim(), hints))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 var video = dialog.Selection;
-                ResetMaterial(null, bubble.CurrentWindow, "已选：" + video.author + " · " + video.duration + " 秒", video.title);
+                ResetMaterial(null, window, "已选：" + video.author + " · " + video.duration + " 秒", video.title);
                 selectedVideo = video; linkInput = true; source.Visible = true;
                 status.Text = "视频已选好 · 生成后后台读取讲述与评论";
             }
@@ -470,7 +500,8 @@ namespace ZhiyiDesktop
 
         internal void AcceptMediaDrop(object sender, DragEventArgs args)
         {
-            args.Effect = DropInput.Accepts(args.Data) ? DragDropEffects.Copy : DragDropEffects.None;
+            args.Effect = !busy && DropInput.Accepts(args.Data) ? (args.AllowedEffect & DragDropEffects.Copy) : DragDropEffects.None;
+            if (!busy && args.Effect == DragDropEffects.None) status.Text = "此卡片没有可拖入的文件或原链接，请点「选取微信视频」。";
         }
 
         internal void ReceiveMediaDrop(object sender, DragEventArgs args)
@@ -654,6 +685,7 @@ namespace ZhiyiDesktop
             {
                 ApiClient.SelfTest();
                 DropInput.SelfTest();
+                CardLookup.SelfTest();
                 string memoryFile = Path.Combine(Path.GetTempPath(), "zhiyi-memory-" + Guid.NewGuid().ToString("N"), "notes.json");
                 try {
                     var memory = new RecipientMemory(memoryFile); memory.Save("妈妈", "关系亲近，简短自然");
