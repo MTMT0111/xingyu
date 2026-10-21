@@ -6,5 +6,5 @@
     <string name="shortcut_short_label">分析剪贴板</string>
     <string name="shortcut_long_label">打开知意分析消息</string>
     <string name="bubble_service_label">知意微信悬浮球</string>
-    <string name="bubble_service_description">仅在用户点击悬浮球时，截取一次微信当前屏幕并读取可访问文字；确认前不会上传，也不会自动发送。</string>
+    <string name="bubble_service_description">仅在微信前台显示悬浮入口，点击唤起知意小面板；不截屏或采集聊天，选定内容后才分析，回复由本人确认。</string>
 </resources>

@@ -1,0 +1,130 @@
+diff --git a/internal/app/app.go b/internal/app/app.go
+index 25104c2..c418d16 100644
+--- a/internal/app/app.go
++++ b/internal/app/app.go
+@@ -443,6 +443,13 @@ func GlobalHttpCallback(Conn *SunnyNet.HttpConn) {
+ 
+ // HandleRequest 处理 HTTP 回调
+ func (app *App) HandleRequest(Conn *SunnyNet.HttpConn) {
++	if Conn == nil || Conn.Request == nil || Conn.Request.URL == nil {
++		return
++	}
++	host := Conn.Request.URL.Hostname()
++	if host != "channels.weixin.qq.com" && host != "mp.weixin.qq.com" && host != "res.wx.qq.com" && host != "127.0.0.1" && host != "localhost" {
++		return
++	}
+ 	// 恐慌恢复
+ 	defer func() {
+ 		if r := recover(); r != nil {
+@@ -571,7 +578,7 @@ func (app *App) startWebSocketServer(wsPort int) {
+ 	})
+ 
+ 	server := &http.Server{
+-		Addr:    fmt.Sprintf(":%d", wsPort),
++		Addr:    fmt.Sprintf("127.0.0.1:%d", wsPort),
+ 		Handler: mux,
+ 	}
+ 
+diff --git a/internal/handlers/script.go b/internal/handlers/script.go
+index b225a90..ff1dd18 100644
+--- a/internal/handlers/script.go
++++ b/internal/handlers/script.go
+@@ -24,6 +24,7 @@ import (
+ 
+ // ScriptHandler JavaScript注入处理器
+ type ScriptHandler struct {
++	localToken            string
+ 	coreJS                []byte
+ 	decryptJS             []byte
+ 	downloadJS            []byte
+@@ -58,7 +59,12 @@ func (h *ScriptHandler) SetOfficialAccountScript(script []byte, origin, token st
+ 
+ // NewScriptHandler 创建脚本处理器
+ func NewScriptHandler(cfg *config.Config, coreJS, decryptJS, downloadJS, homeJS, feedJS, profileJS, batchDownloadJS, zipJS, fileSaverJS, mittJS, eventbusJS, utilsJS, apiClientJS, keepAliveJS []byte, version string) *ScriptHandler {
++	localToken := ""
++	if cfg != nil {
++		localToken = cfg.SecretToken
++	}
+ 	return &ScriptHandler{
++		localToken:      localToken,
+ 		coreJS:          coreJS,
+ 		decryptJS:       decryptJS,
+ 		downloadJS:      downloadJS,
+@@ -149,6 +155,9 @@ func (h *ScriptHandler) HandleHTMLResponse(Conn *SunnyNet.HttpConn, host, path s
+ 		// 根据页面路径注入不同的脚本
+ 		injectedScripts := h.buildInjectedScripts(path)
+ 		html = strings.Replace(html, "<head>", "<head>\n"+injectedScripts, 1)
++		Conn.Response.Header.Del("Content-Encoding")
++		Conn.Response.Header.Del("Content-Length")
++		Conn.Response.Header.Set("Cache-Control", "no-store")
+ 		utils.LogFileInfo("页面已成功加载！")
+ 		utils.LogFileInfo("已添加视频缓存监控和提醒功能")
+ 		utils.LogFileInfo("[页面加载] 视频号页面已加载 | Host=%s | Path=%s", host, path)
+@@ -316,7 +325,8 @@ func (h *ScriptHandler) buildInjectedScripts(path string) string {
+ 	savePageContentScript := h.getSavePageContentScript()
+ 
+ 	// 基础脚本（所有页面都需要）
+-	baseScripts := logPanelScript + mittScript + eventbusScript + utilsScript + apiClientScript + keepAliveScript + fileSaverInlineScript + coreScript + decryptScript + downloadScript + batchDownloadScript + feedScript + profileScript + homeScript + preloadScript + downloadTrackerScript + captureUrlScript + savePageContentScript
++	tokenJSON, _ := json.Marshal(h.localToken)
++	baseScripts := "<script>window.__WX_LOCAL_TOKEN__=" + string(tokenJSON) + ";</script>" + logPanelScript + mittScript + eventbusScript + utilsScript + apiClientScript + keepAliveScript + fileSaverInlineScript + coreScript + decryptScript + downloadScript + batchDownloadScript + feedScript + profileScript + homeScript + preloadScript + downloadTrackerScript + captureUrlScript + savePageContentScript
+ 
+ 	// 根据页面路径决定是否注入特定脚本
+ 	var pageSpecificScripts string
+diff --git a/internal/handlers/script_local_auth_test.go b/internal/handlers/script_local_auth_test.go
+new file mode 100644
+index 0000000..3149fa4
+--- /dev/null
++++ b/internal/handlers/script_local_auth_test.go
+@@ -0,0 +1,16 @@
++package handlers
++
++import (
++	"strings"
++	"testing"
++)
++
++func TestLocalTokenPrecedesClientAndEscapesHTML(t *testing.T) {
++	h := &ScriptHandler{localToken: "secret</script>", apiClientJS: []byte("window.clientStarted=true;")}
++	scripts := h.buildInjectedScripts("/web/pages/feed")
++	start := strings.Index(scripts, "window.__WX_LOCAL_TOKEN__=")
++	client := strings.Index(scripts, "window.clientStarted=true")
++	if start < 0 || client < start || strings.Contains(scripts, "secret</script>") {
++		t.Fatal("token missing, unsafe, or initialized after API client")
++	}
++}
+diff --git a/internal/router/api_routes.go b/internal/router/api_routes.go
+index 26e0870..9278731 100644
+--- a/internal/router/api_routes.go
++++ b/internal/router/api_routes.go
+@@ -66,6 +66,10 @@ func (r *APIRouter) Handle(Conn *SunnyNet.HttpConn) bool {
+ 	}
+ 
+ 	// 仅处理 /api/ 请求
++	host := Conn.Request.URL.Hostname()
++	if host != "127.0.0.1" && host != "localhost" && host != "channels.weixin.qq.com" && host != "mp.weixin.qq.com" {
++		return false
++	}
+ 	if !strings.HasPrefix(Conn.Request.URL.Path, "/api/") {
+ 		return false
+ 	}
+diff --git a/internal/router/local_host_test.go b/internal/router/local_host_test.go
+new file mode 100644
+index 0000000..d88f3c9
+--- /dev/null
++++ b/internal/router/local_host_test.go
+@@ -0,0 +1,15 @@
++package router
++
++import (
++	"github.com/qtgolang/SunnyNet/SunnyNet"
++	"net/http/httptest"
++	"testing"
++)
++
++func TestRouterPassesUnrelatedWebAPIThrough(t *testing.T) {
++	r := &APIRouter{}
++	conn := &SunnyNet.HttpConn{Request: httptest.NewRequest("GET", "https://example.org/api/v1/auth/me", nil)}
++	if r.Handle(conn) {
++		t.Fatal("intercepted unrelated site")
++	}
++}

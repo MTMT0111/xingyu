@@ -78,6 +78,7 @@ public final class MainActivity extends Activity {
     static final String PREFS_NAME = "xingyu";
     static final String PREF_QUICK_REPLY_TOKEN = "quickReplyToken";
     static final String PREF_WECHAT_BUBBLE_CONSENT = "wechatBubbleDisclosureAccepted";
+    static final String ACTION_FLOATING = "com.xingyu.reply.FLOATING";
     private static final int FILE_REQUEST = 701;
     private static final String INBOUND_PATH = "/.xingyu-share/";
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -155,6 +156,7 @@ public final class MainActivity extends Activity {
         try { serviceUrl = InputRules.serviceUrl(preferences.getString("serviceUrl", ""), BuildConfig.DEBUG); }
         catch (IllegalArgumentException ignored) { serviceUrl = ""; }
         buildInterface();
+        applyFloatingLayout(getIntent());
         configureWechat();
         boolean restored = restoreInboundState(state);
         if (serviceUrl.isEmpty()) showSettings(); else loadService();
@@ -299,7 +301,7 @@ public final class MainActivity extends Activity {
         LinearLayout disclosure = new LinearLayout(this);
         disclosure.setOrientation(LinearLayout.VERTICAL);
         disclosure.setPadding(dp(24), dp(8), dp(24), 0);
-        TextView details = label("启用后，悬浮球只在微信前台显示。Android 11 以上只有在你单击时才截取一次当前可见屏幕，并读取微信向 Android 暴露的可见文字；低版本只读取可见文字。不会持续录屏或读取隐藏聊天。进入知意后仍需确认，内容才会发到已配置的分析服务。完整视频与声音请使用微信分享或保存后分享。", 15);
+        TextView details = label("悬浮球只在微信前台显示，用于唤起知意小面板。点击不会截屏、读取聊天或上传内容。你可以粘贴消息与链接，或使用已连接的电脑微信会话搜索视频号；选好内容并点击生成后才提交分析。回复需要你确认并粘贴到当前聊天。", 15);
         details.setGravity(android.view.Gravity.TOP);
         disclosure.addView(details);
         CheckBox consent = new CheckBox(this);
@@ -344,7 +346,7 @@ public final class MainActivity extends Activity {
         boolean enabled = isWechatBubbleEnabled();
         bubbleSettingsButton.setText(enabled ? "管理或关闭微信悬浮球" : "开启微信悬浮球");
         bubbleStatus.setText(enabled
-            ? "已开启；单击悬浮球才采集一次当前可见屏幕。"
+            ? "已开启；单击唤起小面板，不会截屏。"
             : "只在微信前台显示；单击采集一次当前屏幕。");
     }
 
@@ -506,6 +508,7 @@ public final class MainActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        applyFloatingLayout(intent);
         String action = intent == null ? null : intent.getAction();
         if (ACTION_QUICK_REPLY.equals(action) || ACTION_SCREEN_CAPTURE.equals(action) || Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
             receiveInboundIntent(intent);
@@ -513,6 +516,16 @@ public final class MainActivity extends Activity {
             externalEntryId = null;
             updateToolbar();
         }
+    }
+
+    private void applyFloatingLayout(Intent intent) {
+        boolean floating = intent != null && ACTION_FLOATING.equals(intent.getAction());
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        getWindow().setLayout(floating ? (int) (metrics.widthPixels * 0.96f) : -1,
+            floating ? (int) (metrics.heightPixels * 0.72f) : -1);
+        getWindow().setGravity(floating ? android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL : android.view.Gravity.CENTER);
+        getWindow().setDimAmount(0);
+        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
     }
 
     private void receiveInboundIntent(Intent intent) {

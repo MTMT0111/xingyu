@@ -50,6 +50,14 @@
           <span class="tiny-label">不会自动发送</span>
         </div>
 
+        <details id="channel-search" class="context-panel" hidden>
+          <summary>搜索视频号<span>后台读取内容与评论</span></summary>
+          <label for="channel-keyword">视频标题或关键词</label>
+          <div class="channel-search-row"><input id="channel-keyword" type="search" maxlength="33" placeholder="输入分享卡片中的几个关键词"><button id="channel-search-button" type="button">搜索</button></div>
+          <p id="channel-search-status" role="status">需要电脑端已登录的视频号会话；搜索不播放视频。</p>
+          <div id="channel-results" class="channel-results"></div>
+          <button id="channel-clear" type="button" hidden>取消选择，改写消息</button>
+        </details>
         <label for="source-text" class="sr-only">微信中的文字、公众号正文或链接</label>
         <div class="source-wrap">
           <textarea id="source-text" rows="5" placeholder="粘贴一条消息、公众号链接，或添加对方分享的图片和视频…" aria-describedby="source-counter"></textarea>

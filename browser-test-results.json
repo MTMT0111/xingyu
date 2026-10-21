@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-20",
+  "date": "2026-10-21",
   "scope": "text, media, article, live-mode recovery, compact plugin UI, one-confirmation Android plugin entry, inbound Android share target, system share and Android/iOS WeChat bridge interaction",
   "browser": "155.0.8059.85",
   "checks": [
@@ -29,6 +29,8 @@
     "configured live UI passes reply style, defaults to real generation, declares transmission and shows provenance; explicit mode changes clear stale output (mocked)",
     "a public WeChat article uses a 60s request and shows safely rendered title, fetched body and coverage before edited copy (mocked fetch/model)",
     "article fetch failure, missing body evidence and cancellation preserve drafts; arbitrary URLs are not presented as fetched articles",
+    "Channels links use the video timeout and render transcript plus comment relationships as plain text (mocked connector/model)",
+    "mobile video search binds the selected ID, keeps credentials out of drafts/history and refuses title-only regeneration after either recovery path (mocked connector/model)",
     "attachments stay local until submit; missing media config, unsupported files, 4/20 MiB limits and actual >60s video are rejected without uploading",
     "an image with no text closes upload → content summary → visible evidence → edited copy, using exact base64 and a 180s media timeout (mocked model)",
     "media processing locks attachment changes, prevents duplicate submits and supports cancellation without losing the attachment or edited draft",
@@ -57,7 +59,7 @@
     "ready native WeChat and copy actions fit 320/390px with 44px targets; native SDK and callbacks are simulated, with no real message sent",
     "no uncaught JavaScript or Content Security Policy errors across exercised flows"
   ],
-  "passed": 53,
+  "passed": 55,
   "errors": [],
   "assets": {},
   "typography": {

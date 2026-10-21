@@ -6,7 +6,8 @@ import { resolve } from 'node:path';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { examples, validateInput, questions, validateDecision, selectStrategy, generateLocal, generationPrompt, validateGeneration } from './lib/translate.mjs';
 import { extractVideo, validateVisualEvidence, visionPrompt } from './lib/media.mjs';
-import { findWechatArticleUrl, readWechatArticle } from './lib/article.mjs';
+import { readWechatArticle } from './lib/article.mjs';
+import { classifyShare, readChannels, searchChannels } from './lib/channels.mjs';
 
 const publicRoot = fileURLToPath(new URL('./public/', import.meta.url));
 const staticFiles = new Map([
@@ -33,6 +34,8 @@ function settings() {
     mediaPython: process.env.MEDIA_PYTHON || '',
     mediaPythonPath: process.env.MEDIA_PYTHONPATH || '',
     whisperModel: process.env.WHISPER_MODEL_PATH || '',
+    channelsBridgeUrl: process.env.CHANNELS_BRIDGE_URL || '',
+    channelsBridgeToken: process.env.CHANNELS_BRIDGE_TOKEN || '',
     publicOrigin: process.env.PUBLIC_ORIGIN || '',
     trialPassword: process.env.TRIAL_PASSWORD || '',
     timeoutJevMs: 8000, timeoutLlmMs: 20000
@@ -93,6 +96,7 @@ async function postModel(fetchImpl, url, key, body, timeout, signal) {
 }
 
 function modelFailure(error) {
+  if (error?.channelsCode) return { code: 'CHANNELS_' + error.channelsCode, message: error.message };
   if (error?.articleCode) return { code: 'ARTICLE_' + error.articleCode.toUpperCase(), message: error.message };
   if (error?.mediaCode) return { code: error.mediaCode, message: error.message };
   const status = error?.status;
@@ -109,7 +113,14 @@ function modelFailure(error) {
 async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
   const start = performance.now();
   let evidence;
-  const articleUrl = input.attachment ? null : findWechatArticleUrl(input.text);
+  const source = input.channel ? { kind: 'channels' } : input.attachment ? { kind: input.attachment.kind } : classifyShare(input.text);
+  let channel;
+  if (source.kind === 'channels') {
+    channel = await readChannels(input.channel ?? source.url, { config, fetchImpl, signal });
+    // Signed share links and media credentials stay on this machine.
+    input = { ...input, text: input.text.replace(/https?:\/\/[^\s<>"'`]+/gi, '[视频号分享链接]'), attachment: channel.attachment };
+  }
+  const articleUrl = source.kind === 'article' ? source.url : null;
   if (articleUrl) {
     const article = await readWechatArticle(articleUrl, { fetchImpl, signal });
     evidence = { kind: 'article', visual_summary: '文章标题：' + [...article.title].slice(0, 200).join(''), visible_text: article.text,
@@ -135,6 +146,14 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
     evidence = { kind: attachment.kind, ...visual, transcript: video?.transcript ?? '',
       audio_status: video?.audioStatus ?? 'not_applicable', duration: video?.duration ?? null, frame_count: frames.length,
       coverage: video ? `根据抽取的 ${frames.length} 帧画面${video.audioStatus === 'silent' ? '整理；视频没有可辨识语音' : '和语音转写整理'}，可能遗漏短暂出现的画面。` : '根据上传图片中的可见内容整理，模糊或遮挡文字可能遗漏。' };
+    if (channel) {
+      evidence.kind = 'channels';
+      evidence.description = channel.description;
+      evidence.comments = channel.comments;
+      evidence.comment_status = channel.commentStatus;
+      evidence.coverage += ` 后台读取视频文件；取得 ${channel.comments.length} 条评论及回复，仅代表返回的样本，非全部评论。`;
+      if (channel.commentStatus !== 'sample') evidence.coverage += ' 部分或全部评论未能取得。';
+    }
   }
   const analyzedText = evidence ? JSON.stringify({ message_text: input.text, source_evidence: evidence }) : input.text;
   const decisionStart = performance.now();
@@ -168,7 +187,7 @@ async function replyLive(input, config, fetchImpl, signal, extractVideoImpl) {
   const result = validateGeneration(JSON.parse(data.choices?.[0]?.message?.content), strategy);
   if (input.recipient === 'elder') result.reply = result.reply.replaceAll('你', '您');
   return {
-    ...result, ...(evidence ? { evidence } : {}), strategy, topic: decision?.topic ?? 'unclear',
+    ...result, ...(evidence ? { evidence } : {}), source_kind: source.kind, strategy, topic: decision?.topic ?? 'unclear',
     decision_source: decision ? 'jev' : config.typesafeKey ? 'unavailable' : 'llm', generation_source: 'llm',
     meta: {
       decision_ms: decisionMs, generation_ms: Math.round(performance.now() - generationStart), total_ms: Math.round(performance.now() - start),
@@ -239,9 +258,19 @@ export function createServer({ config = {}, fetchImpl = globalThis.fetch, extrac
     try {
       if (req.method === 'GET' && url.pathname === '/api/config') {
         const available = liveAvailable(cfg);
-        return json(res, 200, { mode: available ? 'live' : 'demo', liveAvailable: available, decisionMode: available ? (cfg.typesafeKey ? 'jev' : 'llm') : 'demo', mediaAvailable: mediaAvailable(cfg), videoAvailable: videoAvailable(cfg), label: available ? '真实 AI · 在线生成' : '本地体验 · 非实时 AI' });
+        return json(res, 200, { mode: available ? 'live' : 'demo', liveAvailable: available, decisionMode: available ? (cfg.typesafeKey ? 'jev' : 'llm') : 'demo', mediaAvailable: mediaAvailable(cfg), videoAvailable: videoAvailable(cfg), channelsAvailable: Boolean(cfg.channelsBridgeUrl && !publicUrl && available), label: available ? '真实 AI · 在线生成' : '本地体验 · 非实时 AI' });
       }
       if (req.method === 'GET' && url.pathname === '/api/examples') return json(res, 200, examples);
+      if (req.method === 'GET' && url.pathname === '/api/channels/search') {
+        if (publicUrl) return json(res, 403, { error: '视频号搜索仅在本机已登录微信会话中使用。', code: 'LOCAL_ONLY' });
+        if (activeLiveRequests >= 2) return json(res, 429, { error: '正在处理其他请求，请稍后重试。', code: 'BUSY' });
+        activeLiveRequests++;
+        const controller = new AbortController();
+        res.on('close', () => { if (!res.writableEnded) controller.abort(); });
+        try { return json(res, 200, await searchChannels(url.searchParams.get('q'), { config: cfg, fetchImpl, signal: controller.signal })); }
+        catch (error) { const failure = modelFailure(error); return json(res, error.channelsCode === 'INVALID_QUERY' ? 400 : 502, { error: failure.message, code: failure.code }); }
+        finally { activeLiveRequests--; }
+      }
       if (req.method === 'POST' && url.pathname === '/api/reply') {
         if (Number(req.headers['content-length']) > 30 * 1024 * 1024) {
           req.resume();

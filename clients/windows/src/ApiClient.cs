@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 
@@ -13,6 +14,8 @@ namespace ZhiyiDesktop
         public string Summary;
         public string Reply;
         public string Note;
+        public string Evidence;
+        public string Coverage;
     }
 
     internal sealed class AttachmentData
@@ -23,21 +26,55 @@ namespace ZhiyiDesktop
         public byte[] Bytes;
     }
 
+    internal sealed class VideoChoice
+    {
+        public string object_id { get; set; }
+        public string nonce_id { get; set; }
+        public string title { get; set; }
+        public string author { get; set; }
+        public double duration { get; set; }
+        public override string ToString() { return author + " · " + duration + " 秒\r\n" + title; }
+    }
+
     internal sealed class ApiClient
     {
         private readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = 32 * 1024 * 1024 };
 
-        internal async Task<ReplyResult> Generate(string serviceUrl, string text, string context, int variant, AttachmentData attachment)
+        private static Uri ServiceRoot(string serviceUrl)
         {
             Uri root;
             if (!Uri.TryCreate(serviceUrl, UriKind.Absolute, out root) || (root.Scheme != Uri.UriSchemeHttp && root.Scheme != Uri.UriSchemeHttps))
                 throw new InvalidOperationException("服务地址需要以 http:// 或 https:// 开头。");
             if (root.Host != "127.0.0.1" && root.Host != "localhost" && root.Scheme != Uri.UriSchemeHttps)
                 throw new InvalidOperationException("非本机服务必须使用 HTTPS。");
+            return root;
+        }
+
+        internal async Task<VideoChoice[]> Search(string serviceUrl, string keyword, CancellationToken cancellation)
+        {
+            using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(95) })
+            using (var response = await client.GetAsync(new Uri(ServiceRoot(serviceUrl), "/api/channels/search?q=" + Uri.EscapeDataString(keyword)), cancellation))
+            {
+                string raw = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode) throw new InvalidOperationException(GetString(json.Deserialize<Dictionary<string, object>>(raw), "error", "视频号搜索暂不可用。"));
+                return json.Deserialize<SearchResponse>(raw).items ?? new VideoChoice[0];
+            }
+        }
+        private sealed class SearchResponse { public VideoChoice[] items { get; set; } }
+        internal static void SelfTest()
+        {
+            var parsed = new JavaScriptSerializer().Deserialize<SearchResponse>("{\"items\":[{\"object_id\":\"18446744073709551615\",\"nonce_id\":\"test\",\"title\":\"散步\",\"author\":\"作者\",\"duration\":38}]}");
+            if (parsed.items.Length != 1 || parsed.items[0].object_id != "18446744073709551615" || !parsed.items[0].ToString().Contains("作者")) throw new Exception("搜索结果解析失败");
+        }
+
+        internal async Task<ReplyResult> Generate(string serviceUrl, string text, string context, int variant, AttachmentData attachment, VideoChoice channel, CancellationToken cancellation)
+        {
+            Uri root = ServiceRoot(serviceUrl);
             var payload = new Dictionary<string, object> {
                 { "text", text ?? "" }, { "recipient", "auto" }, { "tone", "warm" }, { "mode", "live" }, { "variant", variant }
             };
             if (!String.IsNullOrWhiteSpace(context)) payload["context"] = context;
+            if (channel != null) payload["channel"] = new Dictionary<string, object> { { "object_id", channel.object_id }, { "nonce_id", channel.nonce_id } };
             if (attachment != null)
             {
                 payload["attachment"] = new Dictionary<string, object> {
@@ -46,7 +83,7 @@ namespace ZhiyiDesktop
             }
             using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(3) })
             using (var body = new StringContent(json.Serialize(payload), Encoding.UTF8, "application/json"))
-            using (var response = await client.PostAsync(new Uri(root, "/api/reply"), body))
+            using (var response = await client.PostAsync(new Uri(root, "/api/reply"), body, cancellation))
             {
                 string raw = await response.Content.ReadAsStringAsync();
                 Dictionary<string, object> value;
@@ -58,6 +95,19 @@ namespace ZhiyiDesktop
                     Reply = GetString(value, "reply", ""),
                     Note = GetString(value, "note", "发送前请确认内容。")
                 };
+                object evidenceValue;
+                var evidence = value.TryGetValue("evidence", out evidenceValue) ? evidenceValue as Dictionary<string, object> : null;
+                result.Evidence = GetString(evidence, "visible_text", "");
+                result.Coverage = GetString(evidence, "coverage", "");
+                string transcript = GetString(evidence, "transcript", "");
+                if (transcript.Length > 0) result.Evidence += "\r\n【视频讲述】\r\n" + transcript;
+                object commentValue;
+                var comments = evidence != null && evidence.TryGetValue("comments", out commentValue) ? commentValue as System.Collections.ArrayList : null;
+                if (comments != null) foreach (var item in comments)
+                {
+                    var comment = item as Dictionary<string, object>;
+                    result.Evidence += "\r\n【评论】" + GetString(comment, "text", "");
+                }
                 if (String.IsNullOrWhiteSpace(result.Reply)) throw new InvalidOperationException("服务没有返回可用回复。");
                 return result;
             }

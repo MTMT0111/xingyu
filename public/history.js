@@ -21,6 +21,7 @@
       createdAt: item.createdAt,
       recipient: item.recipient,
       tone: item.tone,
+      ...(item.hadChannel === true ? { hadChannel: true } : {}),
       ...(item.context === undefined ? {} : { context: text(item.context, 400) }),
       source: text(item.source, 600),
       summary: text(item.summary, 1000),

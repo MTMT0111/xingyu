@@ -17,6 +17,7 @@ namespace ZhiyiDesktop
         public IntPtr Handle;
         public Rectangle Bounds;
         public string Title;
+        public bool IsWebContent;
     }
 
     internal sealed class CaptureResult
@@ -59,6 +60,10 @@ namespace ZhiyiDesktop
         internal static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")]
         internal static extern bool SetForegroundWindow(IntPtr handle);
+        [DllImport("user32.dll")]
+        internal static extern bool RegisterHotKey(IntPtr handle, int id, uint modifiers, uint key);
+        [DllImport("user32.dll")]
+        internal static extern bool UnregisterHotKey(IntPtr handle, int id);
     }
 
     internal static class WeChatCapture
@@ -68,7 +73,7 @@ namespace ZhiyiDesktop
             "发送", "语音输入", "表情", "文件", "截图", "更多", "关闭", "最小化", "最大化"
         };
 
-        internal static WeChatWindow FindWindow()
+        internal static WeChatWindow FindWindow(IntPtr preferred)
         {
             var windows = new List<WeChatWindow>();
             NativeMethods.EnumWindows(delegate(IntPtr handle, IntPtr parameter)
@@ -80,7 +85,7 @@ namespace ZhiyiDesktop
                 {
                     var process = Process.GetProcessById((int)processId);
                     var name = process.ProcessName.ToLowerInvariant();
-                    if (name != "weixin" && name != "wechat") return true;
+                    if (name != "weixin" && name != "wechat" && name != "wechatappex") return true;
                     NativeMethods.RECT raw;
                     if (!NativeMethods.GetWindowRect(handle, out raw)) return true;
                     var bounds = Rectangle.FromLTRB(raw.Left, raw.Top, raw.Right, raw.Bottom);
@@ -88,7 +93,7 @@ namespace ZhiyiDesktop
                     int length = NativeMethods.GetWindowTextLength(handle);
                     var title = new StringBuilder(Math.Max(1, length + 1));
                     NativeMethods.GetWindowText(handle, title, title.Capacity);
-                    windows.Add(new WeChatWindow { Handle = handle, Bounds = bounds, Title = title.ToString() });
+                    windows.Add(new WeChatWindow { Handle = handle, Bounds = bounds, Title = title.ToString(), IsWebContent = name == "wechatappex" });
                 }
                 catch { }
                 return true;
@@ -96,6 +101,7 @@ namespace ZhiyiDesktop
             if (windows.Count == 0) return null;
             var foreground = NativeMethods.GetForegroundWindow();
             return windows.FirstOrDefault(item => item.Handle == foreground)
+                ?? windows.FirstOrDefault(item => item.Handle == preferred)
                 ?? windows.OrderByDescending(item => item.Bounds.Width * item.Bounds.Height).First();
         }
 
@@ -103,14 +109,48 @@ namespace ZhiyiDesktop
         {
             if (window == null || window.Handle == IntPtr.Zero) throw new InvalidOperationException("没有找到已打开的电脑版微信窗口。");
             var candidates = ReadAccessibleText(window);
+            if (!IsUnchangedAndForeground(window)) throw new InvalidOperationException("窗口已变化，请重新读取。");
             return new CaptureResult {
-                Text = NormalizeLines(candidates.Select(item => item.Text), 6000),
-                Recipient = PickRecipient(candidates, window.Bounds),
-                Image = CaptureConversation(window.Bounds),
+                Text = NormalizeLines(candidates.Where(item => window.IsWebContent || item.Bounds.Left >= window.Bounds.Left + window.Bounds.Width * 0.32).Select(item => item.Text), 6000),
+                Recipient = window.IsWebContent ? "" : PickRecipient(candidates, window.Bounds),
+                Image = CaptureArea(window.IsWebContent ? window.Bounds : ConversationBounds(window.Bounds)),
                 Mime = "image/jpeg",
                 FileName = "wechat-current-window.jpg",
                 WindowBounds = window.Bounds
             };
+        }
+
+        internal static string ReadShareLink(WeChatWindow window)
+        {
+            if (window == null || !window.IsWebContent) return "";
+            var root = AutomationElement.FromHandle(window.Handle);
+            var documents = root.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document));
+            var links = new HashSet<string>();
+            foreach (AutomationElement document in documents)
+            {
+                try
+                {
+                    if (document.Current.IsOffscreen) continue;
+                    object pattern;
+                    if (document.TryGetCurrentPattern(ValuePattern.Pattern, out pattern))
+                    {
+                        string value = ((ValuePattern)pattern).Current.Value;
+                        if (IsShareLink(value)) links.Add(value);
+                    }
+                }
+                catch (ElementNotAvailableException) { }
+            }
+            // Multiple visible documents cannot safely identify the user's intended share.
+            return links.Count == 1 ? links.First() : "";
+        }
+
+        internal static bool IsShareLink(string value)
+        {
+            Uri uri;
+            if (!Uri.TryCreate(value, UriKind.Absolute, out uri) || uri.Scheme != "https" || !uri.IsDefaultPort || uri.UserInfo.Length > 0) return false;
+            return uri.Host == "mp.weixin.qq.com" && (uri.AbsolutePath == "/s" || uri.AbsolutePath.StartsWith("/s/"))
+                || uri.Host == "channels.weixin.qq.com" && (uri.AbsolutePath == "/web/pages/feed" || uri.AbsolutePath == "/finder-preview/pages/sph")
+                || uri.Host == "weixin.qq.com" && uri.AbsolutePath.StartsWith("/sph/");
         }
 
         internal static string NormalizeLines(IEnumerable<string> values, int maxCharacters)
@@ -133,7 +173,7 @@ namespace ZhiyiDesktop
         internal static string PickRecipient(IEnumerable<TextCandidate> candidates, Rectangle windowBounds)
         {
             Func<string, bool> useful = delegate(string value) {
-                if (String.IsNullOrWhiteSpace(value) || value.Length > 40) return false;
+                if (String.IsNullOrWhiteSpace(value) || value.Length > 40 || value.IndexOf("MMUIRender", StringComparison.OrdinalIgnoreCase) >= 0) return false;
                 return !IgnoredNames.Any(item => String.Equals(item, value.Trim(), StringComparison.OrdinalIgnoreCase));
             };
             var selected = candidates.FirstOrDefault(item => item.Selected && useful(item.Text));
@@ -163,17 +203,16 @@ namespace ZhiyiDesktop
                     {
                         var element = elements[index];
                         if (element.Current.IsPassword || element.Current.IsOffscreen) continue;
+                        // 文档范围可能含未显示的下一条推荐视频；只取当前可见叶子文字。
+                        if (element.Current.ControlType != ControlType.Text && element.Current.ControlType != ControlType.ListItem) continue;
                         string text = element.Current.Name;
                         object pattern;
-                        if (element.TryGetCurrentPattern(TextPattern.Pattern, out pattern))
-                        {
-                            string documentText = ((TextPattern)pattern).DocumentRange.GetText(6500);
-                            if (!String.IsNullOrWhiteSpace(documentText)) text = documentText;
-                        }
                         bool selected = false;
                         if (element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out pattern)) selected = ((SelectionItemPattern)pattern).Current.IsSelected;
                         var raw = element.Current.BoundingRectangle;
-                        result.Add(new TextCandidate { Text = text, Selected = selected, Bounds = Rectangle.FromLTRB((int)raw.Left, (int)raw.Top, (int)raw.Right, (int)raw.Bottom) });
+                        var bounds = Rectangle.FromLTRB((int)raw.Left, (int)raw.Top, (int)raw.Right, (int)raw.Bottom);
+                        if (Rectangle.Intersect(bounds, window.Bounds).IsEmpty) continue;
+                        result.Add(new TextCandidate { Text = text, Selected = selected, Bounds = bounds });
                     }
                     catch { }
                 }
@@ -182,16 +221,47 @@ namespace ZhiyiDesktop
             return result;
         }
 
-        private static byte[] CaptureConversation(Rectangle bounds)
+        internal static Rectangle ConversationBounds(Rectangle bounds)
         {
-            var captureBounds = new Rectangle(
-                bounds.Left + (int)(bounds.Width * 0.20),
-                bounds.Top + (int)(bounds.Height * 0.08),
-                (int)(bounds.Width * 0.78),
-                (int)(bounds.Height * 0.82));
-            using (var source = new Bitmap(captureBounds.Width, captureBounds.Height, PixelFormat.Format24bppRgb))
+            // shortcut: 自动读取按主聊天窗口估算；文章和视频弹窗用框选指定真实范围。
+            return Rectangle.FromLTRB(bounds.Left + (int)(bounds.Width * 0.32), bounds.Top + (int)(bounds.Height * 0.06), bounds.Right - 8, bounds.Bottom - (int)(bounds.Height * 0.12));
+        }
+
+        internal static bool IsUnchangedAndForeground(WeChatWindow window)
+        {
+            return CaptureIssue(window).Length == 0;
+        }
+
+        internal static string CaptureIssue(WeChatWindow window)
+        {
+            NativeMethods.RECT rect;
+            if (window == null || !NativeMethods.IsWindowVisible(window.Handle)) return "原窗口不可见";
+            if (NativeMethods.GetForegroundWindow() != window.Handle) return "原窗口已不在前台";
+            if (!NativeMethods.GetWindowRect(window.Handle, out rect) || Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom) != window.Bounds) return "窗口位置或大小已变化";
+            return "";
+        }
+
+        internal static byte[] CaptureArea(Rectangle captureBounds)
+        {
+            using (var source = Snapshot(captureBounds)) return EncodeImage(source);
+        }
+
+        internal static Bitmap Snapshot(Rectangle captureBounds)
+        {
+            captureBounds = Rectangle.Intersect(captureBounds, System.Windows.Forms.SystemInformation.VirtualScreen);
+            if (captureBounds.Width < 16 || captureBounds.Height < 16) throw new InvalidOperationException("选区太小或已移出屏幕，请重新框选。");
+            var image = new Bitmap(captureBounds.Width, captureBounds.Height, PixelFormat.Format24bppRgb);
+            try
             {
-                using (var graphics = Graphics.FromImage(source)) graphics.CopyFromScreen(captureBounds.Location, Point.Empty, captureBounds.Size, CopyPixelOperation.SourceCopy);
+                using (var graphics = Graphics.FromImage(image)) graphics.CopyFromScreen(captureBounds.Location, Point.Empty, captureBounds.Size, CopyPixelOperation.SourceCopy);
+                return image;
+            }
+            catch { image.Dispose(); throw; }
+        }
+
+        internal static byte[] EncodeImage(Bitmap source)
+        {
+            {
                 int width = source.Width, height = source.Height;
                 const int maxSide = 1920;
                 if (Math.Max(width, height) > maxSide)

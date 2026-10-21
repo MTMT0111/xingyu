@@ -1,19 +1,14 @@
 package com.xingyu.reply;
 
 import android.accessibilityservice.AccessibilityService;
-import android.annotation.TargetApi;
-import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
-import android.hardware.HardwareBuffer;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.Display;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -22,23 +17,17 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.TextView;
 import android.widget.Toast;
-import java.io.ByteArrayOutputStream;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-/** Captures the current WeChat screen only after the user presses the floating action. */
+/** Opens the compact assistant on demand; tapping never captures the chat screen. */
 public final class WechatReplyBubbleService extends AccessibilityService {
     private static final String TAG = "WechatReplyBubble";
     private static final String WECHAT_PACKAGE = "com.tencent.mm";
-    private static final int MAX_NODES = 1200;
     private static final int MAX_CHARS = 6000;
     private WindowManager windows;
     private View bubble;
     private WindowManager.LayoutParams bubbleLayout;
     private Handler handler;
-    private final ExecutorService captureExecutor = Executors.newSingleThreadExecutor();
-    private volatile boolean destroyed;
     private final Runnable syncBubbleAction = this::syncBubble;
 
     @Override public void onServiceConnected() {
@@ -111,13 +100,20 @@ public final class WechatReplyBubbleService extends AccessibilityService {
         button.setTextSize(16);
         button.setTextColor(Color.rgb(31, 50, 69));
         button.setGravity(Gravity.CENTER);
-        button.setContentDescription("知意，读取微信当前页");
+        button.setContentDescription("唤起知意，搜索视频或回复消息");
         button.setBackground(circle());
         bubble = button;
-        bubbleLayout = overlay(56, 56);
+        bubbleLayout = overlay(48, 48);
         bubbleLayout.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
         bubbleLayout.x = dp(8);
-        button.setOnClickListener(view -> readCurrentPage());
+        button.setAlpha(0.8f);
+        button.setOnClickListener(view -> {
+            hideBubble();
+            try {
+                startActivity(new Intent(this, MainActivity.class).setAction(MainActivity.ACTION_FLOATING)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            } catch (RuntimeException error) { showReadFailure("暂时无法打开知意，请从应用图标进入。"); }
+        });
         button.setOnTouchListener(new BubbleTouchListener());
         try { windows.addView(bubble, bubbleLayout); }
         catch (RuntimeException error) {
@@ -125,116 +121,6 @@ public final class WechatReplyBubbleService extends AccessibilityService {
             bubble = null;
             bubbleLayout = null;
         }
-    }
-
-    private void readCurrentPage() {
-        hideBubble();
-        AccessibilityNodeInfo root = findWechatRoot();
-        StringBuilder text = new StringBuilder();
-        int[] visited = {0};
-        try { if (root != null) collectVisibleText(root, text, visited); }
-        catch (RuntimeException error) {
-            showReadFailure("微信页面刚刚变化，未能读取；请再点一次。");
-            return;
-        } finally { if (root != null) root.recycle(); }
-        String visibleText = text.length() == 0 ? null : text.toString();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            captureCurrentScreen(visibleText);
-            return;
-        }
-        if (visibleText == null) {
-            showReadFailure("微信没有提供可见文字。小视频请长按保存或分享给知意分析。");
-            return;
-        }
-        launchText(visibleText);
-    }
-
-    private void launchText(String message) {
-        try {
-            Intent intent = new Intent(this, MainActivity.class)
-                .setAction(Intent.ACTION_SEND)
-                .setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, InputRules.inboundText(message))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(intent);
-        } catch (IllegalArgumentException error) {
-            showReadFailure("当前页面没有可分析的文字。小视频请长按保存或分享给知意分析。");
-        } catch (RuntimeException error) {
-            showReadFailure("无法打开分析页面；微信内容没有发送。");
-        }
-    }
-
-    @TargetApi(Build.VERSION_CODES.R)
-    private void captureCurrentScreen(String visibleText) {
-        handler.postDelayed(() -> {
-            if (destroyed) return;
-            if (!isWechatForeground()) {
-                showReadFailure("微信已离开前台，本次没有截取屏幕。");
-                return;
-            }
-            takeScreenshot(Display.DEFAULT_DISPLAY, captureExecutor, new TakeScreenshotCallback() {
-            @Override public void onSuccess(ScreenshotResult result) {
-                byte[] image = encodeScreenshot(result);
-                handler.post(() -> {
-                    if (destroyed) return;
-                    if (image == null) {
-                        if (visibleText != null) launchText(visibleText);
-                        else showReadFailure("当前画面无法截取。小视频请长按保存或分享给知意分析。");
-                        return;
-                    }
-                    String token = null;
-                    try {
-                        token = ScreenCaptureStore.put(image);
-                        Intent intent = new Intent(WechatReplyBubbleService.this, MainActivity.class)
-                            .setAction(MainActivity.ACTION_SCREEN_CAPTURE)
-                            .putExtra(MainActivity.EXTRA_SCREEN_CAPTURE_TOKEN, token)
-                            .putExtra(MainActivity.EXTRA_SCREEN_VISIBLE_TEXT, visibleText)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                        startActivity(intent);
-                    } catch (RuntimeException error) {
-                        ScreenCaptureStore.discard(token);
-                        showReadFailure("无法打开屏幕分析；当前画面没有发送。");
-                    }
-                });
-            }
-            @Override public void onFailure(int errorCode) {
-                handler.post(() -> {
-                    if (destroyed) return;
-                    if (visibleText != null) launchText(visibleText);
-                    else showReadFailure("当前画面无法截取。小视频请长按保存或分享给知意分析。");
-                });
-            }
-            });
-        }, 180);
-    }
-
-    @TargetApi(Build.VERSION_CODES.R)
-    private static byte[] encodeScreenshot(ScreenshotResult result) {
-        HardwareBuffer buffer = result.getHardwareBuffer();
-        try {
-            Bitmap wrapped = Bitmap.wrapHardwareBuffer(buffer, result.getColorSpace());
-            Bitmap source = wrapped == null ? null : wrapped.copy(Bitmap.Config.ARGB_8888, false);
-            if (source == null) return null;
-            Bitmap image = source;
-            int longest = Math.max(source.getWidth(), source.getHeight());
-            if (longest > 1920) {
-                float scale = 1920f / longest;
-                image = Bitmap.createScaledBitmap(source, Math.max(1, Math.round(source.getWidth() * scale)),
-                    Math.max(1, Math.round(source.getHeight() * scale)), true);
-                source.recycle();
-            }
-            try {
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                for (int quality : new int[] {86, 70, 55}) {
-                    output.reset();
-                    if (!image.compress(Bitmap.CompressFormat.JPEG, quality, output)) return null;
-                    if (output.size() <= InputRules.MAX_IMAGE_BYTES) return output.toByteArray();
-                }
-                return null;
-            } finally { image.recycle(); }
-        } catch (RuntimeException error) {
-            return null;
-        } finally { buffer.close(); }
     }
 
     private void showReadFailure(String message) {
@@ -245,46 +131,9 @@ public final class WechatReplyBubbleService extends AccessibilityService {
         }
     }
 
-    private AccessibilityNodeInfo findWechatRoot() {
-        try {
-            List<AccessibilityWindowInfo> activeWindows = getWindows();
-            for (AccessibilityWindowInfo window : activeWindows) {
-                AccessibilityNodeInfo root = null;
-                try {
-                    if (window.getType() != AccessibilityWindowInfo.TYPE_APPLICATION) continue;
-                    root = window.getRoot();
-                    if (root != null && isWechatPackage(packageName(root))) return root;
-                    if (root != null) root.recycle();
-                } finally { window.recycle(); }
-            }
-        } catch (RuntimeException ignored) { }
-        try {
-            AccessibilityNodeInfo root = getRootInActiveWindow();
-            if (root != null && isWechatPackage(packageName(root))) return root;
-            if (root != null) root.recycle();
-        } catch (RuntimeException ignored) { }
-        return null;
-    }
-
     private static String packageName(AccessibilityNodeInfo node) {
         CharSequence value = node.getPackageName();
         return value == null ? null : value.toString();
-    }
-
-    private static void collectVisibleText(AccessibilityNodeInfo node, StringBuilder output, int[] visited) {
-        if (node == null || visited[0]++ >= MAX_NODES || output.codePointCount(0, output.length()) >= MAX_CHARS ||
-            !node.isVisibleToUser() || node.isPassword()) return;
-        CharSequence text = node.getText();
-        CharSequence description = node.getContentDescription();
-        appendVisibleText(text, output);
-        if (description != null && !description.equals(text)) appendVisibleText(description, output);
-        for (int i = 0; i < node.getChildCount() && visited[0] < MAX_NODES && output.codePointCount(0, output.length()) < MAX_CHARS; i++) {
-            AccessibilityNodeInfo child = node.getChild(i);
-            if (child != null) {
-                try { collectVisibleText(child, output, visited); }
-                finally { child.recycle(); }
-            }
-        }
     }
 
     static void appendVisibleText(CharSequence value, StringBuilder output) {
@@ -326,8 +175,6 @@ public final class WechatReplyBubbleService extends AccessibilityService {
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
     @Override public void onDestroy() {
-        destroyed = true;
-        captureExecutor.shutdownNow();
         if (handler != null) handler.removeCallbacksAndMessages(null);
         hideBubble();
         super.onDestroy();

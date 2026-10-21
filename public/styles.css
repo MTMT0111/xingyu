@@ -283,3 +283,10 @@ body[data-host="android"] .history-panel { margin: 8px 0 0; }
   html { scroll-behavior: auto; }
   *, *:before, *:after { animation: none !important; transition: none !important; }
 }
+/* Video search stays inside the existing compact editor, including Android WebView. */
+.channel-search-row { display: flex; gap: 8px; margin: 12px 0; }
+.channel-search-row input { min-width: 0; flex: 1; padding: 10px; border: 1px solid #dbe4df; border-radius: 8px; font: inherit; }
+.channel-search-row button, .channel-results button, #channel-clear { min-height: 44px; padding: 10px 12px; border: 1px solid #dbe4df; border-radius: 8px; background: #fff; color: #286b54; font: inherit; cursor: pointer; }
+.channel-results { display: grid; gap: 8px; max-height: 300px; overflow-y: auto; }
+.channel-results button { text-align: left; white-space: pre-line; overflow-wrap: anywhere; }
+#channel-search-status { font-size: 13px; line-height: 1.6; color: #65756d; }

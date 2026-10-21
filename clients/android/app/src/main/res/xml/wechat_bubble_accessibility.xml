@@ -6,7 +6,6 @@
     android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
     android:packageNames="com.tencent.mm"
     android:canRetrieveWindowContent="true"
-    android:canTakeScreenshot="true"
     android:description="@string/bubble_service_description"
     android:notificationTimeout="250"
     tools:targetApi="r" />

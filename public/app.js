@@ -18,6 +18,8 @@ let pendingConfig = null;
 let pendingAndroidAutoGenerate = null;
 const draftKey = 'xingyu-draft-v1';
 let attachmentNeedsReselect = false;
+let selectedChannel = null;
+let channelNeedsReselect = false;
 const nativeWechat = { post: null, available: false, reason: 'checking', pending: new Map(), refreshing: false, lastShare: null };
 let pendingInboundShare = null;
 let activeInboundId = null;
@@ -123,6 +125,7 @@ function rememberResult(text, payload, data) {
     recipient: payload.recipient,
     tone: payload.tone,
     context: payload.context || '',
+    ...(selectedChannel ? { hadChannel: true } : {}),
     source: text.slice(0, 600),
     summary: data.content_summary,
     possibleMeanings: data.possible_meanings,
@@ -146,6 +149,7 @@ function openHistory(id) {
   const item = readHistory().find(saved => saved.id === id);
   if (!item || state.busy || state.sharing) return;
   updateAttachment(null);
+  channelNeedsReselect = item.hadChannel === true;
   $('source-text').value = item.source;
   $('reply-context').value = savedContext(item);
   $('context-panel').open = Boolean($('reply-context').value);
@@ -183,7 +187,7 @@ function saveDraft() {
       saved[key] = state.result[key];
       return saved;
     }, {});
-    const draft = { text: $('source-text').value, recipient: 'auto', tone: 'warm', context: $('reply-context').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect) };
+    const draft = { text: $('source-text').value, recipient: 'auto', tone: 'warm', context: $('reply-context').value, mode: state.mode, result, submitted: state.submitted, reply: $('reply-text').value, hadAttachment: Boolean(state.attachment || attachmentNeedsReselect), hadChannel: Boolean(selectedChannel || channelNeedsReselect) };
     if (draft.text.length > 24000 || draft.reply.length > 20000) throw new Error('Draft too large');
     if (draft.text || draft.context || result || draft.hadAttachment) sessionStorage.setItem(draftKey, JSON.stringify(draft));
     else sessionStorage.removeItem(draftKey);
@@ -217,6 +221,7 @@ function restoreDraft() {
     state.modeSettled = true;
     updateModeNotice();
     attachmentNeedsReselect = draft.hadAttachment;
+    channelNeedsReselect = draft.hadChannel === true;
     if (draft.result) {
       renderResult(draft.result);
       $('reply-text').value = draft.reply;
@@ -485,7 +490,11 @@ function updateControls() {
     if (id === (state.busy ? 'step-understand' : state.result ? 'step-reply' : 'step-input')) $(id).setAttribute('aria-current', 'step');
     else $(id).removeAttribute('aria-current');
   }
-  $('source-text').readOnly = locked;
+  $('source-text').readOnly = locked || Boolean(selectedChannel);
+  $('channel-search-button').disabled = locked || state.searching;
+  $('channel-keyword').disabled = locked || state.searching;
+  $('channel-clear').disabled = locked;
+  for (const item of $('channel-results').querySelectorAll('button')) item.disabled = locked;
   $('reply-text').readOnly = locked;
   for (const id of ['translate-button', 'regenerate-reply', 'reply-context', 'mode-select', 'try-example', 'retry-init', 'attachment-input', 'choose-attachment', 'remove-attachment']) $(id).disabled = locked;
   $('retry-init').disabled = locked || state.initializing;
@@ -564,6 +573,7 @@ function applyConfig(config) {
   state.liveAvailable = config.liveAvailable;
   state.mediaAvailable = config.mediaAvailable;
   state.videoAvailable = config.videoAvailable;
+  $('channel-search').hidden = !config.channelsAvailable;
   $('mode-controls').hidden = !state.liveAvailable;
   if (!state.liveAvailable && state.mode === 'live') {
     $('mode-select').value = 'demo';
@@ -577,6 +587,8 @@ function applyConfig(config) {
 }
 
 function mediaError() {
+  if (channelNeedsReselect) return '视频选择没有暂存；请重新搜索并选中视频，避免仅根据标题生成回复。';
+  if (selectedChannel && state.mode !== 'live') return '视频号需要真实 AI 分析，请先切换生成方式。';
   if (attachmentNeedsReselect) return '上次的附件没有暂存，重新分析前请再次选择文件；现有回复仍可编辑、复制。';
   if (!state.attachment) return '';
   if (!state.mediaAvailable) return '图片和视频分析尚未配置，目前只能本地预览，文件不会上传。';
@@ -592,6 +604,7 @@ function updateMediaNotice() {
 }
 
 function updateAttachment(attachment) {
+  selectedChannel = null; channelNeedsReselect = false; $('channel-clear').hidden = true;
   pendingAndroidAutoGenerate = null;
   const previousUrl = state.attachment && state.attachment.url;
   $('attachment-video').pause();
@@ -698,7 +711,7 @@ function validateResult(data, attachmentKind) {
     throw new Error('这次的结果格式不完整，原来的文字还在，请重试。');
   }
   const evidence = data.evidence;
-  if (evidence !== undefined && (!evidence || !['image', 'video', 'article'].includes(evidence.kind) ||
+  if (evidence !== undefined && (!evidence || !['image', 'video', 'article', 'channels'].includes(evidence.kind) ||
       !shortText(evidence.visual_summary, 12000) || (evidence.visible_text !== undefined && (typeof evidence.visible_text !== 'string' || evidence.visible_text.length > 12000)) || typeof evidence.transcript !== 'string' || evidence.transcript.length > 20000 ||
       !['not_applicable', 'transcribed', 'silent'].includes(evidence.audio_status) || !shortText(evidence.coverage, 1000))) {
     throw new Error('识别内容不完整，输入和已有回复已保留，请重试。');
@@ -717,9 +730,10 @@ function renderResult(data) {
   $('content-evidence').open = false;
   if (data.evidence) {
     const evidence = data.evidence;
-    $('visual-evidence-title').textContent = evidence.kind === 'article' ? '文章标题与正文' : '画面与文字';
+    $('visual-evidence-title').textContent = evidence.kind === 'article' ? '文章标题与正文' : evidence.kind === 'channels' ? '视频内容与评论依据' : '画面与文字';
     $('visual-summary').textContent = evidence.visual_summary + (evidence.visible_text ? (evidence.kind === 'article' ? '\n\n读取到的正文：\n' : '\n\n识别到的文字：\n') + evidence.visible_text : '');
-    $('audio-evidence').hidden = evidence.kind !== 'video';
+    if (evidence.kind === 'channels') $('visual-summary').textContent += '\n\n发布说明：' + (evidence.description || '') + '\n\n评论样本：\n' + (Array.isArray(evidence.comments) ? evidence.comments.map(item => (item.reply_to ? '回复「' + item.reply_to + '」：' : '') + item.text).join('\n') : '未取得');
+    $('audio-evidence').hidden = !['video', 'channels'].includes(evidence.kind);
     $('audio-transcript').textContent = evidence.transcript;
     $('audio-status').textContent = evidence.audio_status === 'silent' ? '未识别到可用语音，分析依据为画面内容。' : '已识别视频中的语音，转写可能存在误差。';
     $('evidence-coverage').textContent = evidence.coverage;
@@ -763,18 +777,20 @@ async function generateReply() {
     return;
   }
   const payload = { text, recipient: 'auto', tone: 'warm', mode: state.mode, ...(context ? { context } : {}) };
+  if (selectedChannel) payload.channel = { object_id: selectedChannel.object_id, nonce_id: selectedChannel.nonce_id };
   if (state.result) payload.variant = (replyVariant + 1) % 3;
   state.modeSettled = true;
   const attachment = state.attachment;
   const article = !attachment && state.mode === 'live' && /https:\/\/mp\.weixin\.qq\.com\/s(?:[/?#\s]|$)/i.test(text);
+  const channels = !attachment && state.mode === 'live' && (selectedChannel || /https:\/\/(?:weixin\.qq\.com\/sph\/|channels\.weixin\.qq\.com\/(?:web\/pages\/feed|finder-preview\/pages\/sph)\?)/i.test(text));
   const controller = new AbortController();
   state.controller = controller;
-  setBusy(true, attachment ? 'media' : article ? 'article' : 'text');
+  setBusy(true, attachment || channels ? 'media' : article ? 'article' : 'text');
   try {
     if (attachment) payload.attachment = { kind: attachment.kind, name: attachment.file.name, mime: attachment.mime, data: await readAttachment(attachment.file, controller.signal) };
-    const data = await requestJSON('/api/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, { timeout: attachment ? 180000 : article ? 60000 : 32000, signal: controller.signal });
+    const data = await requestJSON('/api/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, { timeout: attachment || channels ? 180000 : article ? 60000 : 32000, signal: controller.signal });
     if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    validateResult(data, attachment && attachment.kind || (article ? 'article' : undefined));
+    validateResult(data, attachment && attachment.kind || (article ? 'article' : channels ? 'channels' : undefined));
     renderResult(data);
     replyVariant = payload.variant || 0;
     state.submitted = { text, recipient: payload.recipient, tone: payload.tone, context };
@@ -885,7 +901,7 @@ async function initialize() {
   const results = await settle([requestJSON('/api/config'), requestJSON('/api/examples')]);
   const [config, sample] = results;
   const connected = config.status === 'fulfilled' && config.value && typeof config.value.liveAvailable === 'boolean';
-  applyConfig({ connected, liveAvailable: connected && config.value.liveAvailable, mediaAvailable: connected && config.value.mediaAvailable === true, videoAvailable: connected && config.value.videoAvailable === true, mode: config.status === 'fulfilled' && config.value ? config.value.mode : 'demo' });
+  applyConfig({ connected, liveAvailable: connected && config.value.liveAvailable, mediaAvailable: connected && config.value.mediaAvailable === true, videoAvailable: connected && config.value.videoAvailable === true, channelsAvailable: connected && config.value.channelsAvailable === true, mode: config.status === 'fulfilled' && config.value ? config.value.mode : 'demo' });
   if (sample.status === 'fulfilled' && Array.isArray(sample.value) && sample.value.length && sample.value.every(item => typeof item.text === 'string')) examples = sample.value;
   $('init-error').hidden = connected && sample.status === 'fulfilled';
   state.initializing = false;
@@ -897,6 +913,35 @@ async function initialize() {
   }
 }
 
+async function searchVideos() {
+  if (state.busy || state.sharing || state.searching) return;
+  state.searching = true; updateControls();
+  $('channel-results').textContent = '';
+  $('channel-search-status').textContent = '正在搜索视频号…';
+  try {
+    const data = await requestJSON('/api/channels/search?q=' + encodeURIComponent($('channel-keyword').value.trim()), {}, { timeout: 95000 });
+    if (!Array.isArray(data.items)) throw new Error('搜索结果不完整。');
+    for (const item of data.items.slice(0, 12)) {
+      if (!item || typeof item.object_id !== 'string' || typeof item.nonce_id !== 'string' || typeof item.title !== 'string') continue;
+      const button = document.createElement('button'); button.type = 'button';
+      button.textContent = (item.author || '作者未提供') + ' · ' + item.duration + ' 秒\n' + item.title;
+      button.addEventListener('click', () => {
+        if (state.busy || state.sharing) return;
+        updateAttachment(null);
+        selectedChannel = item; $('source-text').value = item.title;
+        $('channel-clear').hidden = false; $('channel-search').open = false;
+        $('channel-search-status').textContent = '已选择：' + item.author + '；点击生成后读取视频和评论。';
+        inputChanged();
+      });
+      $('channel-results').append(button);
+    }
+    $('channel-search-status').textContent = data.items.length ? '核对作者与标题，选择要回复的那条视频。' : '没有匹配结果，试试标题中的其他关键词。';
+  } catch (error) { $('channel-search-status').textContent = error.message; }
+  finally { state.searching = false; updateControls(); }
+}
+$('channel-search-button').addEventListener('click', searchVideos);
+$('channel-keyword').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); searchVideos(); } });
+$('channel-clear').addEventListener('click', () => { updateAttachment(null); $('source-text').value = ''; inputChanged(); });
 $('translate-form').addEventListener('submit', event => { event.preventDefault(); generateReply(); });
 $('source-text').addEventListener('input', inputChanged);
 $('reply-context').addEventListener('input', inputChanged);
