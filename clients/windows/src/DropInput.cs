@@ -17,7 +17,6 @@ namespace ZhiyiDesktop
             return false;
         }
         internal static string Text(IDataObject data) {
-            string fallback = null;
             foreach (var format in TextFormats) {
                 if (!data.GetDataPresent(format)) continue;
                 object value = data.GetData(format);
@@ -30,9 +29,7 @@ namespace ZhiyiDesktop
                     string url = match.Value.TrimEnd('。', '，', ')', '）');
                     if (WeChatCapture.IsShareLink(url)) return url;
                 }
-                if (fallback == null && format != DataFormats.Html && text.Length <= 6000 && !text.Contains("\0") && !text.TrimStart().StartsWith("<")) fallback = text;
             }
-            if (fallback != null) return fallback;
             throw new InvalidOperationException("这个微信卡片没有交出可读的视频文件或分享链接；可复制原链接再粘贴，不能只用封面生成。");
         }
         internal static void SelfTest() {
@@ -44,6 +41,9 @@ namespace ZhiyiDesktop
             if (Text(data) != "https://weixin.qq.com/sph/test") throw new Exception("拖入URL流识别失败");
             data = new DataObject(); data.SetData("PrivateWeChatCard", "unknown");
             if (Accepts(data)) throw new Exception("不应声称能读取未知微信卡片格式");
+            data.SetData(DataFormats.UnicodeText, "只有视频标题，没有原链接");
+            bool refused = false; try { Text(data); } catch (InvalidOperationException) { refused = true; }
+            if (!refused) throw new Exception("不能把拖入卡片的标题当成已读取的视频；普通消息使用粘贴入口");
         }
     }
 }
