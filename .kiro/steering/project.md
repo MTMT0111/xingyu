@@ -37,9 +37,9 @@ inclusion: always
 - 工程检查运行 `npm test`；浏览器检查运行 `node tests/browser-smoke.mjs`，需要本机 Playwright 和 Chrome 路径。
 - Windows 运行 `./clients/windows/build.ps1` 完成编译与自检；界面截图区分真实微信使用、合成预览和静态展示页。Android 使用已校验版本的 Gradle wrapper，系统入站还须检查 Intent、临时授权和用户确认；iOS 需 Mac/Xcode。小程序 AppID 已有，手机实体设备及发布链路仍未验收；不能据 Windows 已验证推出手机可用。
 - 更改后如实记录执行工具、结果和未验证项。由 Codex 写的文件不能标成 Kiro 生成；没有 Kiro 运行记录就不能声称 Kiro 已完成任务。
-- Kiro CLI 已登录并加载过 Steering；2026-10-21 返回模型列表加载失败，2026-10-22 受限只读重试再次返回账号临时锁定，均无模型任务完成。本轮实现由 Codex 完成；实际记录见 `KIRO.md`。
+- Kiro CLI 历史受限重试失败；2026-10-22 晚 Kiro IDE 1.4.5 已实际审阅并生成 ModelSettingsForm 小屏滚动修复。Codex 审核、构建与回归，并补验证反馈定位；其他实现仍如实区分作者。记录见 `docs/Kiro实际开发验收.md` 和 `KIRO.md`。
 - `.kiro/specs/android-share-plugin/` 由 Codex 编写，记录已实现入口和待验收边界，待 Kiro 实际审阅；不能将这些文档称为 Kiro 产出。没有连接安卓设备，系统入口与来源返回尚未真机验收。
-- `.kiro/specs/wechat-miniprogram/` 同样由 Codex 编写，待 Kiro 账号恢复后审阅；源码和 Node 测试不能替代微信开发者工具、体验版或真机验收。
+- `.kiro/specs/wechat-miniprogram/` 同样由 Codex 编写，本次 IDE 任务未审阅此规格；源码和 Node 测试不能替代微信开发者工具、体验版或真机验收。
 
 项目说明：#[[file:README.md]]
 现有验证：#[[file:QA.md]]

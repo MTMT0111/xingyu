@@ -1,0 +1,37 @@
+{
+  "source": "Extracted from actual Kiro IDE messages.jsonl; account details and raw source reads omitted.",
+  "date": "2026-10-22",
+  "task": "Preserve ModelSettingsForm layout; add scrolling and working-area fit.",
+  "events": [
+    {
+      "timestamp": "2026-10-22T14:34:11.459Z",
+      "type": "tool_call",
+      "tool": "read_file",
+      "file": "clients/windows/src/ModelSettingsForm.cs"
+    },
+    {
+      "timestamp": "2026-10-22T14:34:11.459Z",
+      "type": "tool_result",
+      "success": true
+    },
+    {
+      "timestamp": "2026-10-22T14:35:57.754Z",
+      "type": "tool_call",
+      "tool": "str_replace",
+      "file": "clients/windows/src/ModelSettingsForm.cs"
+    },
+    {
+      "timestamp": "2026-10-22T14:35:57.754Z",
+      "type": "tool_result",
+      "success": true
+    },
+    {
+      "timestamp": "2026-10-22T14:36:34.979Z",
+      "type": "turn_end",
+      "stopReason": "end_turn"
+    }
+  ],
+  "status": "success",
+  "model": "Deepseek v3.2 (shown in IDE)",
+  "outcome": "Patch generated and tested; restored after explicit user approval following an IDE revert. Codex additionally scrolls validation feedback into view."
+}

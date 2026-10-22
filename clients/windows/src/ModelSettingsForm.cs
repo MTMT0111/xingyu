@@ -15,14 +15,28 @@ namespace ZhiyiDesktop
             Text = "知意 · DeepSeek 设置"; ClientSize = new Size(480, 464); FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false; MinimizeBox = false; TopMost = true; StartPosition = FormStartPosition.CenterParent;
             Font = Theme.Font(10.5f, FontStyle.Regular); BackColor = Theme.Paper; AutoScaleMode = AutoScaleMode.None;
-            Controls.Add(new Label { Text = "连接你的 DeepSeek Flash", Bounds = new Rectangle(24, 22, 430, 34), Font = Theme.Font(16, FontStyle.Bold), ForeColor = Theme.Ink });
+
+            // 创建可滚动的容器
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+
+            // 保持原始控件和坐标
+            var titleLabel = new Label { Text = "连接你的 DeepSeek Flash", Bounds = new Rectangle(24, 22, 430, 34), Font = Theme.Font(16, FontStyle.Bold), ForeColor = Theme.Ink };
             var state = new Label { Text = "正在检查本机配置…", Bounds = new Rectangle(24, 68, 432, 110), Padding = new Padding(12), BackColor = Theme.PaleGreen, ForeColor = Theme.Ink, Font = Theme.Font(11, FontStyle.Bold) };
+            var keyLabel = new Label { Text = "新 API 密钥（已有密钥不会回显）", Bounds = new Rectangle(24, 196, 432, 26), ForeColor = Theme.Ink };
             var key = new TextBox { Bounds = new Rectangle(24, 228, 432, 32), UseSystemPasswordChar = true, MaxLength = 256, AccessibleName = "DeepSeek API 密钥" };
-            Controls.Add(new Label { Text = "新 API 密钥（已有密钥不会回显）", Bounds = new Rectangle(24, 196, 432, 26), ForeColor = Theme.Ink });
-            Controls.Add(new Label { Text = "两种验证都会实际调用 DeepSeek。新密钥验证通过后才写入本机 .env；失败不会覆盖原配置。", Bounds = new Rectangle(24, 276, 432, 52), ForeColor = Theme.Muted });
+            var descriptionLabel = new Label { Text = "两种验证都会实际调用 DeepSeek。新密钥验证通过后才写入本机 .env；失败不会覆盖原配置。", Bounds = new Rectangle(24, 276, 432, 52), ForeColor = Theme.Muted };
             var save = new Button { Text = "验证并保存新密钥", Bounds = new Rectangle(24, 342, 432, 42), FlatStyle = FlatStyle.Flat, BackColor = Theme.Green, ForeColor = Color.White, Enabled = false };
             var verify = new Button { Text = "验证已保存密钥", Bounds = new Rectangle(24, 396, 432, 42), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Theme.Green, Enabled = false };
-            Controls.Add(state); Controls.Add(key); Controls.Add(save); Controls.Add(verify);
+
+            // 将控件添加到滚动容器
+            scroll.Controls.AddRange(new Control[] { titleLabel, state, keyLabel, key, descriptionLabel, save, verify });
+
+            // 设置可滚动内容的总高度（最后一个控件的底部 + 边距）
+            scroll.AutoScrollMinSize = new Size(0, 396 + 42 + 20); // verify.Bottom + 20
+
+            // 将滚动容器添加到窗体
+            Controls.Add(scroll);
+
             Shown += async delegate {
                 try {
                     string message = await api.ModelSettings(serviceUrl, null, cancellation.Token);
@@ -32,9 +46,10 @@ namespace ZhiyiDesktop
             };
             EventHandler validate = async delegate(object sender, EventArgs args) {
                 bool saved = sender == verify;
-                if (!saved && String.IsNullOrWhiteSpace(key.Text)) { state.Text = "请填入新密钥，或点击「验证已保存密钥」。"; state.ForeColor = Color.Firebrick; return; }
+                if (!saved && String.IsNullOrWhiteSpace(key.Text)) { state.Text = "请填入新密钥，或点击「验证已保存密钥」。"; state.ForeColor = Color.Firebrick; scroll.ScrollControlIntoView(state); return; }
                 save.Enabled = verify.Enabled = false; key.ReadOnly = true;
                 state.ForeColor = Theme.Ink; state.Text = saved ? "正在验证已保存密钥…" : "正在验证新密钥，通过后保存…";
+                scroll.ScrollControlIntoView(state);
                 try {
                     string message = await api.ModelSettings(serviceUrl, saved ? null : key.Text.Trim(), cancellation.Token, saved);
                     if (!IsDisposed) { LastStatus = message; state.Text = message; state.ForeColor = Theme.Green; if (!saved) key.Clear(); }
@@ -43,6 +58,9 @@ namespace ZhiyiDesktop
             };
             save.Click += validate; verify.Click += validate;
             using (var graphics = Graphics.FromHwnd(IntPtr.Zero)) Scale(new SizeF(graphics.DpiX / 96f, graphics.DpiY / 96f));
+
+            // 窗口显示后适配屏幕
+            Shown += delegate { Theme.FitToScreen(this, Screen.FromControl(this).WorkingArea); };
         }
         private static string Describe(Exception error)
         {

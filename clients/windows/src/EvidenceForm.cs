@@ -60,6 +60,7 @@ namespace ZhiyiDesktop
             foreach (TabPage page in tabs.TabPages) { var box = (RichTextBox)page.Controls[0]; box.SelectionStart = 0; box.ScrollToCaret(); }
             if (result.Partial) tabs.SelectedIndex = 1;
             using (var graphics = Graphics.FromHwnd(IntPtr.Zero)) Scale(new SizeF(graphics.DpiX / 96f, graphics.DpiY / 96f));
+            Shown += delegate { Theme.FitToScreen(this, Screen.FromControl(this).WorkingArea); };
         }
 
         private RichTextBox Page(string title)

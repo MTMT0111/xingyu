@@ -23,6 +23,17 @@ namespace ZhiyiDesktop
         internal static readonly Color Line = Color.FromArgb(223, 229, 225);
         internal static readonly Color Yellow = Color.FromArgb(224, 179, 61);
         internal static Font Font(float size, FontStyle style) { return new Font("Microsoft YaHei UI", size, style, GraphicsUnit.Point); }
+        internal static Rectangle FitWindow(Rectangle bounds, Rectangle area)
+        {
+            int width = Math.Min(bounds.Width, area.Width), height = Math.Min(bounds.Height, area.Height);
+            return new Rectangle(Math.Max(area.Left, Math.Min(bounds.Left, area.Right - width)), Math.Max(area.Top, Math.Min(bounds.Top, area.Bottom - height)), width, height);
+        }
+        internal static void FitToScreen(Form form, Rectangle area)
+        {
+            var bounds = FitWindow(form.Bounds, area);
+            form.MinimumSize = new Size(Math.Min(form.MinimumSize.Width, bounds.Width), Math.Min(form.MinimumSize.Height, bounds.Height));
+            form.Bounds = bounds;
+        }
     }
 
     internal sealed class BubbleForm : Form
@@ -155,6 +166,7 @@ namespace ZhiyiDesktop
         private readonly Label summary = new Label();
         private readonly TextBox service = new TextBox();
         private readonly Panel settings = new Panel();
+        private readonly Panel scroll = new Panel();
         private readonly Button generate = new Button();
         private readonly Button copy = new Button();
         private readonly Button read = new Button();
@@ -163,6 +175,7 @@ namespace ZhiyiDesktop
         private AttachmentData attachment;
         private int variant;
         private bool busy;
+        private bool draftChanged;
 
         internal AssistantForm(BubbleForm owner)
         {
@@ -213,7 +226,7 @@ namespace ZhiyiDesktop
             StyleButton(copy, "复制 · 回到微信", false); copy.Dock = DockStyle.Fill; copy.Margin = Padding.Empty; copy.Enabled = false;
             copy.Click += CopyAndReturn; footer.Controls.Add(generate, 0, 0); footer.Controls.Add(copy, 1, 0);
 
-            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(28, 24, 28, 24) };
+            scroll.Dock = DockStyle.Fill; scroll.AutoScroll = true; scroll.Padding = new Padding(28, 24, 28, 24);
             var body = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = Padding.Empty, Margin = Padding.Empty };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             body.AllowDrop = true; body.DragEnter += AcceptMediaDrop; body.DragDrop += ReceiveMediaDrop;
@@ -227,7 +240,7 @@ namespace ZhiyiDesktop
             var drop = new Label { Text = "先在微信点开卡片一次，再接入原视频\n也可拖入视频文件或分享链接", Font = Theme.Font(9, FontStyle.Regular), Dock = DockStyle.Top, Height = 60, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Muted, BackColor = Theme.PaleGreen, AllowDrop = true, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 0, 16) };
             drop.Click += delegate { SearchVideo(null, null, VideoListMode.Recent); };
             drop.DragEnter += AcceptMediaDrop; drop.DragDrop += ReceiveMediaDrop; body.Controls.Add(drop);
-            source.TextChanged += delegate { drop.Visible = String.IsNullOrWhiteSpace(source.Text) && attachment == null; };
+            source.TextChanged += delegate { drop.Visible = String.IsNullOrWhiteSpace(source.Text) && attachment == null; MarkDraftChanged(); };
             status.Text = "接入原视频，或粘贴消息 / 链接。"; status.ForeColor = Theme.Green; status.Font = Theme.Font(10, FontStyle.Regular); status.AutoSize = true; status.Dock = DockStyle.Top; status.Margin = new Padding(0, 0, 0, 10); body.Controls.Add(status);
             preview.Height = 76; preview.Dock = DockStyle.Top; preview.BackColor = Theme.PaleGreen; preview.SizeMode = PictureBoxSizeMode.Zoom; preview.Cursor = Cursors.Hand; preview.Margin = new Padding(0, 0, 0, 6);
             preview.Paint += delegate(object sender, PaintEventArgs e) { if (preview.Image == null) using (var font = Theme.Font(10, FontStyle.Regular)) TextRenderer.DrawText(e.Graphics, "链接读取正文 · 视频文件分析语音\n也可框选消息或拖入媒体文件", font, preview.ClientRectangle, Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter); };
@@ -252,12 +265,12 @@ namespace ZhiyiDesktop
             targetRow.Controls.Add(new Label { Text = "回复给谁", AutoSize = true, Font = Theme.Font(11, FontStyle.Bold), ForeColor = Theme.Ink, Margin = new Padding(0, 0, 0, 10) }, 0, 0);
             var noteToggle = new LinkLabel { Text = "关系备注（可选）", AutoSize = true, LinkColor = Theme.Green, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(12, 2, 0, 10) };
             targetRow.Controls.Add(noteToggle, 1, 0);
-            noteToggle.Click += delegate { context.Visible = !context.Visible; noteToggle.Text = context.Visible ? "收起备注" : "关系备注（可选）"; };
+            noteToggle.Click += delegate { context.Visible = !context.Visible; noteToggle.Text = context.Visible ? "收起备注" : String.IsNullOrWhiteSpace(context.Text) ? "关系备注（可选）" : "已有关系备注 · 展开"; };
             foreach (var name in memory.Notes.Keys) recipient.Items.Add(name);
-            recipient.TextChanged += delegate { string note; context.Text = memory.Notes.TryGetValue(recipient.Text, out note) ? note : ""; };
+            recipient.TextChanged += delegate { string note; context.Text = memory.Notes.TryGetValue(recipient.Text, out note) ? note : ""; MarkDraftChanged(); };
             recipient.Dock = DockStyle.Top; recipient.MaxLength = 40; recipient.Margin = Padding.Empty;
             context.Dock = DockStyle.Top; context.Height = 62; context.Multiline = true; context.ScrollBars = ScrollBars.Vertical; context.MaxLength = 100; context.Margin = new Padding(0, 12, 0, 0); context.Visible = false;
-            context.TextChanged += delegate { if (!context.Visible) noteToggle.Text = String.IsNullOrWhiteSpace(context.Text) ? "关系备注（可选）" : "已有关系备注 · 展开"; };
+            context.TextChanged += delegate { if (!context.Visible) noteToggle.Text = String.IsNullOrWhiteSpace(context.Text) ? "关系备注（可选）" : "已有关系备注 · 展开"; MarkDraftChanged(); };
             targetRow.Controls.Add(recipient, 0, 1); targetRow.SetColumnSpan(recipient, 2); targetRow.Controls.Add(context, 0, 2); targetRow.SetColumnSpan(context, 2); body.Controls.Add(targetRow);
             summary.Text = "读懂内容，再给你一句自然的回复。"; summary.ForeColor = Theme.Ink; summary.Font = Theme.Font(10, FontStyle.Regular); summary.Height = 64; summary.Dock = DockStyle.Top; summary.Margin = new Padding(0, 8, 0, 8); body.Controls.Add(summary);
             summary.AutoSize = true;
@@ -307,11 +320,13 @@ namespace ZhiyiDesktop
             if (relatedCancellation != null) relatedCancellation.Cancel();
             ClearRecommendations();
             attachment = value; selectedVideo = null; originWindow = window; captureNote = note; demoCapture = false; linkInput = false; currentResult = null; details.Text = "查看依据"; related.Enabled = false;
+            draftChanged = false; another.Text = "换一句"; copy.Text = "复制 · 回到微信";
             reply.Clear(); summary.Text = "核对内容与对象，再点「生成回复」。"; source.Text = text ?? "";
             variant = 0; another.Enabled = false;
             preview.Visible = value != null;
             SetPreview(value != null && value.Kind == "image" ? value.Bytes : null);
             coverage.Text = note; status.Text = bubble.IsDemo ? "演示素材已读取 · 尚未上传" : "内容已读取 · 尚未上传";
+            scroll.AutoScrollPosition = Point.Empty;
         }
 
         internal void PasteShare()
@@ -448,6 +463,7 @@ namespace ZhiyiDesktop
 
         internal void ShowBeside(WeChatWindow window)
         {
+            bool wasVisible = Visible;
             var area = window == null ? Screen.PrimaryScreen.WorkingArea : Screen.FromRectangle(window.Bounds).WorkingArea;
             Height = Math.Min(Height, area.Height - 20);
             int x = area.Right - Width - 16;
@@ -462,8 +478,36 @@ namespace ZhiyiDesktop
                 y = Math.Min(area.Bottom - Height, Math.Max(area.Top, window.Bounds.Top));
             }
             Location = new Point(x, y);
+            Theme.FitToScreen(this, area);
             Show();
+            if (!wasVisible && !busy) Reveal(currentResult != null && currentResult.Partial ? details : !String.IsNullOrWhiteSpace(reply.Text) ? reply.Parent : status);
             Activate();
+        }
+
+        private void Reveal(Control control)
+        {
+            if (Visible && !IsDisposed) { scroll.PerformLayout(); scroll.ScrollControlIntoView(control); }
+        }
+
+        private void DisplayResult(ReplyResult result)
+        {
+            draftChanged = false; another.Text = "换一句"; copy.Text = "复制 · 回到微信";
+            reply.Text = result.Reply;
+            summary.Text = result.Summary;
+            currentResult = result;
+            details.Text = "查看依据";
+            coverage.Text = result.Coverage.Length > 0 ? "读取范围、原文和 " + result.Comments.Count + " 条评论样本见「查看依据」。" : captureNote;
+            if (linkInput) source.Visible = false;
+        }
+
+        private void MarkDraftChanged()
+        {
+            if (busy || currentResult == null) return;
+            draftChanged = true;
+            if (relatedCancellation != null) relatedCancellation.Cancel();
+            ClearRecommendations(); related.Enabled = false;
+            details.Text = "上次分析依据"; another.Text = "重新生成"; copy.Text = "复制保留草稿";
+            status.Text = "内容或对象已修改；下方保留上次草稿，请重新生成后核对。";
         }
 
         internal async Task CaptureCurrentWindow(bool add)
@@ -628,19 +672,14 @@ namespace ZhiyiDesktop
             SetBusy(true);
             ReplyResult completed = null;
             status.Text = selectedVideo != null ? "正在后台读取视频与评论…" : attachment != null && attachment.Kind == "video" ? "正在分析视频画面和语音…" : "正在分析当前内容…";
+            Reveal(status);
             try
             {
                 int nextVariant = String.IsNullOrWhiteSpace(reply.Text) ? variant : (variant + 1) % 3;
                 var progress = new Progress<string>(message => { if (!IsDisposed && busy) status.Text = message; });
                 var result = await api.Generate(service.Text.Trim(), source.Text.Trim(), combined, nextVariant, attachment, selectedVideo, requestCancellation.Token, progress, refresh);
                 variant = nextVariant;
-                reply.Text = result.Reply;
-                summary.Text = result.Summary;
-                if (String.IsNullOrWhiteSpace(source.Text) && !String.IsNullOrWhiteSpace(result.Evidence)) source.Text = result.Evidence;
-                currentResult = result;
-                details.Text = "查看依据";
-                coverage.Text = result.Coverage.Length > 0 ? "读取范围、原文和 " + result.Comments.Count + " 条评论样本见「查看依据」。" : captureNote;
-                if (linkInput) source.Visible = false;
+                DisplayResult(result);
                 another.Enabled = true;
                 status.Text = "回复已生成 · " + result.Timing + "。详细分析见「查看依据」。";
                 completed = result;
@@ -658,6 +697,7 @@ namespace ZhiyiDesktop
             catch (OperationCanceledException) { status.Text = requestCancellation.IsCancellationRequested ? "已停止生成，原输入和回复草稿保留。" : "服务响应超时，原输入和回复草稿保留，可重试。"; }
             catch (Exception error) { status.Text = error.Message; }
             finally { requestCancellation.Dispose(); requestCancellation = null; SetBusy(false); }
+            Reveal(completed != null ? reply.Parent : currentResult != null && currentResult.Partial ? details : status);
             if (completed != null && demoCapture) DemoWindow.SaveReport(this, completed, attachment, captureNote);
             if (completed != null) await LoadRecommendations(completed, selectedVideo == null ? null : selectedVideo.object_id);
         }
@@ -684,7 +724,7 @@ namespace ZhiyiDesktop
             append.Enabled = paste.Enabled = read.Enabled = select.Enabled = clip.Enabled = import.Enabled = generate.Enabled = recipient.Enabled = source.Enabled = context.Enabled = !value;
             reply.ReadOnly = value;
             another.Enabled = copy.Enabled = !value && !String.IsNullOrWhiteSpace(reply.Text);
-            related.Enabled = !value && currentResult != null && currentResult.RelatedQueries.Length > 0;
+            related.Enabled = !value && !draftChanged && currentResult != null && currentResult.RelatedQueries.Length > 0;
             generate.Enabled = !value || requestCancellation != null;
             generate.Text = value ? (requestCancellation == null ? "正在读取…" : "停止生成") : currentResult != null && currentResult.Partial ? "重试生成回复" : "生成回复";
         }
@@ -745,6 +785,23 @@ namespace ZhiyiDesktop
             summary.Text = "这是一条关心近况、提醒保暖和吃饭的消息。";
             reply.Text = "你那边也降温了吧，出门多穿件，别嫌麻烦。";
         }
+
+        internal void CheckResultState()
+        {
+            var material = new AttachmentData { Kind = "video", Name = "regression.mp4", FilePath = "regression.mp4" };
+            var result = new ReplyResult { Reply = "回复", Summary = "概要", Coverage = "完整转写", Evidence = new String('字', 7000) };
+            foreach (string input in new[] { "", "结合我补充的这句话" }) {
+                ResetMaterial(material, null, "回归检查", input);
+                DisplayResult(result);
+                if (source.Text != input || attachment != material || currentResult.Evidence.Length != 7000 || reply.Text != "回复") throw new Exception("生成结果改变了原始输入或丢失资料，长视频换一句可能失败");
+                source.Text = "修改后的原文";
+                if (!draftChanged || reply.Text != "回复" || currentResult != result || details.Text != "上次分析依据") throw new Exception("修改输入后没有标明旧草稿，或丢失了原依据");
+                DisplayResult(result);
+                context.Text = "新的关系备注";
+                if (!draftChanged || copy.Text != "复制保留草稿") throw new Exception("更改关系备注后未提示重新生成");
+                context.Clear();
+            }
+        }
     }
 
     internal static class Program
@@ -788,6 +845,12 @@ namespace ZhiyiDesktop
                 ApiClient.SelfTest();
                 DropInput.SelfTest();
                 CardLookup.SelfTest();
+                using (var bubble = new BubbleForm()) bubble.Assistant.CheckResultState();
+                var smallScreen = new Rectangle(-1280, 0, 1280, 680);
+                var fitted = Theme.FitWindow(new Rectangle(100, -20, 1480, 900), smallScreen);
+                if (fitted != smallScreen) throw new Exception("大窗口没有完整适配小屏幕");
+                var normalWindow = new Rectangle(100, 100, 500, 600);
+                if (Theme.FitWindow(normalWindow, new Rectangle(0, 0, 1920, 1080)) != normalWindow) throw new Exception("正常窗口被意外移动");
                 string signalName = "Local\\ZhiyiActivationTest." + Guid.NewGuid().ToString("N");
                 using (var listener = new EventWaitHandle(false, EventResetMode.AutoReset, signalName))
                 using (var launcher = EventWaitHandle.OpenExisting(signalName)) {
